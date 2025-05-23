@@ -1,11 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import * as d3 from "d3";
 import { NODES, LINKS } from "./constants";
-import {
-  linkPositionFromEdges,
-  constrainToZone,
-  getClusterGroups,
-} from "./drawHelpers";
+import { linkPositionFromEdges, getClusterGroups } from "./drawHelpers";
 import { renderClusters } from "./renderClusters";
 import { setupInteractions } from "./handleInteractions";
 
@@ -19,20 +15,15 @@ const OrionClusterGraph = () => {
     const nodes = structuredClone(NODES);
     const links = structuredClone(LINKS);
     const CLUSTER_GROUPS = getClusterGroups(nodes);
-    const centerX = window.innerWidth / 2;
-    const centerY = window.innerHeight / 2;
 
     const nodeMap = {};
     CLUSTER_GROUPS.forEach((zone) => {
       const zoneNodes = nodes.filter((n) => n.zone === zone.id);
 
       // Vector from zone to center
-      const dx = centerX - zone.cx;
-      const dy = centerY - zone.cy;
-      const baseAngle = Math.atan2(dy, dx);
 
-      // Perpendicular direction to spread nodes
-      const perpendicularAngle = baseAngle + Math.PI / 2;
+      const baseAngle = zone.angle;
+      const perpendicularAngle = baseAngle + Math.PI / 2; // tangent to the circle
 
       const spacing = 140; // distance between nodes in same zone
       const radiusFromZone = 0; // if you want to push them further out radially, increase this
