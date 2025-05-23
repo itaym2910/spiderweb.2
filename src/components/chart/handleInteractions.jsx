@@ -19,7 +19,7 @@ export function groupLinksByPair(links) {
   return map;
 }
 
-export function setupInteractions({ link, linkHover, filteredLinks, node }) {
+export function setupInteractions({ link, linkHover, filteredLinks }) {
   linkHover
     .on("mouseover", function () {
       const hoveredIndex = linkHover.nodes().indexOf(this);
@@ -144,23 +144,4 @@ export function setupInteractions({ link, linkHover, filteredLinks, node }) {
       // ✅ Hide tooltip
       d3.select("#tooltip").style("opacity", 0);
     });
-
-  // Drag interaction
-  node.call(
-    d3
-      .drag()
-      .on("start", (event, d) => {
-        if (!event.active) d3.select(this).dispatch("tick");
-        d.fx = d.x;
-        d.fy = d.y;
-      })
-      .on("drag", (event, d) => {
-        d.fx = event.x;
-        d.fy = event.y;
-      })
-      .on("end", (event, d) => {
-        d.fx = null;
-        d.fy = null;
-      })
-  );
 }

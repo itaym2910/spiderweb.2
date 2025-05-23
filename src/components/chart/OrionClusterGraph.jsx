@@ -2,11 +2,10 @@ import React, { useEffect, useRef } from "react";
 import * as d3 from "d3";
 import { NODES, LINKS } from "./constants";
 import {
-  constrainToZone,
   linkPositionFromEdges,
-  CLUSTER_GROUPS,
+  constrainToZone,
+  getClusterGroups,
 } from "./drawHelpers";
-import { createSimulation } from "./useSimulation";
 import { renderClusters } from "./renderClusters";
 import { setupInteractions } from "./handleInteractions";
 
@@ -19,6 +18,46 @@ const OrionClusterGraph = () => {
 
     const nodes = structuredClone(NODES);
     const links = structuredClone(LINKS);
+    const CLUSTER_GROUPS = getClusterGroups(nodes);
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight / 2;
+
+    const nodeMap = {};
+    CLUSTER_GROUPS.forEach((zone) => {
+      const zoneNodes = nodes.filter((n) => n.zone === zone.id);
+
+      // Vector from zone to center
+      const dx = centerX - zone.cx;
+      const dy = centerY - zone.cy;
+      const baseAngle = Math.atan2(dy, dx);
+
+      // Perpendicular direction to spread nodes
+      const perpendicularAngle = baseAngle + Math.PI / 2;
+
+      const spacing = 140; // distance between nodes in same zone
+      const radiusFromZone = 0; // if you want to push them further out radially, increase this
+
+      zoneNodes.forEach((node, i) => {
+        const offset = (i - (zoneNodes.length - 1) / 2) * spacing;
+
+        node.x =
+          zone.cx +
+          offset * Math.cos(perpendicularAngle) +
+          radiusFromZone * Math.cos(baseAngle);
+        node.y =
+          zone.cy +
+          offset * Math.sin(perpendicularAngle) +
+          radiusFromZone * Math.sin(baseAngle);
+
+        nodeMap[node.id] = node;
+      });
+    });
+
+    // Replace source/target strings with actual node objects (needed for .x/.y)
+    links.forEach((link) => {
+      link.source = nodeMap[link.source];
+      link.target = nodeMap[link.target];
+    });
 
     const svg = d3
       .select(svgRef.current)
@@ -47,22 +86,19 @@ const OrionClusterGraph = () => {
 
     setupInteractions({ link, linkHover, filteredLinks, node });
 
-    createSimulation(nodes, links, () => {
-      nodes.forEach((d) => constrainToZone(d, CLUSTER_GROUPS));
-
-      node.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
-      label.attr("x", (d) => d.x).attr("y", (d) => d.y);
-      link
-        .attr("x1", (d) => linkPositionFromEdges(d).x1)
-        .attr("y1", (d) => linkPositionFromEdges(d).y1)
-        .attr("x2", (d) => linkPositionFromEdges(d).x2)
-        .attr("y2", (d) => linkPositionFromEdges(d).y2);
-      linkHover
-        .attr("x1", (d) => linkPositionFromEdges(d).x1)
-        .attr("y1", (d) => linkPositionFromEdges(d).y1)
-        .attr("x2", (d) => linkPositionFromEdges(d).x2)
-        .attr("y2", (d) => linkPositionFromEdges(d).y2);
-    });
+    // Apply positions manually
+    node.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
+    label.attr("x", (d) => d.x).attr("y", (d) => d.y);
+    link
+      .attr("x1", (d) => linkPositionFromEdges(d).x1)
+      .attr("y1", (d) => linkPositionFromEdges(d).y1)
+      .attr("x2", (d) => linkPositionFromEdges(d).x2)
+      .attr("y2", (d) => linkPositionFromEdges(d).y2);
+    linkHover
+      .attr("x1", (d) => linkPositionFromEdges(d).x1)
+      .attr("y1", (d) => linkPositionFromEdges(d).y1)
+      .attr("x2", (d) => linkPositionFromEdges(d).x2)
+      .attr("y2", (d) => linkPositionFromEdges(d).y2);
   }, []);
 
   return (

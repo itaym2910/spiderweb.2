@@ -24,7 +24,6 @@ export const LINKS = [
   { id: "link-6", source: "Cluster E2", target: "Cluster F1" },
   { id: "link-7", source: "Cluster F2", target: "Cluster A1" },
   { id: "link-8", source: "Cluster A1", target: "Cluster D2" },
-  { id: "link-9", source: "Cluster B1", target: "Cluster F2" },
   { id: "link-10", source: "Cluster C2", target: "Cluster E1" },
   { id: "link-11", source: "Cluster D2", target: "Cluster A2" },
   { id: "link-12", source: "Cluster E1", target: "Cluster B2" },
@@ -36,7 +35,6 @@ export const LINKS = [
   { id: "link-18", source: "Cluster F2", target: "Cluster B1" },
 
   // Duplicates with unique IDs
-  { id: "link-19", source: "Cluster A1", target: "Cluster B1" },
   { id: "link-20", source: "Cluster A2", target: "Cluster C2" },
   { id: "link-21", source: "Cluster B2", target: "Cluster D1" },
   { id: "link-22", source: "Cluster C1", target: "Cluster D2" },
@@ -54,4 +52,12 @@ export const LINKS = [
   { id: "link-34", source: "Cluster D1", target: "Cluster F1" },
   { id: "link-35", source: "Cluster E2", target: "Cluster A1" },
   { id: "link-36", source: "Cluster F2", target: "Cluster B1" },
+
+  // Intra-zone links (each zone connects its two clusters)
+  { id: "link-z1", source: "Cluster A1", target: "Cluster A2" }, // Zone 1
+  { id: "link-z2", source: "Cluster B1", target: "Cluster B2" }, // Zone 2
+  { id: "link-z3", source: "Cluster C1", target: "Cluster C2" }, // Zone 3
+  { id: "link-z4", source: "Cluster D1", target: "Cluster D2" }, // Zone 4
+  { id: "link-z5", source: "Cluster E1", target: "Cluster E2" }, // Zone 5
+  { id: "link-z6", source: "Cluster F1", target: "Cluster F2" }, // Zone 6
 ];
