@@ -72,6 +72,7 @@ function handleMouseOver(d, allNodes, filteredLinks, link, zoomLayer) {
     const endX = x2 + perpX * offset;
     const endY = y2 + perpY * offset;
 
+    // ✅ Yellow visible path
     zoomLayer
       .append("path")
       .datum(linkData)
@@ -92,7 +93,7 @@ function handleMouseOver(d, allNodes, filteredLinks, link, zoomLayer) {
       )
       .on("mouseout", () => handleMouseOut(linkData, link));
 
-    // Add invisible hover path on top
+    // ✅ Invisible hover hitbox
     zoomLayer
       .append("path")
       .datum(linkData)
@@ -100,8 +101,15 @@ function handleMouseOver(d, allNodes, filteredLinks, link, zoomLayer) {
       .attr("d", `M${startX},${startY} L${endX},${endY}`)
       .attr("fill", "none")
       .attr("stroke", "transparent")
-      .attr("stroke-width", 12) // big invisible area
+      .attr("stroke-width", 12)
       .style("cursor", "pointer")
+      .on("mousemove", function (event, d) {
+        d3.select("#tooltip")
+          .style("opacity", 1)
+          .style("left", `${event.pageX + 10}px`)
+          .style("top", `${event.pageY + 10}px`)
+          .text(d.id);
+      })
       .on("mouseover", () =>
         handleMouseOver(linkData, allNodes, filteredLinks, link, zoomLayer)
       )
