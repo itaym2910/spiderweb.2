@@ -68,6 +68,18 @@ const OrionClusterGraph = () => {
         })
     );
 
+    const tooltip = zoomLayer
+      .append("text")
+      .attr("class", "svg-tooltip")
+      .attr("x", 0) // default initial position — important!
+      .attr("y", 0)
+      .attr("text-anchor", "start")
+      .attr("font-size", 14) // make it temporarily larger for debug
+      .attr("fill", "white")
+      .attr("opacity", 0)
+      .style("pointer-events", "none")
+      .style("user-select", "none");
+
     const { link, linkHover, node, label, filteredLinks } = renderClusters(
       zoomLayer,
       nodes,
@@ -75,7 +87,7 @@ const OrionClusterGraph = () => {
       CLUSTER_GROUPS
     );
 
-    setupInteractions({ link, linkHover, filteredLinks, node });
+    setupInteractions({ link, linkHover, filteredLinks, node, tooltip });
 
     // Apply positions manually
     node.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
@@ -95,10 +107,6 @@ const OrionClusterGraph = () => {
   return (
     <div>
       <svg ref={svgRef} className="absolute top-0 left-0 w-full h-full" />
-      <div
-        id="tooltip"
-        className="absolute px-2 py-1 bg-black text-white text-xs rounded pointer-events-none opacity-0 transition-opacity duration-200"
-      ></div>
     </div>
   );
 };

@@ -19,7 +19,7 @@ export function groupLinksByPair(links) {
   return map;
 }
 
-function handleMouseOver(d, allNodes, filteredLinks, link, zoomLayer) {
+function handleMouseOver(d, allNodes, filteredLinks, link, zoomLayer, tooltip) {
   const sourceId = typeof d.source === "object" ? d.source.id : d.source;
   const targetId = typeof d.target === "object" ? d.target.id : d.target;
   const key = [sourceId, targetId].sort().join("--");
@@ -82,16 +82,23 @@ function handleMouseOver(d, allNodes, filteredLinks, link, zoomLayer) {
       .attr("stroke", "#facc15")
       .attr("stroke-width", 3)
       .on("mousemove", function (event, d) {
-        d3.select("#tooltip")
-          .style("opacity", 1)
-          .style("left", `${event.pageX + 10}px`)
-          .style("top", `${event.pageY + 10}px`)
-          .text(d.id);
+        tooltip
+          .attr("x", event.offsetX + 10)
+          .attr("y", event.offsetY - 10)
+          .text(d.id)
+          .attr("opacity", 1);
       })
       .on("mouseover", () =>
-        handleMouseOver(linkData, allNodes, filteredLinks, link, zoomLayer)
+        handleMouseOver(
+          linkData,
+          allNodes,
+          filteredLinks,
+          link,
+          zoomLayer,
+          tooltip
+        )
       )
-      .on("mouseout", () => handleMouseOut(linkData, link));
+      .on("mouseout", () => handleMouseOut(linkData, link, tooltip));
 
     // ✅ Invisible hover hitbox
     zoomLayer
@@ -104,20 +111,28 @@ function handleMouseOver(d, allNodes, filteredLinks, link, zoomLayer) {
       .attr("stroke-width", 12)
       .style("cursor", "pointer")
       .on("mousemove", function (event, d) {
-        d3.select("#tooltip")
-          .style("opacity", 1)
-          .style("left", `${event.pageX + 10}px`)
-          .style("top", `${event.pageY + 10}px`)
-          .text(d.id);
+        tooltip
+          .attr("x", event.offsetX + 10)
+          .attr("y", event.offsetY - 10)
+          .text(d.id)
+          .attr("opacity", 1);
       })
+
       .on("mouseover", () =>
-        handleMouseOver(linkData, allNodes, filteredLinks, link, zoomLayer)
+        handleMouseOver(
+          linkData,
+          allNodes,
+          filteredLinks,
+          link,
+          zoomLayer,
+          tooltip
+        )
       )
-      .on("mouseout", () => handleMouseOut(linkData, link));
+      .on("mouseout", () => handleMouseOut(linkData, link, tooltip));
   });
 }
 
-function handleMouseOut(d, link) {
+function handleMouseOut(d, link, tooltip) {
   const sourceId = typeof d.source === "object" ? d.source.id : d.source;
   const targetId = typeof d.target === "object" ? d.target.id : d.target;
   const key = [sourceId, targetId].sort().join("--");
@@ -140,11 +155,13 @@ function handleMouseOut(d, link) {
     .attr("stroke", "#60a5fa")
     .attr("stroke-width", 2);
 
-  d3.select("#tooltip").style("opacity", 0);
+  tooltip.attr("opacity", 0);
+
   d3.selectAll("path.duplicate-link").remove();
+  tooltip.attr("opacity", 0);
 }
 
-export function setupInteractions({ link, linkHover, filteredLinks }) {
+export function setupInteractions({ link, linkHover, filteredLinks, tooltip }) {
   const allNodes = d3.selectAll("circle.node").data();
   const zoomLayer = d3.select(link.node().parentNode);
 
@@ -152,11 +169,18 @@ export function setupInteractions({ link, linkHover, filteredLinks }) {
     .on("mouseover", function () {
       const hoveredIndex = linkHover.nodes().indexOf(this);
       const hovered = filteredLinks[hoveredIndex];
-      handleMouseOver(hovered, allNodes, filteredLinks, link, zoomLayer);
+      handleMouseOver(
+        hovered,
+        allNodes,
+        filteredLinks,
+        link,
+        zoomLayer,
+        tooltip
+      );
     })
     .on("mouseout", function () {
       const hoveredIndex = linkHover.nodes().indexOf(this);
       const hovered = filteredLinks[hoveredIndex];
-      handleMouseOut(hovered, link);
+      handleMouseOut(hovered, link, tooltip);
     });
 }
