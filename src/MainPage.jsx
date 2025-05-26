@@ -11,9 +11,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import OrionClusterGraph from "./components/chart/OrionClusterGraph";
 import OrionClusterGraph4 from "./components/chart/OrionClusterGraph4";
-import { Toggle } from "./components/ui/toggle";
-import { Button } from "./components/ui/button";
-import { ScrollArea } from "./components/ui/scroll-area";
+
 
 const data = [
   {
