@@ -20,7 +20,7 @@ function App() {
         collapsed={isSidebarCollapsed}
         setCollapsed={setIsSidebarCollapsed}
       />
-      <main className="flex-1 p-4 md:p-6 overflow-y-auto">
+      <main className="flex-1 p-4 md:p-6 overflow-y-hidden">
         {/* Optional: Header for the main content area */}
         <header className="bg-white dark:bg-gray-800 shadow-sm p-4 mb-6 rounded-lg">
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
