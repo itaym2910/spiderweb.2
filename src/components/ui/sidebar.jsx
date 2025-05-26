@@ -17,7 +17,7 @@ function NavItem({ label, icon, collapsed, active, onClick }) {
   return (
     <button
       onClick={() => onClick(label)}
-      className={`flex items-center gap-3 text-sm px-3 py-2 rounded-md w-full transition
+      className={`flex items-center gap-3 text-sm px-3 py-2 rounded-md w-full transition h-[full]
     ${
       active
         ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-white font-semibold"
