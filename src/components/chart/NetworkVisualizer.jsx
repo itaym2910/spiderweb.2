@@ -2,10 +2,10 @@ import React, { useEffect, useRef } from "react";
 import * as d3 from "d3";
 import { NODES, LINKS } from "./constants";
 import { linkPositionFromEdges, getClusterGroups } from "./drawHelpers";
-import { renderClusters } from "./renderClusters";
+import { renderCoreDevices } from "./renderCoreDevices";
 import { setupInteractions } from "./handleInteractions";
 
-const OrionClusterGraph = () => {
+const NetworkVisualizer = () => {
   const svgRef = useRef();
 
   useEffect(() => {
@@ -69,7 +69,7 @@ const OrionClusterGraph = () => {
         })
     );
 
-    const { link, linkHover, node, label, filteredLinks } = renderClusters(
+    const { link, linkHover, node, label, filteredLinks } = renderCoreDevices(
       zoomLayer,
       nodes,
       links,
@@ -118,4 +118,4 @@ const OrionClusterGraph = () => {
   );
 };
 
-export default OrionClusterGraph;
+export default NetworkVisualizer;

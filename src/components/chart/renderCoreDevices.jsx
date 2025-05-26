@@ -1,6 +1,6 @@
 import * as d3 from "d3";
 
-export function renderClusters(zoomLayer, nodes, links, CLUSTER_GROUPS) {
+export function renderCoreDevices(zoomLayer, nodes, links, CLUSTER_GROUPS) {
   zoomLayer
     .append("g")
     .selectAll("g.zone-group")

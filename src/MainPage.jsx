@@ -9,8 +9,8 @@ import {
   TableCell,
 } from "./components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
-import OrionClusterGraph from "./components/chart/OrionClusterGraph";
-import OrionClusterGraph4 from "./components/chart/OrionClusterGraph4";
+import NetworkVisualizer from "./components/chart/NetworkVisualizer";
+import NetworkVisualizer4 from "./components/chart/NetworkVisualizer4";
 import { Toggle } from "./components/ui/toggle";
 import { Button } from "./components/ui/button";
 import { ScrollArea } from "./components/ui/scroll-area";
@@ -79,8 +79,8 @@ function MainPage() {
       <Tabs defaultValue="table">
         <TabsList>
           <TabsTrigger value="table">TABLE VIEW</TabsTrigger>
-          <TabsTrigger value="bubble">BUBBLE CHART</TabsTrigger>
-          <TabsTrigger value="chart4">4-ZONE CHART</TabsTrigger>
+          <TabsTrigger value="bubble">L Network</TabsTrigger>
+          <TabsTrigger value="chart4">P Network</TabsTrigger>
         </TabsList>
         <TabsContent value="table">
           <Card>
@@ -113,12 +113,12 @@ function MainPage() {
         </TabsContent>
         <TabsContent value="bubble">
           <div className="relative w-full h-screen">
-            <OrionClusterGraph />
+            <NetworkVisualizer />
           </div>
         </TabsContent>
         <TabsContent value="chart4">
           <div className="relative w-full h-screen">
-            <OrionClusterGraph4 />
+            <NetworkVisualizer4 />
           </div>
         </TabsContent>
       </Tabs>
