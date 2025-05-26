@@ -9,6 +9,7 @@ import {
   TableCell,
 } from "./components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
+import OrionClusterGraph from "./components/chart/OrionClusterGraph";
 import { Toggle } from "./components/ui/toggle";
 import { Button } from "./components/ui/button";
 import { ScrollArea } from "./components/ui/scroll-area";
@@ -109,8 +110,8 @@ function MainPage() {
           </Card>
         </TabsContent>
         <TabsContent value="bubble">
-          <div className="h-64 flex items-center justify-center text-gray-400">
-            Bubble chart view (to be implemented)
+          <div className="relative w-full h-screen">
+            <OrionClusterGraph />
           </div>
         </TabsContent>
       </Tabs>
