@@ -57,6 +57,7 @@ const OrionClusterGraph = () => {
       .style("background-color", "#1f2937");
 
     svg.selectAll("*").remove();
+    const tooltipLayer = svg.append("g");
     const zoomLayer = svg.append("g");
 
     svg.call(
@@ -68,7 +69,14 @@ const OrionClusterGraph = () => {
         })
     );
 
-    const tooltip = zoomLayer
+    const { link, linkHover, node, label, filteredLinks } = renderClusters(
+      zoomLayer,
+      nodes,
+      links,
+      CLUSTER_GROUPS
+    );
+
+    const tooltip = tooltipLayer
       .append("text")
       .attr("class", "svg-tooltip")
       .attr("x", 0) // default initial position — important!
@@ -79,15 +87,6 @@ const OrionClusterGraph = () => {
       .attr("opacity", 0)
       .style("pointer-events", "none")
       .style("user-select", "none");
-
-    const { link, linkHover, node, label, filteredLinks } = renderClusters(
-      zoomLayer,
-      nodes,
-      links,
-      CLUSTER_GROUPS
-    );
-
-    setupInteractions({ link, linkHover, filteredLinks, node, tooltip });
 
     // Apply positions manually
     node.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
@@ -102,6 +101,14 @@ const OrionClusterGraph = () => {
       .attr("y1", (d) => linkPositionFromEdges(d).y1)
       .attr("x2", (d) => linkPositionFromEdges(d).x2)
       .attr("y2", (d) => linkPositionFromEdges(d).y2);
+
+    requestAnimationFrame(() => {
+      setupInteractions({ link, linkHover, filteredLinks, node, tooltip });
+    });
+
+    console.log("Setup complete");
+    console.log("Nodes:", d3.selectAll("circle.node").size());
+    console.log("Hover lines:", d3.selectAll(".link-hover").size());
   }, []);
 
   return (

@@ -23,6 +23,8 @@ function handleMouseOver(d, allNodes, filteredLinks, link, zoomLayer, tooltip) {
   const sourceId = typeof d.source === "object" ? d.source.id : d.source;
   const targetId = typeof d.target === "object" ? d.target.id : d.target;
   const key = [sourceId, targetId].sort().join("--");
+  console.log("hover:", d.id);
+  console.log("tooltip?", tooltip.node());
 
   // Hide the straight line
   link.each(function (l) {
@@ -161,14 +163,22 @@ function handleMouseOut(d, link, tooltip) {
   tooltip.attr("opacity", 0);
 }
 
-export function setupInteractions({ link, linkHover, filteredLinks, tooltip }) {
-  const allNodes = d3.selectAll("circle.node").data();
+export function setupInteractions({
+  link,
+  linkHover,
+  filteredLinks,
+  node,
+  tooltip,
+}) {
+  const allNodes = node.data();
+
   const zoomLayer = d3.select(link.node().parentNode);
 
   linkHover
     .on("mouseover", function () {
       const hoveredIndex = linkHover.nodes().indexOf(this);
       const hovered = filteredLinks[hoveredIndex];
+
       handleMouseOver(
         hovered,
         allNodes,
