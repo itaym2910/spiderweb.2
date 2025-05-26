@@ -1,21 +1,41 @@
+import * as d3 from "d3";
+
 export function renderClusters(zoomLayer, nodes, links, CLUSTER_GROUPS) {
   zoomLayer
     .append("g")
-    .selectAll("circle.zone")
+    .selectAll("g.zone-group")
     .data(CLUSTER_GROUPS)
-    .join("circle")
-    .attr("class", "zone")
-    .attr("r", 150)
-    .attr("cx", (d) => d.cx)
-    .attr("cy", (d) => d.cy)
-    .attr("fill", "#38bdf8")
-    .attr("fill-opacity", 0.12);
+    .join("g")
+    .attr("class", "zone-group")
+    .each(function (d) {
+      const screenCenterY = window.innerHeight / 2;
 
-  const filteredLinks = links.filter((d) => {
-    const sourceNode = nodes.find((n) => n.id === d.source);
-    const targetNode = nodes.find((n) => n.id === d.target);
-    return sourceNode?.zone !== targetNode?.zone;
-  });
+      // Draw the zone circle
+      d3.select(this)
+        .append("circle")
+        .attr("class", "zone")
+        .attr("r", 150)
+        .attr("cx", d.cx)
+        .attr("cy", d.cy)
+        .attr("fill", "#38bdf8")
+        .attr("fill-opacity", 0.12);
+
+      // Determine label offset
+      const labelOffset = d.cy < screenCenterY ? -160 : 180;
+
+      // Draw the zone label
+      d3.select(this)
+        .append("text")
+        .attr("x", d.cx)
+        .attr("y", d.cy + labelOffset)
+        .text(d.id)
+        .attr("fill", "#ffffff")
+        .attr("font-size", "18px")
+        .attr("text-anchor", "middle")
+        .attr("font-weight", "bold");
+    });
+
+  const filteredLinks = links; // ✅ include inner zone link
 
   const linkGroup = zoomLayer.append("g");
 
