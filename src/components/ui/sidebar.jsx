@@ -45,7 +45,7 @@ export function Sidebar({ currentPage, setCurrentPage, collapsed, setCollapsed }
 
   return (
     <div
-      className={`h-screen ${
+      className={`h-[full] ${
         collapsed ? "w-16" : "w-60"
       } bg-white dark:bg-gray-900 border-r dark:border-gray-700 shadow-sm flex flex-col transition-all duration-300`}
     >
