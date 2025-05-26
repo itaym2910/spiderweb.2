@@ -13,7 +13,7 @@ function App() {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-100 dark:bg-gray-950 text-gray-800 dark:text-gray-100 transition-colors">
+    <div className="flex min-h-[100vh] bg-gray-100 dark:bg-gray-950 text-gray-800 dark:text-gray-100 transition-colors">
       <Sidebar
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
