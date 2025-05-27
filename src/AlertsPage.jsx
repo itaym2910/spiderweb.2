@@ -99,7 +99,7 @@ export function AlertsPage() {
   }, [allAlerts, selectedPeriod]);
 
   return (
-    <div className="container mx-auto flex flex-col h-full"> {/* Ensure parent can constrain height if needed */}
+    <div className="container mx-auto flex flex-col h-[90%]"> {/* Ensure parent can constrain height if needed */}
       {/* Time Period Selector */}
       <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg shadow">
         <div className="flex flex-wrap gap-2">
