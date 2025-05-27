@@ -12,13 +12,13 @@ import {
 // Assuming DarkModeToggle is in src/components/DarkModeToggle.js
 import { DarkModeToggle } from "../ui/dark-mode-toggle";
 
-// NavItem component (remains the same as your original)
+// NavItem component
 function NavItem({ label, icon, collapsed, active, onClick }) {
   return (
     <button
       onClick={() => onClick(label)}
-      className={`flex items-center gap-3 text-sm px-3 py-2 rounded-md w-full transition h-[full]
-    ${
+      className={`flex items-center gap-3 text-sm px-3 py-2 rounded-md w-full transition
+    ${ // Removed h-[full] from here
       active
         ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-white font-semibold"
         : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -35,7 +35,7 @@ export function Sidebar({ currentPage, setCurrentPage, collapsed, setCollapsed }
     { label: "Dashboard", icon: <MdDashboard size={20} /> },
     { label: "AI Insights", icon: <MdInsights size={20} /> },
     { label: "Performance", icon: <MdTrendingUp size={20} /> },
-    { label: "Notifications", icon: <MdNotifications size={20} /> }, // This will set currentPage to "Notifications"
+    { label: "Notifications", icon: <MdNotifications size={20} /> },
   ];
 
   const footerItems = [
@@ -45,12 +45,12 @@ export function Sidebar({ currentPage, setCurrentPage, collapsed, setCollapsed }
 
   return (
     <div
-      className={`h-[full] ${
+      className={`h-screen ${ // Changed h-[full] to h-screen
         collapsed ? "w-16" : "w-60"
       } bg-white dark:bg-gray-900 border-r dark:border-gray-700 shadow-sm flex flex-col transition-all duration-300`}
     >
       {/* Header & Toggle */}
-      <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
+      <div className="flex items-center justify-between p-4 border-b dark:border-gray-700 shrink-0"> {/* Added shrink-0 to header */}
         {!collapsed && <div className="text-xl font-bold text-gray-800 dark:text-white">SpiderWeb</div>}
         <button
           onClick={() => setCollapsed(!collapsed)}
@@ -73,13 +73,13 @@ export function Sidebar({ currentPage, setCurrentPage, collapsed, setCollapsed }
             icon={item.icon}
             collapsed={collapsed}
             active={currentPage === item.label}
-            onClick={setCurrentPage} // Use setCurrentPage from props
+            onClick={setCurrentPage}
           />
         ))}
       </nav>
 
       {/* Footer Nav & Dark Mode Toggle */}
-      <div className="px-2 py-2 border-t dark:border-gray-700">
+      <div className="px-2 py-2 border-t dark:border-gray-700 shrink-0"> {/* Added shrink-0 to footer */}
         {footerItems.map((item) => (
           <NavItem
             key={item.label}
@@ -87,7 +87,7 @@ export function Sidebar({ currentPage, setCurrentPage, collapsed, setCollapsed }
             icon={item.icon}
             collapsed={collapsed}
             active={currentPage === item.label}
-            onClick={setCurrentPage} // Use setCurrentPage from props
+            onClick={setCurrentPage}
           />
         ))}
         <div className="mt-2">
