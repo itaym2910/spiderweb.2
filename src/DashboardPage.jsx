@@ -122,16 +122,16 @@ export function DashboardPage() {
             TABLE VIEW
           </TabsTrigger>
           <TabsTrigger
-            value="bubble"
+            value="l_network"
             className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-900 data-[state=active]:shadow-sm"
           >
-            BUBBLE CHART
+            L Network
           </TabsTrigger>
           <TabsTrigger
-            value="chart4"
+            value="p_network"
             className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-900 data-[state=active]:shadow-sm"
           >
-            4-ZONE CHART
+            P Network
           </TabsTrigger>
         </TabsList>
         <TabsContent value="table">
@@ -192,7 +192,7 @@ export function DashboardPage() {
             </CardContent>
           </Card>
         </TabsContent>
-        <TabsContent value="bubble">
+        <TabsContent value="l_network">
           <Card className="border dark:border-gray-700">
             <CardContent className="p-4">
               <div className="relative w-full h-[600px]">
@@ -201,7 +201,7 @@ export function DashboardPage() {
             </CardContent>
           </Card>
         </TabsContent>
-        <TabsContent value="chart4">
+        <TabsContent value="p_network">
           <Card className="border dark:border-gray-700">
             <CardContent className="p-4">
               <div className="relative w-full h-[600px]">
