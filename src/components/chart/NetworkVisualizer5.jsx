@@ -1,18 +1,18 @@
 import React, { useEffect, useRef } from "react";
 import * as d3 from "d3";
-import { NODES4, LINKS4 } from "./constants4";
+import { NODES5, LINKS5 } from "./constants5";
 import { linkPositionFromEdges, getNodeGroups } from "./drawHelpers";
 import { renderCoreDevices } from "./renderCoreDevices";
 import { setupInteractions } from "./handleInteractions";
 
-const NetworkVisualizer4 = () => {
+const NetworkVisualizer5 = ({ theme }) => {
   const svgRef = useRef();
 
   useEffect(() => {
     const width = window.innerWidth;
     const height = window.innerHeight;
-    const nodes = structuredClone(NODES4);
-    const links = structuredClone(LINKS4);
+    const nodes = structuredClone(NODES5);
+    const links = structuredClone(LINKS5);
     const NODE_GROUPS = getNodeGroups(nodes); // will pick up 4 zones
 
     // position nodes along tangents exactly as before
@@ -34,10 +34,21 @@ const NetworkVisualizer4 = () => {
       l.target = nodeMap[l.target];
     });
 
+    const isDark = theme === "dark";
+
+    const palette = {
+      bg: isDark ? "#1f2937" : "#ffffff",
+      link: isDark ? "#94a3b8" : "#6b7280",
+      node: isDark ? "#29c6e0" : "#2563eb",
+      stroke: isDark ? "#60a5fa" : "#1d4ed8",
+      label: isDark ? "#ffffff" : "#1f2937",
+    };
+
     const svg = d3
       .select(svgRef.current)
       .attr("width", width)
-      .attr("height", height);
+      .attr("height", height)
+      .style("background-color", palette.bg);
 
     svg.selectAll("*").remove();
     const tooltipLayer = svg.append("g"),
@@ -54,8 +65,13 @@ const NetworkVisualizer4 = () => {
       zoomLayer,
       nodes,
       links,
-      NODE_GROUPS
+      NODE_GROUPS,
+      palette
     );
+
+    link.attr("stroke", palette.link);
+    node.attr("fill", palette.node).attr("stroke", palette.stroke);
+    label.attr("fill", palette.label);
 
     const tooltip = tooltipLayer
       .append("text")
@@ -80,7 +96,7 @@ const NetworkVisualizer4 = () => {
     requestAnimationFrame(() =>
       setupInteractions({ link, linkHover, filteredLinks, node, tooltip })
     );
-  }, []);
+  }, [theme]);
 
   return (
     <svg
@@ -90,4 +106,4 @@ const NetworkVisualizer4 = () => {
   );
 };
 
-export default NetworkVisualizer4;
+export default NetworkVisualizer5;

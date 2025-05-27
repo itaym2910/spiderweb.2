@@ -1,6 +1,4 @@
-// src/DashboardPage.js
-import React from "react";
-// Adjust these paths if your 'ui' and 'chart' components are elsewhere
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "./components/ui/card";
 import {
   Table,
@@ -12,7 +10,7 @@ import {
 } from "./components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import NetworkVisualizer from "./components/chart/NetworkVisualizer";
-import NetworkVisualizer4 from "./components/chart/NetworkVisualizer4";
+import NetworkVisualizer5 from "./components/chart/NetworkVisualizer5";
 
 const data = [
   // ... (your data array remains the same)
@@ -111,6 +109,24 @@ const data = [
 ];
 
 export function DashboardPage() {
+  const [theme, setTheme] = useState(
+    document.documentElement.classList.contains("dark") ? "dark" : "light"
+  );
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      const isDark = document.documentElement.classList.contains("dark");
+      setTheme(isDark ? "dark" : "light");
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div className="bg-white dark:bg-gray-800 p-0 md:p-0 rounded-lg shadow-md">
       <Tabs defaultValue="table" className="w-full">
@@ -196,7 +212,7 @@ export function DashboardPage() {
           <Card className="border dark:border-gray-700">
             <CardContent className="p-4">
               <div className="relative w-full h-[600px]">
-                <NetworkVisualizer data={data} />
+                <NetworkVisualizer data={data} theme={theme} />
               </div>
             </CardContent>
           </Card>
@@ -205,7 +221,7 @@ export function DashboardPage() {
           <Card className="border dark:border-gray-700">
             <CardContent className="p-4">
               <div className="relative w-full h-[600px]">
-                <NetworkVisualizer4 data={data} />
+                <NetworkVisualizer5 data={data} theme={theme} />
               </div>
             </CardContent>
           </Card>
@@ -214,7 +230,3 @@ export function DashboardPage() {
     </div>
   );
 }
-
-// Placeholder for chart components if they are not defined elsewhere
-// const NetworkVisualizer = ({ data }) => <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">Bubble Chart Placeholder (needs data)</div>;
-// const NetworkVisualizer4 = ({ data }) => <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">4-Zone Chart Placeholder (needs data)</div>;
