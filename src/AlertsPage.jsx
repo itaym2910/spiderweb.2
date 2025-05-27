@@ -1,8 +1,6 @@
-// src/AlertsPage.js (or src/pages/AlertsPage.js)
 import React, { useState, useEffect, useMemo } from "react";
 import { MdErrorOutline, MdWarningAmber, MdInfoOutline, MdNotifications } from "react-icons/md";
 
-// Mock data generation (same as before)
 const generateMockAlerts = () => {
   const alerts = [];
   const now = new Date();
@@ -20,8 +18,8 @@ const generateMockAlerts = () => {
     "Backup job 'DailySystemBackup' finished successfully.",
   ];
 
-  for (let i = 0; i < 100; i++) { // Increased mock data for better scroll testing
-    const randomMinutesAgo = Math.floor(Math.random() * 7 * 24 * 60 * 1.5); // Up to 1.5 weeks ago
+  for (let i = 0; i < 100; i++) { 
+    const randomMinutesAgo = Math.floor(Math.random() * 7 * 24 * 60 * 1.5); 
     alerts.push({
       id: `alert-${i + 1}-${Date.now()}`,
       type: types[Math.floor(Math.random() * types.length)],
@@ -30,10 +28,9 @@ const generateMockAlerts = () => {
       networkLine: `Line-${String.fromCharCode(65 + Math.floor(i / 10))}-${(i % 10) + 1}`,
     });
   }
-  return alerts.sort((a, b) => b.timestamp - a.timestamp); // Newest first
+  return alerts.sort((a, b) => b.timestamp - a.timestamp); 
 };
 
-// AlertIcon and AlertCard components (same as before)
 const AlertIcon = ({ type }) => {
   if (type === "error") return <MdErrorOutline className="text-red-500 flex-shrink-0" size={24} />;
   if (type === "warning") return <MdWarningAmber className="text-yellow-500 flex-shrink-0" size={24} />;
@@ -43,7 +40,7 @@ const AlertIcon = ({ type }) => {
 const AlertCard = ({ alert }) => (
   <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md flex items-start space-x-3 hover:shadow-lg transition-shadow">
     <AlertIcon type={alert.type} />
-    <div className="flex-1 min-w-0"> {/* Added min-w-0 for better text wrapping */}
+    <div className="flex-1 min-w-0"> 
       <p className="font-semibold text-gray-800 dark:text-white truncate">{alert.message}</p>
       <p className="text-sm text-gray-600 dark:text-gray-300">
         Network Line: {alert.networkLine}
@@ -65,10 +62,9 @@ const timePeriods = [
 
 export function AlertsPage() {
   const [allAlerts, setAllAlerts] = useState([]);
-  const [selectedPeriod, setSelectedPeriod] = useState("1h"); // Default to 1 hour
+  const [selectedPeriod, setSelectedPeriod] = useState("1h"); 
 
   useEffect(() => {
-    // Simulate fetching all alerts once on component mount
     setAllAlerts(generateMockAlerts());
   }, []);
 
@@ -93,14 +89,13 @@ export function AlertsPage() {
         break;
       case "all":
       default:
-        return allAlerts; // Return all alerts if "all" or unknown period
+        return allAlerts; 
     }
     return allAlerts.filter((alert) => alert.timestamp >= startTime);
   }, [allAlerts, selectedPeriod]);
 
   return (
-    <div className="container mx-auto flex flex-col h-[90%]"> {/* Ensure parent can constrain height if needed */}
-      {/* Time Period Selector */}
+    <div className="container mx-auto flex flex-col h-[90%]">
       <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg shadow">
         <div className="flex flex-wrap gap-2">
           {timePeriods.map((period) => (
@@ -120,10 +115,7 @@ export function AlertsPage() {
         </div>
       </div>
 
-      {/* Alerts List - Scrollable Area */}
       <div className="flex-1 overflow-y-auto p-1 rounded-lg max-h-[calc(100vh-220px)] md:max-h-[calc(100vh-200px)]">
-        {/* Adjust max-h value as needed based on your header/footer/padding heights */}
-        {/* e.g., 100vh (full viewport height) - app header height - page header height - time filter height - padding */}
         {filteredAlerts.length > 0 ? (
           <div className="space-y-4">
             {filteredAlerts.map((alert) => (
