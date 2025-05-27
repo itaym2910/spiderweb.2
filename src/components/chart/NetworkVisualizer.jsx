@@ -1,11 +1,11 @@
 import React, { useEffect, useRef } from "react";
 import * as d3 from "d3";
 import { NODES, LINKS } from "./constants";
-import { linkPositionFromEdges, getClusterGroups } from "./drawHelpers";
-import { renderClusters } from "./renderClusters";
+import { linkPositionFromEdges, getNodeGroups } from "./drawHelpers";
+import { renderCoreDevices } from "./renderCoreDevices";
 import { setupInteractions } from "./handleInteractions";
 
-const OrionClusterGraph = () => {
+const NetworkVisualizer = () => {
   const svgRef = useRef();
 
   useEffect(() => {
@@ -14,10 +14,10 @@ const OrionClusterGraph = () => {
 
     const nodes = structuredClone(NODES);
     const links = structuredClone(LINKS);
-    const CLUSTER_GROUPS = getClusterGroups(nodes);
+    const NODE_GROUPS = getNodeGroups(nodes);
 
     const nodeMap = {};
-    CLUSTER_GROUPS.forEach((zone) => {
+    NODE_GROUPS.forEach((zone) => {
       const zoneNodes = nodes.filter((n) => n.zone === zone.id);
 
       // Vector from zone to center
@@ -53,8 +53,7 @@ const OrionClusterGraph = () => {
     const svg = d3
       .select(svgRef.current)
       .attr("width", width)
-      .attr("height", height)
-      .style("background-color", "#1f2937");
+      .attr("height", height);
 
     svg.selectAll("*").remove();
     const tooltipLayer = svg.append("g");
@@ -69,11 +68,11 @@ const OrionClusterGraph = () => {
         })
     );
 
-    const { link, linkHover, node, label, filteredLinks } = renderClusters(
+    const { link, linkHover, node, label, filteredLinks } = renderCoreDevices(
       zoomLayer,
       nodes,
       links,
-      CLUSTER_GROUPS
+      NODE_GROUPS
     );
 
     const tooltip = tooltipLayer
@@ -113,9 +112,12 @@ const OrionClusterGraph = () => {
 
   return (
     <div>
-      <svg ref={svgRef} className="absolute top-0 left-0 w-full h-full" />
+      <svg
+        ref={svgRef}
+        className="absolute top-0 left-0 w-full h-full bg-white dark:bg-gray-800"
+      />
     </div>
   );
 };
 
-export default OrionClusterGraph;
+export default NetworkVisualizer;
