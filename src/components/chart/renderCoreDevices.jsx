@@ -1,6 +1,12 @@
 import * as d3 from "d3";
 
-export function renderClusters(zoomLayer, nodes, links, CLUSTER_GROUPS) {
+export function renderCoreDevices(
+  zoomLayer,
+  nodes,
+  links,
+  CLUSTER_GROUPS,
+  theme
+) {
   zoomLayer
     .append("g")
     .selectAll("g.zone-group")
@@ -17,8 +23,8 @@ export function renderClusters(zoomLayer, nodes, links, CLUSTER_GROUPS) {
         .attr("r", 150)
         .attr("cx", d.cx)
         .attr("cy", d.cy)
-        .attr("fill", "#38bdf8")
-        .attr("fill-opacity", 0.12);
+        .attr("fill", theme.zoneFill)
+        .attr("fill-opacity", theme.zoneOpacity);
 
       // Determine label offset
       const labelOffset = d.cy < screenCenterY ? -160 : 180;
@@ -29,7 +35,7 @@ export function renderClusters(zoomLayer, nodes, links, CLUSTER_GROUPS) {
         .attr("x", d.cx)
         .attr("y", d.cy + labelOffset)
         .text(d.id)
-        .attr("fill", "#ffffff")
+        .attr("fill", theme.labelColor)
         .attr("font-size", "18px")
         .attr("text-anchor", "middle")
         .attr("font-weight", "bold");
@@ -44,8 +50,8 @@ export function renderClusters(zoomLayer, nodes, links, CLUSTER_GROUPS) {
     .data(filteredLinks)
     .join("line")
     .attr("class", "visible-link")
-    .attr("stroke", "#94a3b8")
-    .attr("stroke-opacity", 0.6)
+    .attr("stroke", theme.linkStroke)
+    .attr("stroke-opacity", theme.linkOpacity)
     .attr("stroke-width", 2);
 
   const linkHover = linkGroup
@@ -64,9 +70,9 @@ export function renderClusters(zoomLayer, nodes, links, CLUSTER_GROUPS) {
     .join("circle")
     .attr("class", "node")
     .attr("r", 60)
-    .attr("fill", "#29c6e0")
-    .attr("stroke", "#60a5fa")
-    .attr("stroke-width", 2)
+    .attr("fill", theme.nodeFill)
+    .attr("stroke", theme.nodeStroke)
+    .attr("stroke-width", theme.nodeStrokeWidth)
     .style("opacity", 0.9);
 
   const label = zoomLayer
@@ -76,7 +82,7 @@ export function renderClusters(zoomLayer, nodes, links, CLUSTER_GROUPS) {
     .join("text")
     .attr("class", "label")
     .text((d) => d.id)
-    .attr("fill", "#ffffff")
+    .attr("fill", theme.labelColor)
     .attr("font-size", "14px")
     .attr("text-anchor", "middle")
     .attr("dy", ".35em")
