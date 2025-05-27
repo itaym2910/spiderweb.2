@@ -1,11 +1,11 @@
 import React, { useEffect, useRef } from "react";
 import * as d3 from "d3";
 import { NODES4, LINKS4 } from "./constants4";
-import { linkPositionFromEdges, getClusterGroups } from "./drawHelpers";
-import { renderClusters } from "./renderClusters";
+import { linkPositionFromEdges, getNodeGroups } from "./drawHelpers";
+import { renderCoreDevices } from "./renderCoreDevices";
 import { setupInteractions } from "./handleInteractions";
 
-const OrionClusterGraph4 = () => {
+const NetworkVisualizer4 = () => {
   const svgRef = useRef();
 
   useEffect(() => {
@@ -13,11 +13,11 @@ const OrionClusterGraph4 = () => {
     const height = window.innerHeight;
     const nodes = structuredClone(NODES4);
     const links = structuredClone(LINKS4);
-    const CLUSTER_GROUPS = getClusterGroups(nodes); // will pick up 4 zones
+    const NODE_GROUPS = getNodeGroups(nodes); // will pick up 4 zones
 
-    // position clusters along tangents exactly as before
+    // position nodes along tangents exactly as before
     const nodeMap = {};
-    CLUSTER_GROUPS.forEach((zone) => {
+    NODE_GROUPS.forEach((zone) => {
       const zoneNodes = nodes.filter((n) => n.zone === zone.id);
       const baseAngle = zone.angle;
       const perp = baseAngle + Math.PI / 2;
@@ -50,11 +50,11 @@ const OrionClusterGraph4 = () => {
         .on("zoom", ({ transform }) => zoomLayer.attr("transform", transform))
     );
 
-    const { link, linkHover, node, label, filteredLinks } = renderClusters(
+    const { link, linkHover, node, label, filteredLinks } = renderCoreDevices(
       zoomLayer,
       nodes,
       links,
-      CLUSTER_GROUPS
+      NODE_GROUPS
     );
 
     const tooltip = tooltipLayer
@@ -85,4 +85,4 @@ const OrionClusterGraph4 = () => {
   return <svg ref={svgRef} className="absolute top-0 left-0 w-full h-full" />;
 };
 
-export default OrionClusterGraph4;
+export default NetworkVisualizer4;

@@ -1,4 +1,4 @@
-export function getClusterGroups(nodes) {
+export function getNodeGroups(nodes) {
   const zoneSet = new Set(nodes.map((n) => n.zone));
   const sortedZones = Array.from(zoneSet).sort(); // e.g., ["Zone 1", ..., "Zone 6"]
   const ZONE_COUNT = sortedZones.length;
@@ -24,11 +24,11 @@ export function getClusterGroups(nodes) {
 
 export function constrainToZone(
   d,
-  clusterGroups,
+  nodeGroups,
   nodeRadius = 60,
   zoneRadius = 150
 ) {
-  const zone = clusterGroups.find((z) => z.id === d.zone);
+  const zone = nodeGroups.find((z) => z.id === d.zone);
   if (!zone) return;
 
   const dx = d.x - zone.cx;

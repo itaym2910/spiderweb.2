@@ -1,5 +1,5 @@
 import * as d3 from "d3";
-import { CLUSTER_GROUPS } from "./drawHelpers";
+import { NODE_GROUPS } from "./drawHelpers";
 
 function avoidLinksForce(nodes, links, padding = 80) {
   return () => {
@@ -68,7 +68,7 @@ export function createSimulation(nodes, links, onTick) {
       "x",
       d3
         .forceX((d) => {
-          const zone = CLUSTER_GROUPS.find((z) => z.id === d.zone);
+          const zone = NODE_GROUPS.find((z) => z.id === d.zone);
           return zone?.cx ?? window.innerWidth / 2;
         })
         .strength(0.05)
@@ -77,7 +77,7 @@ export function createSimulation(nodes, links, onTick) {
       "y",
       d3
         .forceY((d) => {
-          const zone = CLUSTER_GROUPS.find((z) => z.id === d.zone);
+          const zone = NODE_GROUPS.find((z) => z.id === d.zone);
           return zone?.cy ?? window.innerHeight / 2;
         })
         .strength(0.05)
@@ -87,7 +87,7 @@ export function createSimulation(nodes, links, onTick) {
       d3
         .forceCollide()
         .radius(60 + 4)
-        .strength(1) // 60 is cluster radius, +4 for spacing
+        .strength(1) // 60 is node radius, +4 for spacing
     )
 
     .force("charge", d3.forceManyBody().strength(-30))

@@ -1,10 +1,10 @@
 import * as d3 from "d3";
 
-export function renderClusters(zoomLayer, nodes, links, CLUSTER_GROUPS) {
+export function renderCoreDevices(zoomLayer, nodes, links, NODE_GROUPS) {
   zoomLayer
     .append("g")
     .selectAll("g.zone-group")
-    .data(CLUSTER_GROUPS)
+    .data(NODE_GROUPS)
     .join("g")
     .attr("class", "zone-group")
     .each(function (d) {
