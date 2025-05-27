@@ -19,15 +19,7 @@ export function groupLinksByPair(links) {
   return map;
 }
 
-function handleMouseOver(
-  d,
-  allNodes,
-  filteredLinks,
-  link,
-  zoomLayer,
-  tooltip,
-  theme
-) {
+function handleMouseOver(d, allNodes, filteredLinks, link, zoomLayer, tooltip) {
   const sourceId = typeof d.source === "object" ? d.source.id : d.source;
   const targetId = typeof d.target === "object" ? d.target.id : d.target;
   const key = [sourceId, targetId].sort().join("--");
@@ -47,9 +39,9 @@ function handleMouseOver(
   // Highlight nodes
   d3.selectAll("circle.node")
     .filter((n) => n.id === sourceId || n.id === targetId)
-    .attr("fill", theme.nodeHighlightFill)
-    .attr("stroke", theme.nodeHighlightStroke)
-    .attr("stroke-width", theme.nodeHighlightWidth);
+    .attr("fill", "#fde68a")
+    .attr("stroke", "#facc15")
+    .attr("stroke-width", 4);
 
   // Remove old lines
   zoomLayer.selectAll("path.duplicate-link").remove();
@@ -89,7 +81,7 @@ function handleMouseOver(
       .attr("class", "duplicate-link")
       .attr("d", `M${startX},${startY} L${endX},${endY}`)
       .attr("fill", "none")
-      .attr("stroke", theme.linkHighlight)
+      .attr("stroke", "#facc15")
       .attr("stroke-width", 3)
       .on("mousemove", function (event, d) {
         tooltip
@@ -105,8 +97,7 @@ function handleMouseOver(
           filteredLinks,
           link,
           zoomLayer,
-          tooltip,
-          theme
+          tooltip
         )
       )
       .on("mouseout", () => handleMouseOut(linkData, link, tooltip));
@@ -136,15 +127,14 @@ function handleMouseOver(
           filteredLinks,
           link,
           zoomLayer,
-          tooltip,
-          theme
+          tooltip
         )
       )
       .on("mouseout", () => handleMouseOut(linkData, link, tooltip));
   });
 }
 
-function handleMouseOut(d, link, tooltip, theme) {
+function handleMouseOut(d, link, tooltip) {
   const sourceId = typeof d.source === "object" ? d.source.id : d.source;
   const targetId = typeof d.target === "object" ? d.target.id : d.target;
   const key = [sourceId, targetId].sort().join("--");
@@ -155,17 +145,17 @@ function handleMouseOut(d, link, tooltip, theme) {
     const straightKey = [s, t].sort().join("--");
     if (straightKey === key) {
       d3.select(this)
-        .attr("stroke", theme.linkStroke)
-        .attr("stroke-width", theme.linkWidth)
-        .attr("stroke-opacity", theme.linkOpacity)
+        .attr("stroke", "#94a3b8")
+        .attr("stroke-width", 2)
+        .attr("stroke-opacity", 0.6)
         .attr("pointer-events", "auto");
     }
   });
 
   d3.selectAll("circle.node")
-    .attr("fill", theme.nodeFill)
-    .attr("stroke", theme.nodeStroke)
-    .attr("stroke-width", theme.nodeStrokeWidth);
+    .attr("fill", "#29c6e0")
+    .attr("stroke", "#60a5fa")
+    .attr("stroke-width", 2);
 
   tooltip.attr("opacity", 0);
 
@@ -179,9 +169,9 @@ export function setupInteractions({
   filteredLinks,
   node,
   tooltip,
-  theme,
 }) {
   const allNodes = node.data();
+
   const zoomLayer = d3.select(link.node().parentNode);
 
   linkHover
@@ -195,13 +185,12 @@ export function setupInteractions({
         filteredLinks,
         link,
         zoomLayer,
-        tooltip,
-        theme
+        tooltip
       );
     })
     .on("mouseout", function () {
       const hoveredIndex = linkHover.nodes().indexOf(this);
       const hovered = filteredLinks[hoveredIndex];
-      handleMouseOut(hovered, link, tooltip, theme);
+      handleMouseOut(hovered, link, tooltip);
     });
 }

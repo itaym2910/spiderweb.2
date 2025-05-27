@@ -1,52 +1,16 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import * as d3 from "d3";
 import { NODES, LINKS } from "./constants";
 import { linkPositionFromEdges, getClusterGroups } from "./drawHelpers";
-import { renderCoreDevices } from "./renderCoreDevices";
+import { renderClusters } from "./renderClusters";
 import { setupInteractions } from "./handleInteractions";
 
-const NetworkVisualizer = () => {
+const OrionClusterGraph = () => {
   const svgRef = useRef();
 
-  const [isDark, setIsDark] = useState(
-    document.documentElement.classList.contains("dark")
-  );
-
   useEffect(() => {
-    const mo = new MutationObserver((mutations) => {
-      for (let m of mutations) {
-        if (m.attributeName === "class") {
-          setIsDark(document.documentElement.classList.contains("dark"));
-          break;
-        }
-      }
-    });
-    mo.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-    return () => mo.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const isDark = document.documentElement.classList.contains("dark");
-    const theme = {
-      background: isDark ? "#1f2937" : "#ffffff",
-      zoneFill: isDark ? "#38bdf8" : "#0284c7",
-      zoneOpacity: 0.12,
-      labelColor: isDark ? "#ffffff" : "#000000",
-      linkStroke: isDark ? "#94a3b8" : "#475569",
-      linkOpacity: 0.6,
-      nodeFill: isDark ? "#29c6e0" : "#22d3ee",
-      nodeStroke: isDark ? "#60a5fa" : "#0ea5e9",
-      nodeStrokeWidth: 2,
-      tooltipColor: isDark ? "#ffffff" : "#000000",
-      linkHighlight: isDark ? "#facc15" : "#eab308",
-      linkStrokeWidth: 2,
-      nodeHighlightFill: isDark ? "#fde68a" : "#fde047",
-      nodeHighlightStroke: isDark ? "#facc15" : "#ca8a04",
-      nodeHighlightWidth: 4,
-    };
+    const width = window.innerWidth;
+    const height = window.innerHeight;
 
     const nodes = structuredClone(NODES);
     const links = structuredClone(LINKS);
@@ -88,9 +52,9 @@ const NetworkVisualizer = () => {
 
     const svg = d3
       .select(svgRef.current)
-      .attr("width", window.innerWidth)
-      .attr("height", window.innerHeight)
-      .style("background-color", theme.background);
+      .attr("width", width)
+      .attr("height", height)
+      .style("background-color", "#1f2937");
 
     svg.selectAll("*").remove();
     const tooltipLayer = svg.append("g");
@@ -105,12 +69,11 @@ const NetworkVisualizer = () => {
         })
     );
 
-    const { link, linkHover, node, label, filteredLinks } = renderCoreDevices(
+    const { link, linkHover, node, label, filteredLinks } = renderClusters(
       zoomLayer,
       nodes,
       links,
-      CLUSTER_GROUPS,
-      theme
+      CLUSTER_GROUPS
     );
 
     const tooltip = tooltipLayer
@@ -120,7 +83,7 @@ const NetworkVisualizer = () => {
       .attr("y", 0)
       .attr("text-anchor", "start")
       .attr("font-size", 14) // make it temporarily larger for debug
-      .attr("fill", theme.tooltipColor)
+      .attr("fill", "white")
       .attr("opacity", 0)
       .style("pointer-events", "none")
       .style("user-select", "none");
@@ -140,20 +103,13 @@ const NetworkVisualizer = () => {
       .attr("y2", (d) => linkPositionFromEdges(d).y2);
 
     requestAnimationFrame(() => {
-      setupInteractions({
-        link,
-        linkHover,
-        filteredLinks,
-        node,
-        tooltip,
-        theme,
-      });
+      setupInteractions({ link, linkHover, filteredLinks, node, tooltip });
     });
 
     console.log("Setup complete");
     console.log("Nodes:", d3.selectAll("circle.node").size());
     console.log("Hover lines:", d3.selectAll(".link-hover").size());
-  }, [isDark]);
+  }, []);
 
   return (
     <div>
@@ -162,4 +118,4 @@ const NetworkVisualizer = () => {
   );
 };
 
-export default NetworkVisualizer;
+export default OrionClusterGraph;
