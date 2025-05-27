@@ -53,8 +53,7 @@ const NetworkVisualizer = () => {
     const svg = d3
       .select(svgRef.current)
       .attr("width", width)
-      .attr("height", height)
-      .style("background-color", "#1f2937");
+      .attr("height", height);
 
     svg.selectAll("*").remove();
     const tooltipLayer = svg.append("g");
@@ -113,7 +112,10 @@ const NetworkVisualizer = () => {
 
   return (
     <div>
-      <svg ref={svgRef} className="absolute top-0 left-0 w-full h-full" />
+      <svg
+        ref={svgRef}
+        className="absolute top-0 left-0 w-full h-full bg-white dark:bg-gray-800"
+      />
     </div>
   );
 };
