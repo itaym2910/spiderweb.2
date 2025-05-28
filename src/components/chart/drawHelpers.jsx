@@ -1,6 +1,6 @@
 export function getNodeGroups(nodes) {
   const zoneSet = new Set(nodes.map((n) => n.zone));
-  const sortedZones = Array.from(zoneSet).sort(); // e.g., ["Zone 1", ..., "Zone 6"]
+  const sortedZones = Array.from(zoneSet).sort();
   const ZONE_COUNT = sortedZones.length;
 
   const centerX = window.innerWidth / 2;
@@ -10,8 +10,9 @@ export function getNodeGroups(nodes) {
   const radiusY = window.innerHeight / 3.5;
 
   return sortedZones.map((zoneId, i) => {
-    // Start from 3 o'clock (0 rad), move clockwise (add angle)
-    const angle = (2 * Math.PI * i) / ZONE_COUNT;
+    const angleOffset = ZONE_COUNT % 2 === 1 ? -Math.PI / 2 : 0;
+
+    const angle = (2 * Math.PI * i) / ZONE_COUNT + angleOffset;
 
     return {
       id: zoneId,

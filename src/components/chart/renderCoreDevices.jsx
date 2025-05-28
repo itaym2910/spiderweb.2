@@ -1,6 +1,12 @@
 import * as d3 from "d3";
 
-export function renderCoreDevices(zoomLayer, nodes, links, NODE_GROUPS) {
+export function renderCoreDevices(
+  zoomLayer,
+  nodes,
+  links,
+  NODE_GROUPS,
+  palette
+) {
   zoomLayer
     .append("g")
     .selectAll("g.zone-group")
@@ -29,7 +35,7 @@ export function renderCoreDevices(zoomLayer, nodes, links, NODE_GROUPS) {
         .attr("x", d.cx)
         .attr("y", d.cy + labelOffset)
         .text(d.id)
-        .attr("fill", "#ffffff")
+        .attr("fill", palette.label)
         .attr("font-size", "18px")
         .attr("text-anchor", "middle")
         .attr("font-weight", "bold");
@@ -44,7 +50,7 @@ export function renderCoreDevices(zoomLayer, nodes, links, NODE_GROUPS) {
     .data(filteredLinks)
     .join("line")
     .attr("class", "visible-link")
-    .attr("stroke", "#94a3b8")
+    .attr("stroke", palette.link)
     .attr("stroke-opacity", 0.6)
     .attr("stroke-width", 2);
 
@@ -64,8 +70,8 @@ export function renderCoreDevices(zoomLayer, nodes, links, NODE_GROUPS) {
     .join("circle")
     .attr("class", "node")
     .attr("r", 60)
-    .attr("fill", "#29c6e0")
-    .attr("stroke", "#60a5fa")
+    .attr("fill", palette.node)
+    .attr("stroke", palette.stroke)
     .attr("stroke-width", 2)
     .style("opacity", 0.9);
 
@@ -76,7 +82,7 @@ export function renderCoreDevices(zoomLayer, nodes, links, NODE_GROUPS) {
     .join("text")
     .attr("class", "label")
     .text((d) => d.id)
-    .attr("fill", "#ffffff")
+    .attr("fill", palette.label)
     .attr("font-size", "14px")
     .attr("text-anchor", "middle")
     .attr("dy", ".35em")

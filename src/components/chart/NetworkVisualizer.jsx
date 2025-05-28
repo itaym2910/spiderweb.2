@@ -5,7 +5,7 @@ import { linkPositionFromEdges, getNodeGroups } from "./drawHelpers";
 import { renderCoreDevices } from "./renderCoreDevices";
 import { setupInteractions } from "./handleInteractions";
 
-const NetworkVisualizer = () => {
+const NetworkVisualizer = ({ theme }) => {
   const svgRef = useRef();
 
   useEffect(() => {
@@ -50,10 +50,21 @@ const NetworkVisualizer = () => {
       link.target = nodeMap[link.target];
     });
 
+    const isDark = theme === "dark";
+
+    const palette = {
+      bg: isDark ? "#1f2937" : "#ffffff",
+      link: isDark ? "#94a3b8" : "#6b7280",
+      node: isDark ? "#29c6e0" : "#29c6e0",
+      stroke: isDark ? "#60a5fa" : "#1d4ed8",
+      label: isDark ? "#ffffff" : "#1f2937",
+    };
+
     const svg = d3
       .select(svgRef.current)
       .attr("width", width)
-      .attr("height", height);
+      .attr("height", height)
+      .style("background-color", palette.bg);
 
     svg.selectAll("*").remove();
     const tooltipLayer = svg.append("g");
@@ -72,8 +83,13 @@ const NetworkVisualizer = () => {
       zoomLayer,
       nodes,
       links,
-      NODE_GROUPS
+      NODE_GROUPS,
+      palette
     );
+
+    link.attr("stroke", palette.link);
+    node.attr("fill", palette.node).attr("stroke", palette.stroke);
+    label.attr("fill", palette.label);
 
     const tooltip = tooltipLayer
       .append("text")
@@ -108,7 +124,7 @@ const NetworkVisualizer = () => {
     console.log("Setup complete");
     console.log("Nodes:", d3.selectAll("circle.node").size());
     console.log("Hover lines:", d3.selectAll(".link-hover").size());
-  }, []);
+  }, [theme]);
 
   return (
     <div>
