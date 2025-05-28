@@ -211,7 +211,7 @@ export function DashboardPage() {
         <TabsContent value="l_network">
           <Card className="border dark:border-gray-700">
             <CardContent className="p-4">
-              <div className="relative w-full h-[600px]">
+              <div className="relative w-full h-[770px]">
                 <NetworkVisualizer data={data} theme={theme} />
               </div>
             </CardContent>
@@ -220,7 +220,7 @@ export function DashboardPage() {
         <TabsContent value="p_network">
           <Card className="border dark:border-gray-700">
             <CardContent className="p-4">
-              <div className="relative w-full h-[600px]">
+              <div className="relative w-full h-[770px]">
                 <NetworkVisualizer5 data={data} theme={theme} />
               </div>
             </CardContent>
