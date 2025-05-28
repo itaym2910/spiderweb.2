@@ -135,19 +135,19 @@ export function DashboardPage() {
             value="table"
             className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-900 data-[state=active]:shadow-sm"
           >
-            TABLE VIEW
+            Main Lines
           </TabsTrigger>
           <TabsTrigger
             value="l_network"
             className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-900 data-[state=active]:shadow-sm"
           >
-            L Network
+            Libot
           </TabsTrigger>
           <TabsTrigger
             value="p_network"
             className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-900 data-[state=active]:shadow-sm"
           >
-            P Network
+            Pikudim
           </TabsTrigger>
         </TabsList>
         <TabsContent value="table">
