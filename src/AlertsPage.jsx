@@ -80,12 +80,11 @@ const AlertModal = ({ alert, onClose }) => {
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
               Alert Details
             </h2>
-            <p className={`text-sm font-medium ${
-                alert.type === "error" ? "text-red-600 dark:text-red-400" :
+            <p className={`text-sm font-medium ${alert.type === "error" ? "text-red-600 dark:text-red-400" :
                 alert.type === "warning" ? "text-yellow-600 dark:text-yellow-400" :
-                "text-blue-600 dark:text-blue-400"
-            }`}>
-                Type: {alert.type.charAt(0).toUpperCase() + alert.type.slice(1)}
+                  "text-blue-600 dark:text-blue-400"
+              }`}>
+              Type: {alert.type.charAt(0).toUpperCase() + alert.type.slice(1)}
             </p>
           </div>
         </div>
@@ -219,10 +218,9 @@ export function AlertsPage() {
                 key={period.value}
                 onClick={() => setSelectedPeriod(period.value)}
                 className={`px-4 py-2 text-sm font-medium rounded-md transition-colors
-                  ${
-                    selectedPeriod === period.value
-                      ? "bg-blue-600 text-white shadow-md"
-                      : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
+                  ${selectedPeriod === period.value
+                    ? "bg-blue-600 text-white shadow-md"
+                    : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
                   }`}
               >
                 {period.label}
