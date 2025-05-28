@@ -10,8 +10,9 @@ export function getNodeGroups(nodes) {
   const radiusY = window.innerHeight / 3.5;
 
   return sortedZones.map((zoneId, i) => {
-    // Start from 3 o'clock (0 rad), move clockwise (add angle)
-    const angle = (2 * Math.PI * i) / ZONE_COUNT - Math.PI / 2;
+    const angleOffset = ZONE_COUNT % 2 === 1 ? -Math.PI / 2 : 0;
+
+    const angle = (2 * Math.PI * i) / ZONE_COUNT + angleOffset;
 
     return {
       id: zoneId,
