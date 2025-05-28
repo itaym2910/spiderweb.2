@@ -2,14 +2,15 @@
 import React from "react";
 import {
   MdDashboard,
-  MdInsights, // You can keep this or change it to an admin-related icon
-  MdAdminPanelSettings, // Example of an admin icon, if you want to use it
-  MdTrendingUp,
+  MdInsights, // Kept for reference, but not used in the reordered list
+  MdAdminPanelSettings,
+  MdSearch,     // Search Icon
   MdNotifications,
   MdHelp,
   MdSettings,
   MdChevronLeft,
   MdChevronRight,
+  // MdTrendingUp, // No longer needed if "Performance" is fully replaced by "Search"
 } from "react-icons/md";
 // Assuming DarkModeToggle is in src/components/DarkModeToggle.js
 import { DarkModeToggle } from "../ui/dark-mode-toggle"; // Make sure this path is correct
@@ -33,12 +34,11 @@ function NavItem({ label, icon, collapsed, active, onClick }) {
 }
 
 export function Sidebar({ currentPage, setCurrentPage, collapsed, setCollapsed }) {
+  // REORDERED navItems array
   const navItems = [
     { label: "Dashboard", icon: <MdDashboard size={20} /> },
-    // MODIFIED LINE BELOW
-    { label: "Admin Panel", icon: <MdAdminPanelSettings size={20} /> }, // Changed label and icon (icon is optional)
-    // { label: "AI Insights", icon: <MdInsights size={20} /> }, // This was the old line
-    { label: "Performance", icon: <MdTrendingUp size={20} /> },
+    { label: "Search", icon: <MdSearch size={20} /> }, // Moved "Search" here
+    { label: "Admin Panel", icon: <MdAdminPanelSettings size={20} /> },
     { label: "Notifications", icon: <MdNotifications size={20} /> },
   ];
 
@@ -76,8 +76,8 @@ export function Sidebar({ currentPage, setCurrentPage, collapsed, setCollapsed }
             label={item.label}
             icon={item.icon}
             collapsed={collapsed}
-            active={currentPage === item.label} // This will now correctly check for "Admin Panel"
-            onClick={setCurrentPage} // This will now pass "Admin Panel" when clicked
+            active={currentPage === item.label}
+            onClick={setCurrentPage}
           />
         ))}
       </nav>
