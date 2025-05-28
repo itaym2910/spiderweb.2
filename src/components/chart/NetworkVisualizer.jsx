@@ -55,7 +55,7 @@ const NetworkVisualizer = ({ theme }) => {
     const palette = {
       bg: isDark ? "#1f2937" : "#ffffff",
       link: isDark ? "#94a3b8" : "#6b7280",
-      node: isDark ? "#29c6e0" : "#2563eb",
+      node: isDark ? "#29c6e0" : "#29c6e0",
       stroke: isDark ? "#60a5fa" : "#1d4ed8",
       label: isDark ? "#ffffff" : "#1f2937",
     };
