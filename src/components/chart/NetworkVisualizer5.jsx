@@ -9,13 +9,16 @@ const NetworkVisualizer5 = ({ theme }) => {
   const svgRef = useRef();
 
   useEffect(() => {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    const svgElement = svgRef.current;
+    if (!svgElement) return;
+
+    const width = svgElement.clientWidth || window.innerWidth;
+    const height = svgElement.clientHeight || window.innerHeight;
+
     const nodes = structuredClone(NODES5);
     const links = structuredClone(LINKS5);
-    const NODE_GROUPS = getNodeGroups(nodes); // will pick up 4 zones
+    const NODE_GROUPS = getNodeGroups(nodes);
 
-    // position nodes along tangents exactly as before
     const nodeMap = {};
     NODE_GROUPS.forEach((zone) => {
       const zoneNodes = nodes.filter((n) => n.zone === zone.id);
@@ -35,7 +38,6 @@ const NetworkVisualizer5 = ({ theme }) => {
     });
 
     const isDark = theme === "dark";
-
     const palette = {
       bg: isDark ? "#1f2937" : "#ffffff",
       link: isDark ? "#94a3b8" : "#6b7280",
@@ -45,21 +47,23 @@ const NetworkVisualizer5 = ({ theme }) => {
     };
 
     const svg = d3
-      .select(svgRef.current)
+      .select(svgElement)
       .attr("width", width)
       .attr("height", height)
       .style("background-color", palette.bg);
 
     svg.selectAll("*").remove();
-    const tooltipLayer = svg.append("g"),
-      zoomLayer = svg.append("g");
+    const tooltipLayer = svg.append("g");
+    const zoomLayer = svg.append("g");
 
-    svg.call(
-      d3
-        .zoom()
-        .scaleExtent([0.5, 4])
-        .on("zoom", ({ transform }) => zoomLayer.attr("transform", transform))
-    );
+    const zoomBehavior = d3
+      .zoom()
+      .scaleExtent([0.05, 8]) // Allow even more zoom out if needed
+      .on("zoom", ({ transform }) => {
+        zoomLayer.attr("transform", transform);
+      });
+
+    svg.call(zoomBehavior);
 
     const { link, linkHover, node, label, filteredLinks } = renderCoreDevices(
       zoomLayer,
@@ -92,6 +96,66 @@ const NetworkVisualizer5 = ({ theme }) => {
       .attr("y1", (d) => linkPositionFromEdges(d).y1)
       .attr("x2", (d) => linkPositionFromEdges(d).x2)
       .attr("y2", (d) => linkPositionFromEdges(d).y2);
+
+    // --- Calculate and Apply Initial Transform to Center Content ---
+    if (nodes.length > 0) {
+      let minX = Infinity,
+        maxX = -Infinity,
+        minY = Infinity,
+        maxY = -Infinity;
+
+      nodes.forEach((n) => {
+        if (n.x < minX) minX = n.x;
+        if (n.x > maxX) maxX = n.x;
+        if (n.y < minY) minY = n.y;
+        if (n.y > maxY) maxY = n.y;
+      });
+
+      const dataWidth = maxX - minX;
+      const dataHeight = maxY - minY;
+      const dataCenterX = minX + dataWidth / 2;
+      const dataCenterY = minY + dataHeight / 2;
+
+      // --- ADJUSTMENTS FOR ZOOM AND POSITION ---
+      const zoomOutFactor = 0.9; // e.g., 0.7 means zoom out to 70% of the auto-fit scale
+      const verticalScreenOffset = 9; // e.g., 50 pixels down from the center
+
+      // Padding: adjust as needed, or make it dependent on the zoomOutFactor
+      const paddingFactor = 0.15; // e.g. 15% padding
+      const padding = Math.min(width, height) * paddingFactor;
+      const viewWidth = width - 2 * padding;
+      const viewHeight = height - 2 * padding;
+
+      let k = 1;
+
+      if (dataWidth > 0 && dataHeight > 0) {
+        k = Math.min(viewWidth / dataWidth, viewHeight / dataHeight);
+      } else if (dataWidth > 0) {
+        k = viewWidth / dataWidth;
+      } else if (dataHeight > 0) {
+        k = viewHeight / dataHeight;
+      }
+
+      // Apply the zoom out factor
+      k *= zoomOutFactor;
+
+      const [minScale, maxScale] = zoomBehavior.scaleExtent();
+      k = Math.max(minScale, Math.min(maxScale, k));
+
+      // Calculate translation to center the content
+      let tx = width / 2 - dataCenterX * k;
+      let ty = height / 2 - dataCenterY * k;
+
+      // Apply the vertical offset (shifts the content down on the screen)
+      ty += verticalScreenOffset;
+
+      const initialTransform = d3.zoomIdentity.translate(tx, ty).scale(k);
+      svg.call(zoomBehavior.transform, initialTransform);
+
+    } else {
+      svg.call(zoomBehavior.transform, d3.zoomIdentity);
+    }
+    // --- End Initial Transform ---
 
     requestAnimationFrame(() =>
       setupInteractions({ link, linkHover, filteredLinks, node, tooltip })
