@@ -141,13 +141,13 @@ export function DashboardPage() {
             value="l_network"
             className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-900 data-[state=active]:shadow-sm"
           >
-            Libot
+            L-chart
           </TabsTrigger>
           <TabsTrigger
             value="p_network"
             className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-900 data-[state=active]:shadow-sm"
           >
-            Pikudim
+            P-chart
           </TabsTrigger>
         </TabsList>
         <TabsContent value="table">
