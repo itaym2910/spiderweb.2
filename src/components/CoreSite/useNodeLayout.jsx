@@ -1,7 +1,7 @@
 export function useNodeLayout(width, height) {
   const centerX = width / 2;
   const centerY = height / 3;
-  const spacing = 160;
+  const spacing = 100;
 
   const nodes = [
     { id: "Node 1", x: centerX - spacing, y: centerY - spacing },

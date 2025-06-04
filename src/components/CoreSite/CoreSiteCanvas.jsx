@@ -3,19 +3,24 @@ import React, { useEffect } from "react";
 import * as d3 from "d3";
 import { linkPositionFromEdges } from "./drawHelpers";
 
-export default function ZoneCanvas({
+export default function CoreSiteCanvas({
   svgRef,
   node4Ref,
   nodes,
   links,
   centerX,
   centerY,
+  width,
+  height,
 }) {
   useEffect(() => {
+    if (!svgRef.current || width === 0 || height === 0) {
+      return;
+    }
     const svg = d3
       .select(svgRef.current)
-      .attr("width", window.innerWidth)
-      .attr("height", window.innerHeight)
+      .attr("width", width)
+      .attr("height", height)
       .style("background-color", "#0f172a");
 
     svg.selectAll("*").remove();
@@ -26,14 +31,14 @@ export default function ZoneCanvas({
       .append("circle")
       .attr("cx", centerX)
       .attr("cy", centerY)
-      .attr("r", 250)
+      .attr("r", 150)
       .attr("fill", "#38bdf8")
       .attr("fill-opacity", 0.12);
 
     zoomLayer
       .append("text")
       .attr("x", centerX)
-      .attr("y", centerY - 270)
+      .attr("y", centerY - 200)
       .text("Zone A")
       .attr("fill", "#ffffff")
       .attr("font-size", "18px")
@@ -95,7 +100,6 @@ export default function ZoneCanvas({
           .attr("stroke-width", 2);
       });
 
-    // Nodes
     zoomLayer
       .append("g")
       .selectAll("circle.node")
@@ -109,7 +113,6 @@ export default function ZoneCanvas({
       .attr("stroke", "#60a5fa")
       .attr("stroke-width", 2);
 
-    // Node labels
     zoomLayer
       .append("g")
       .selectAll("text")
@@ -123,8 +126,19 @@ export default function ZoneCanvas({
       .attr("text-anchor", "middle")
       .attr("dy", ".35em");
 
+    // This assignment should still work as nodes data structure is the same
+    if (nodes && nodes.length > 0) {
+      const foundNode = nodes.find((n) => n.id === "Node 4");
+      if (foundNode) {
+        node4Ref.current = foundNode;
+      } else {
+        console.warn("[CoreSiteCanvas] Node 4 not found in nodes data");
+        node4Ref.current = null; // Or handle as appropriate
+      }
+    }
+
     node4Ref.current = nodes.find((n) => n.id === "Node 4");
-  }, [svgRef, node4Ref, nodes, links, centerX, centerY]);
+  }, [svgRef, node4Ref, nodes, links, centerX, centerY, width, height]);
 
   return null;
 }
