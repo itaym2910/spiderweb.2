@@ -1,9 +1,8 @@
-// components/ButtonBar.jsx
 import React from "react";
 import * as d3 from "d3";
 import { getEdgePoint } from "./drawHelpers";
 
-export default function ButtonBar({ svgRef, node4Ref, buttonRefs }) {
+export default function SitesBar({ svgRef, node4Ref, siteRefs }) {
   const handleHover = (hovered) => {
     d3.select(svgRef.current)
       .selectAll("circle.node")
@@ -18,7 +17,7 @@ export default function ButtonBar({ svgRef, node4Ref, buttonRefs }) {
       {Array.from({ length: 80 }).map((_, i) => (
         <button
           key={`btn-${i}`}
-          ref={(el) => (buttonRefs.current[i] = el)}
+          ref={(el) => (siteRefs.current[i] = el)}
           onMouseEnter={(e) => {
             handleHover(true);
             const svg = d3.select(svgRef.current);
@@ -60,7 +59,7 @@ export default function ButtonBar({ svgRef, node4Ref, buttonRefs }) {
             border: "2px solid #60a5fa",
           }}
         >
-          Button {i + 1}
+          site {i + 1}
         </button>
       ))}
     </div>

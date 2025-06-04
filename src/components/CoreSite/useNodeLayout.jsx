@@ -1,4 +1,3 @@
-// utils/useNodeLayout.js
 export function useNodeLayout(width, height) {
   const centerX = width / 2;
   const centerY = height / 3;
