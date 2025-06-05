@@ -1,6 +1,6 @@
 // App.js
 import React, { useState } from "react";
-import { BrowserRouter } from "react-router-dom"; // Import BrowserRouter
+import { BrowserRouter } from "react-router-dom";
 import { Sidebar } from "./components/ui/sidebar";
 import MainPage from "./MainPage";
 
@@ -15,8 +15,6 @@ function App() {
 
   return (
     <BrowserRouter>
-      {" "}
-      {/* Wrap with BrowserRouter */}
       <div className="flex min-h-[100vh] bg-gray-100 dark:bg-gray-950 text-gray-800 dark:text-gray-100 transition-colors">
         <Sidebar
           currentPage={currentPage}
@@ -30,7 +28,6 @@ function App() {
               {pageTitle}
             </h1>
           </header>
-          {/* MainPage will now operate within the routing context */}
           <MainPage currentPage={currentPage} />
         </main>
       </div>

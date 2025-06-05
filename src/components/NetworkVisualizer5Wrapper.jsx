@@ -8,7 +8,7 @@ const NetworkVisualizer5Wrapper = ({ data, theme }) => {
   const navigate = useNavigate();
 
   const handleZoneClick = (zoneId) => {
-    navigate(`zone/${zoneId}`);
+    navigate(`p-zone/${zoneId}`); // Use the new prefixed path
   };
 
   return (

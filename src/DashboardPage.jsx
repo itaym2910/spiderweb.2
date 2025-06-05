@@ -12,7 +12,6 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import NetworkVisualizerWrapper from "./components/NetworkVisualizerWrapper"; // Ensure this path is correct
 import NetworkVisualizer5Wrapper from "./components/NetworkVisualizer5Wrapper";
-import NetworkVisualizer5 from "./components/chart/NetworkVisualizer5"; // Ensure this path is correct
 import CoreSitePage from "./components/CoreSite/CoreSitePage"; // Ensure this path is correct
 import { data } from "./dataMainLines";
 
@@ -35,26 +34,81 @@ export function DashboardPage() {
     return () => observer.disconnect();
   }, []);
 
-  const handleTabChange = (value) => {
-    // If navigating away from a sub-route (like /zone/..), reset to the tab's base.
-    // This handles both L-chart and P-chart if they use similar sub-route patterns.
-    if (
-      !["l_network", "p_network"].includes(value) &&
-      location.pathname.includes("/zone/")
-    ) {
-      navigate("."); // Navigate to the current base path for DashboardPage
-    } else if (
-      value === "l_network" &&
-      location.pathname.includes("/p_network_base_for_example/zone/")
-    ) {
-      // If you had distinct base paths for L and P chart routes, you'd handle that here
-      // For now, assuming `navigate('zone/...')` is relative to the current tab's implicit base.
-    } else if (
-      value === "p_network" &&
-      location.pathname.includes("/l_network_base_for_example/zone/")
-    ) {
-      // similar to above
+  const handleTabChange = (newlySelectedTabValue) => {
+    const currentPath = location.pathname;
+    const isOnLZoneDetail = currentPath.includes("/l-zone/");
+    const isOnPZoneDetail = currentPath.includes("/p-zone/");
+
+    console.log(
+      `------------------------------------------------------\n` +
+        `[handleTabChange] START\n` +
+        `  New Tab Value: ${newlySelectedTabValue}\n` +
+        `  Current Path (location.pathname): ${currentPath}\n` +
+        `  Is on L-Zone Detail: ${isOnLZoneDetail}\n` +
+        `  Is on P-Zone Detail: ${isOnPZoneDetail}`
+    );
+
+    if (isOnLZoneDetail || isOnPZoneDetail) {
+      let calculatedBasePath = currentPath; // Start with current path
+
+      if (isOnLZoneDetail) {
+        const parts = currentPath.split("/l-zone/");
+        calculatedBasePath = parts[0];
+        console.log(
+          `  L-Zone detected. Path parts: ${JSON.stringify(
+            parts
+          )}. Base part: ${calculatedBasePath}`
+        );
+      } else if (isOnPZoneDetail) {
+        const parts = currentPath.split("/p-zone/");
+        calculatedBasePath = parts[0];
+        console.log(
+          `  P-Zone detected. Path parts: ${JSON.stringify(
+            parts
+          )}. Base part: ${calculatedBasePath}`
+        );
+      }
+
+      // If splitting resulted in an empty string, DashboardPage is at the root.
+      // Or if the original path was just "/l-zone/" (no ID), parts[0] would be ""
+      if (calculatedBasePath === "" || calculatedBasePath === undefined) {
+        calculatedBasePath = "/";
+        console.log(
+          `  Calculated base path was empty or undefined, defaulting to "/"`
+        );
+      }
+      // Ensure it's a valid path, at least "/"
+      if (!calculatedBasePath.startsWith("/")) {
+        calculatedBasePath = "/" + calculatedBasePath; // Should not happen if logic is right
+      }
+
+      console.log(
+        `  Final Calculated Base Path to navigate to: "${calculatedBasePath}"`
+      );
+
+      if (calculatedBasePath === currentPath) {
+        console.warn(
+          `  WARNING: Attempting to navigate to the SAME path: "${currentPath}". No navigation will occur by router.`
+        );
+      } else {
+        console.log(`  ATTEMPTING NAVIGATION to: "${calculatedBasePath}"`);
+        try {
+          navigate(calculatedBasePath);
+          // NOTE: The URL change might not be reflected in `location.pathname` immediately in this same function call.
+          // It will trigger a re-render where `location.pathname` will be updated.
+          console.log(`  navigate("${calculatedBasePath}") CALLED.`);
+        } catch (e) {
+          console.error(`  ERROR during navigate call:`, e);
+        }
+      }
+    } else {
+      console.log(
+        `  Not on a zone detail page. No special navigation by handleTabChange.`
+      );
     }
+    console.log(
+      `[handleTabChange] END\n------------------------------------------------------`
+    );
   };
 
   return (
@@ -145,14 +199,10 @@ export function DashboardPage() {
           </Card>
         </TabsContent>
 
-        {/* Tab Content for "L-chart" - THIS IS THE CORRECT ONE */}
-        <TabsContent value="l_network">
-          {/* Add a Card and sizing div similar to P-chart */}
+        <TabsContent value="l_network" key="l_network_content">
           <Card className="border dark:border-gray-700">
             <CardContent className="p-4">
               <div className="relative w-full h-[770px]">
-                {" "}
-                {/* This provides size and position:relative */}
                 <Routes>
                   <Route
                     index
@@ -160,18 +210,18 @@ export function DashboardPage() {
                       <NetworkVisualizerWrapper data={data} theme={theme} />
                     }
                   />
-                  <Route path="zone/:zoneId" element={<CoreSitePage />} />
+                  {/* Add a prefix for L-chart zones */}
+                  <Route path="l-zone/:zoneId" element={<CoreSitePage />} />
                 </Routes>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="p_network">
+        <TabsContent value="p_network" key="p_network_content">
           <Card className="border dark:border-gray-700">
             <CardContent className="p-4">
               <div className="relative w-full h-[770px]">
-                {/* Routes for content within the P-chart tab */}
                 <Routes>
                   <Route
                     index
@@ -179,8 +229,8 @@ export function DashboardPage() {
                       <NetworkVisualizer5Wrapper data={data} theme={theme} />
                     }
                   />
-
-                  <Route path="zone/:zoneId" element={<CoreSitePage />} />
+                  {/* Add a prefix for P-chart zones */}
+                  <Route path="p-zone/:zoneId" element={<CoreSitePage />} />
                 </Routes>
               </div>
             </CardContent>

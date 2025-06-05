@@ -7,9 +7,7 @@ const NetworkVisualizerWrapper = ({ data, theme }) => {
   const navigate = useNavigate();
 
   const handleZoneClick = (zoneId) => {
-    // Navigate to the CoreSitePage route for the specific zone
-    // The path is relative to where <Routes> is defined in DashboardPage
-    navigate(`zone/${zoneId}`);
+    navigate(`l-zone/${zoneId}`); // Use the new prefixed path
   };
 
   return (
