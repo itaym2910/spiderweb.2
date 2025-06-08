@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
-import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
-import { Card, CardContent } from "./components/ui/card";
+import React, { useState, useEffect } from "react"; // Make sure all necessary imports are here
+import { useNavigate, useLocation, Routes, Route } from "react-router-dom";
+// Import your UI components (Card, Table, Tabs etc.)
+import { Card, CardContent } from "./components/ui/card"; // Adjust path if necessary
 import {
   Table,
   TableHead,
@@ -8,12 +9,13 @@ import {
   TableBody,
   TableRow,
   TableCell,
-} from "./components/ui/table";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
-import NetworkVisualizerWrapper from "./components/NetworkVisualizerWrapper"; // Ensure this path is correct
-import NetworkVisualizer5Wrapper from "./components/NetworkVisualizer5Wrapper";
-import CoreSitePage from "./components/CoreSite/CoreSitePage"; // Ensure this path is correct
-import { data } from "./dataMainLines";
+} from "./components/ui/table"; // Adjust path
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs"; // Your custom tabs
+// Import your page/visualizer components
+import NetworkVisualizerWrapper from "./components/NetworkVisualizerWrapper"; // Adjust path
+import NetworkVisualizer5Wrapper from "./components/NetworkVisualizer5Wrapper"; // Adjust path
+import CoreSitePage from "./components/CoreSite/CoreSitePage"; // Adjust path
+import { data } from "./dataMainLines"; // Adjust path
 
 export function DashboardPage() {
   const [theme, setTheme] = useState(
@@ -23,6 +25,7 @@ export function DashboardPage() {
   const location = useLocation();
 
   useEffect(() => {
+    // Theme observer logic (keep as is)
     const observer = new MutationObserver(() => {
       const isDark = document.documentElement.classList.contains("dark");
       setTheme(isDark ? "dark" : "light");
@@ -34,113 +37,62 @@ export function DashboardPage() {
     return () => observer.disconnect();
   }, []);
 
+  // eslint-disable-next-line no-unused-vars
   const handleTabChange = (newlySelectedTabValue) => {
+    // newlySelectedTabValue is not strictly needed by this logic anymore but kept for consistency if your Tabs component passes it
     const currentPath = location.pathname;
     const isOnLZoneDetail = currentPath.includes("/l-zone/");
     const isOnPZoneDetail = currentPath.includes("/p-zone/");
 
-    console.log(
-      `------------------------------------------------------\n` +
-        `[handleTabChange] START\n` +
-        `  New Tab Value: ${newlySelectedTabValue}\n` +
-        `  Current Path (location.pathname): ${currentPath}\n` +
-        `  Is on L-Zone Detail: ${isOnLZoneDetail}\n` +
-        `  Is on P-Zone Detail: ${isOnPZoneDetail}`
-    );
-
     if (isOnLZoneDetail || isOnPZoneDetail) {
-      let calculatedBasePath = currentPath; // Start with current path
+      let calculatedBasePath = currentPath;
 
       if (isOnLZoneDetail) {
         const parts = currentPath.split("/l-zone/");
         calculatedBasePath = parts[0];
-        console.log(
-          `  L-Zone detected. Path parts: ${JSON.stringify(
-            parts
-          )}. Base part: ${calculatedBasePath}`
-        );
       } else if (isOnPZoneDetail) {
         const parts = currentPath.split("/p-zone/");
         calculatedBasePath = parts[0];
-        console.log(
-          `  P-Zone detected. Path parts: ${JSON.stringify(
-            parts
-          )}. Base part: ${calculatedBasePath}`
-        );
       }
 
-      // If splitting resulted in an empty string, DashboardPage is at the root.
-      // Or if the original path was just "/l-zone/" (no ID), parts[0] would be ""
       if (calculatedBasePath === "" || calculatedBasePath === undefined) {
         calculatedBasePath = "/";
-        console.log(
-          `  Calculated base path was empty or undefined, defaulting to "/"`
-        );
       }
-      // Ensure it's a valid path, at least "/"
+
+      // This check might be redundant if the above logic always produces a valid start,
+      // but it's a small safeguard.
       if (!calculatedBasePath.startsWith("/")) {
-        calculatedBasePath = "/" + calculatedBasePath; // Should not happen if logic is right
+        calculatedBasePath = "/" + calculatedBasePath;
       }
 
-      console.log(
-        `  Final Calculated Base Path to navigate to: "${calculatedBasePath}"`
-      );
-
-      if (calculatedBasePath === currentPath) {
-        console.warn(
-          `  WARNING: Attempting to navigate to the SAME path: "${currentPath}". No navigation will occur by router.`
-        );
-      } else {
-        console.log(`  ATTEMPTING NAVIGATION to: "${calculatedBasePath}"`);
+      if (calculatedBasePath !== currentPath) {
         try {
           navigate(calculatedBasePath);
-          // NOTE: The URL change might not be reflected in `location.pathname` immediately in this same function call.
-          // It will trigger a re-render where `location.pathname` will be updated.
-          console.log(`  navigate("${calculatedBasePath}") CALLED.`);
         } catch (e) {
-          console.error(`  ERROR during navigate call:`, e);
+          // You might still want to log critical errors in a production logging system
+          console.error("Navigation error in handleTabChange:", e);
         }
       }
-    } else {
-      console.log(
-        `  Not on a zone detail page. No special navigation by handleTabChange.`
-      );
     }
-    console.log(
-      `[handleTabChange] END\n------------------------------------------------------`
-    );
+    // No 'else' block needed for navigation if not on a detail page;
+    // the tab switch itself will render the new content at the current URL.
   };
 
   return (
     <div className="bg-white dark:bg-gray-800 p-0 md:p-0 rounded-lg shadow-md">
       <Tabs
         defaultValue="table"
-        className="w-full"
+        className="w-full" // This className should now be applied by your custom Tabs
         onValueChange={handleTabChange}
       >
-        <TabsList className="mb-4 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
-          <TabsTrigger
-            value="table"
-            className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-900 data-[state=active]:shadow-sm"
-          >
-            Main Lines
-          </TabsTrigger>
-          <TabsTrigger
-            value="l_network"
-            className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-900 data-[state=active]:shadow-sm"
-          >
-            L-chart
-          </TabsTrigger>
-          <TabsTrigger
-            value="p_network"
-            className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-900 data-[state=active]:shadow-sm"
-          >
-            P-chart
-          </TabsTrigger>
+        <TabsList /* ... */>
+          <TabsTrigger value="table">Main Lines</TabsTrigger>
+          <TabsTrigger value="l_network">L-chart</TabsTrigger>
+          <TabsTrigger value="p_network">P-chart</TabsTrigger>
         </TabsList>
 
-        {/* Tab Content for "Main Lines" */}
         <TabsContent value="table">
+          {/* ... Table content ... */}
           <Card className="border dark:border-gray-700">
             <CardContent className="overflow-x-auto p-4">
               <Table>
@@ -210,7 +162,6 @@ export function DashboardPage() {
                       <NetworkVisualizerWrapper data={data} theme={theme} />
                     }
                   />
-                  {/* Add a prefix for L-chart zones */}
                   <Route path="l-zone/:zoneId" element={<CoreSitePage />} />
                 </Routes>
               </div>
@@ -229,7 +180,6 @@ export function DashboardPage() {
                       <NetworkVisualizer5Wrapper data={data} theme={theme} />
                     }
                   />
-                  {/* Add a prefix for P-chart zones */}
                   <Route path="p-zone/:zoneId" element={<CoreSitePage />} />
                 </Routes>
               </div>

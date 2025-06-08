@@ -1,20 +1,24 @@
 // src/NetworkVisualizerWrapper.jsx
-import React from "react";
+import React, { useCallback } from "react"; // Import useCallback
 import { useNavigate } from "react-router-dom";
 import NetworkVisualizer from "./chart/NetworkVisualizer";
 
 const NetworkVisualizerWrapper = ({ data, theme }) => {
   const navigate = useNavigate();
 
-  const handleZoneClick = (zoneId) => {
-    navigate(`l-zone/${zoneId}`); // Use the new prefixed path
-  };
+  // Stabilize handleZoneClick with useCallback
+  const handleZoneClick = useCallback(
+    (zoneId) => {
+      navigate(`l-zone/${zoneId}`);
+    },
+    [navigate]
+  ); // navigate is stable
 
   return (
     <NetworkVisualizer
-      data={data} // Pass data through, even if NetworkVisualizer uses its own constants
+      data={data}
       theme={theme}
-      onZoneClick={handleZoneClick} // Pass the click handler
+      onZoneClick={handleZoneClick}
     />
   );
 };

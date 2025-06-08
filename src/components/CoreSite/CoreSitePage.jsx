@@ -14,18 +14,6 @@ export default function CoreSitePage() {
 
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
-  // Determine network type based on the route
-  // Assuming your routes in DashboardPage are now "/l-zone/:zoneId" and "/p-zone/:zoneId"
-  // And that DashboardPage itself is rendered at a path that allows these relative paths.
-  // For example, if DashboardPage is at "/", these will be matched directly.
-  // If DashboardPage is at "/dashboard", then the full paths would be "/dashboard/l-zone/:zoneId", etc.
-  // useMatch will match against the full current URL.
-  // For this to work correctly with nested routes, ensure the path passed to useMatch is relative
-  // to the <Routes> block where CoreSitePage is defined, or use absolute paths.
-  // Given our setup, relative paths from the parent <Routes> in DashboardPage are fine.
-
-  // Let's assume the parent <Routes> in DashboardPage handles the base path.
-  // So, we match against the specific part of the path.
   const isLZoneMatch = useMatch("l-zone/:zoneId"); // Matches if current path segment is l-zone/:zoneId
   const isPZoneMatch = useMatch("p-zone/:zoneId"); // Matches if current path segment is p-zone/:zoneId
 
