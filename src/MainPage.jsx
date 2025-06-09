@@ -5,20 +5,31 @@ import { AlertsPage } from "./AlertsPage";
 import { AdminPanelPage } from "./AdminPanelPage";
 import SearchPage from "./SearchPage";
 
-// Receive isFullscreen and isSidebarCollapsed from App.js
-function MainPage({ currentPage, isFullscreen, isSidebarCollapsed }) {
-  // console.log("Current page in MainPage:", currentPage);
-  // console.log("Is Fullscreen in MainPage:", isFullscreen);
-  // console.log("Is Sidebar Collapsed in MainPage:", isSidebarCollapsed);
-
+function MainPage({
+  currentPage,
+  isFullscreen,
+  isSidebarCollapsed,
+  // --- RECEIVE PROPS FOR FULLSCREEN BUTTON ---
+  toggleFullscreen,
+  isAppDarkTheme,
+  enterFullscreenButtonClasses,
+  exitFullscreenButtonClasses,
+  // --- END RECEIVE PROPS ---
+}) {
   const renderContent = () => {
     switch (currentPage) {
       case "Dashboard":
-        // Pass isFullscreen and isSidebarCollapsed to DashboardPage
         return (
           <DashboardPage
-            isAppFullscreen={isFullscreen}
+            isAppFullscreen={isFullscreen} // Renamed prop in DashboardPage
             isSidebarCollapsed={isSidebarCollapsed}
+            // --- PASS PROPS TO DASHBOARDPAGE ---
+            toggleAppFullscreen={toggleFullscreen} // Pass the toggle function
+            isFullscreenActive={isFullscreen} // Pass the current state
+            isAppDarkTheme={isAppDarkTheme}
+            enterFullscreenButtonClasses={enterFullscreenButtonClasses}
+            exitFullscreenButtonClasses={exitFullscreenButtonClasses}
+            // --- END PASS PROPS ---
           />
         );
       case "Search":
@@ -45,6 +56,13 @@ function MainPage({ currentPage, isFullscreen, isSidebarCollapsed }) {
           <DashboardPage
             isAppFullscreen={isFullscreen}
             isSidebarCollapsed={isSidebarCollapsed}
+            // --- PASS PROPS TO DASHBOARDPAGE (DEFAULT) ---
+            toggleAppFullscreen={toggleFullscreen}
+            isFullscreenActive={isFullscreen}
+            isAppDarkTheme={isAppDarkTheme}
+            enterFullscreenButtonClasses={enterFullscreenButtonClasses}
+            exitFullscreenButtonClasses={exitFullscreenButtonClasses}
+            // --- END PASS PROPS (DEFAULT) ---
           />
         );
     }
