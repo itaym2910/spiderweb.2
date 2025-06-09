@@ -1,5 +1,5 @@
 // src/components/CoreSite/SiteDetailPopup.jsx
-import React, { useState } from "react"; // Removed useEffect as showPopup is removed
+import React, { useState, useEffect } from "react";
 import {
   MdKeyboardArrowDown,
   MdKeyboardArrowUp,
@@ -14,11 +14,10 @@ const DetailItem = ({ label, value, labelColor, valueColor }) => (
 );
 
 export default function SiteDetailPopup({
-  isOpen, // This prop now controls the animation trigger
+  isOpen,
   onClose,
   siteData,
-  theme = "dark",
-  // --- Props for stacking ---
+  // theme, // REMOVED: 'theme' prop is no longer needed here
   topPosition,
   zIndex,
   maxWidthVh,
@@ -26,28 +25,53 @@ export default function SiteDetailPopup({
   popupRightOffsetPx,
 }) {
   const [isInterfaceDetailsOpen, setIsInterfaceDetailsOpen] = useState(false);
-  // const [showPopup, setShowPopup] = useState(false); // --- REMOVED THIS LINE ---
+
+  const [currentTheme, setCurrentTheme] = useState(
+    document.documentElement.classList.contains("dark") ? "dark" : "light"
+  );
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setCurrentTheme(
+        document.documentElement.classList.contains("dark") ? "dark" : "light"
+      );
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   if (!siteData) return null;
 
+  // All styling decisions now use 'currentTheme'
   const popupBg =
-    theme === "dark"
+    currentTheme === "dark"
       ? "bg-gray-800 border-gray-700"
       : "bg-white border-gray-300";
-  const textColor = theme === "dark" ? "text-gray-100" : "text-gray-900";
-  const labelColor = theme === "dark" ? "text-gray-400" : "text-gray-500";
+  // ... other style variables using currentTheme ...
+  const textColor = currentTheme === "dark" ? "text-gray-100" : "text-gray-900";
+  const labelColor =
+    currentTheme === "dark" ? "text-gray-400" : "text-gray-500";
   const valueColor =
-    theme === "dark" ? "text-white font-medium" : "text-gray-800 font-medium";
+    currentTheme === "dark"
+      ? "text-white font-medium"
+      : "text-gray-800 font-medium";
   const closeButtonHoverBg =
-    theme === "dark" ? "hover:bg-gray-700" : "hover:bg-gray-200";
-  const borderColor = theme === "dark" ? "border-gray-600" : "border-gray-300";
-  const toggleButtonColor =
-    theme === "dark"
-      ? "text-blue-400 hover:text-blue-300"
-      : "text-blue-600 hover:text-blue-700";
+    currentTheme === "dark" ? "hover:bg-gray-700" : "hover:bg-gray-200";
+  const borderColor =
+    currentTheme === "dark" ? "border-gray-600" : "border-gray-300";
 
-  const siteNameForButton = siteData.name || "Site";
-  const buttonText = `${siteNameForButton} Details`;
+  const bottomToggleButtonBg =
+    currentTheme === "dark"
+      ? "bg-gray-700 hover:bg-gray-600"
+      : "bg-gray-200 hover:bg-gray-300";
+  const bottomToggleButtonText =
+    currentTheme === "dark" ? "text-blue-400" : "text-blue-600";
+
+  const siteIdentifier = siteData.name || `Site ${siteData.id}`;
+  const buttonText = `${siteIdentifier} Details`;
 
   const toggleInterfaceDetails = () => {
     setIsInterfaceDetailsOpen(!isInterfaceDetailsOpen);
@@ -61,11 +85,16 @@ export default function SiteDetailPopup({
     zIndex: zIndex,
   };
 
+  const scrollbarClasses =
+    currentTheme === "dark"
+      ? "dark-scrollbar dark-scrollbar-firefox"
+      : "light-scrollbar light-scrollbar-firefox";
+
   return (
     <div
       style={dynamicStyles}
       className={`fixed ${popupBg} shadow-2xl p-6 flex flex-col 
-                 transform transition-transform duration-300 ease-in-out 
+                 transform transition-all duration-300 ease-in-out 
                  border ${borderColor} rounded-lg pointer-events-auto
                  ${
                    isOpen
@@ -77,9 +106,7 @@ export default function SiteDetailPopup({
       aria-labelledby={`site-detail-popup-title-${siteData.id}`}
     >
       {/* Header */}
-      <div
-        className={`flex justify-between items-center mb-6 pb-4 border-b ${borderColor}`}
-      >
+      <div className={`flex justify-between items-center mb-4 pb-4 shrink-0`}>
         <button
           id={`site-detail-popup-title-${siteData.id}`}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 truncate"
@@ -90,7 +117,7 @@ export default function SiteDetailPopup({
         <button
           onClick={onClose}
           className={`p-1.5 rounded-full ${textColor} ${closeButtonHoverBg} focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-            theme === "dark"
+            currentTheme === "dark"
               ? "focus:ring-offset-gray-800"
               : "focus:ring-offset-white"
           } focus:ring-blue-500 flex-shrink-0`}
@@ -100,14 +127,11 @@ export default function SiteDetailPopup({
         </button>
       </div>
 
-      {/* Content */}
-      <div className="space-y-4 flex-1 overflow-y-auto pr-2">
-        <DetailItem
-          label="Site Name"
-          value={siteData.name}
-          labelColor={labelColor}
-          valueColor={valueColor}
-        />
+      {/* Scrollable Content Area */}
+      <div
+        className={`flex-1 overflow-y-auto space-y-4 pr-5 min-h-0 relative ${scrollbarClasses}`}
+      >
+        {/* ... content ... */}
         <DetailItem
           label="Link Status"
           value={siteData.linkStatus}
@@ -120,43 +144,18 @@ export default function SiteDetailPopup({
           labelColor={labelColor}
           valueColor={valueColor}
         />
-        <DetailItem
-          label="Bandwidth"
-          value={siteData.bandwidth}
-          labelColor={labelColor}
-          valueColor={valueColor}
-        />
-
-        <div
-          className={`pt-3 mt-3 border-t ${borderColor} flex justify-center`}
-        >
-          <button
-            onClick={toggleInterfaceDetails}
-            className={`p-1 rounded-full focus:outline-none focus:ring-2 focus:ring-opacity-50 ${
-              theme === "dark"
-                ? "focus:ring-blue-500 hover:bg-gray-700"
-                : "focus:ring-blue-500 hover:bg-gray-100"
-            } ${toggleButtonColor}`}
-            aria-expanded={isInterfaceDetailsOpen}
-            aria-controls={`link-interface-details-section-${siteData.id}`}
-            aria-label={
-              isInterfaceDetailsOpen
-                ? "Hide link interface details"
-                : "Show link interface details"
-            }
-          >
-            {isInterfaceDetailsOpen ? (
-              <MdKeyboardArrowUp size={24} />
-            ) : (
-              <MdKeyboardArrowDown size={24} />
-            )}
-          </button>
+        <div className={`flex justify-between items-center pt-3`}>
+          <DetailItem
+            label="Bandwidth"
+            value={siteData.bandwidth}
+            labelColor={labelColor}
+            valueColor={valueColor}
+          />
         </div>
-
         {isInterfaceDetailsOpen && (
           <div
             id={`link-interface-details-section-${siteData.id}`}
-            className="space-y-3 pt-2"
+            className="space-y-4 pt-2"
           >
             <DetailItem
               label="MPLS"
@@ -232,6 +231,35 @@ export default function SiteDetailPopup({
             />
           </div>
         )}
+        <div className="h-0" /> {/* Spacer div */}
+        <div
+          className={`sticky bottom-4 w-full flex justify-end pr-0 pointer-events-none z-10`}
+        >
+          <button
+            onClick={toggleInterfaceDetails}
+            aria-expanded={isInterfaceDetailsOpen}
+            aria-controls={`link-interface-details-section-${siteData.id}`}
+            className={`p-2 rounded-full shadow-md pointer-events-auto
+                          focus:outline-none focus:ring-2 focus:ring-opacity-75
+                          ${bottomToggleButtonBg} ${bottomToggleButtonText}
+                          ${
+                            currentTheme === "dark"
+                              ? "focus:ring-blue-500"
+                              : "focus:ring-blue-600"
+                          }`}
+            aria-label={
+              isInterfaceDetailsOpen
+                ? "Hide link interface details"
+                : "Show link interface details"
+            }
+          >
+            {isInterfaceDetailsOpen ? (
+              <MdKeyboardArrowUp size={24} />
+            ) : (
+              <MdKeyboardArrowDown size={24} />
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );
