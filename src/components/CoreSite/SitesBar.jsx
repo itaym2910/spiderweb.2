@@ -7,20 +7,17 @@ export default function SitesBar({
   svgRef,
   node4Ref,
   siteRefs,
-  theme = "dark", // theme prop is already here, which is good
+  theme = "dark",
+  onSiteClick, // Add onSiteClick prop
 }) {
-  // Theme-dependent styles for the bar itself
-  // --- CHANGE THIS LINE ---
-  const barBgColor = "bg-transparent"; // Always transparent, regardless of theme
-  // --- END OF CHANGE ---
+  const barBgColor = "bg-transparent";
 
-  // Theme-dependent styles for buttons WITHIN the bar
-  const buttonDefaultBg = theme === "dark" ? "#29c6e0" : "#e0f2fe";
-  const buttonDefaultBorder = theme === "dark" ? "#60a5fa" : "#7dd3fc";
+  const buttonDefaultBg = theme === "dark" ? "#29c6e0" : "#e0f2fe"; // cyan-ish for dark, light-blue for light
+  const buttonDefaultBorder = theme === "dark" ? "#60a5fa" : "#7dd3fc"; // blue-ish for dark, lighter-blue for light
   const buttonDefaultText = theme === "dark" ? "text-white" : "text-sky-700";
 
-  const buttonHoverBg = theme === "dark" ? "#fde68a" : "#fef9c3";
-  const buttonHoverBorder = theme === "dark" ? "#facc15" : "#fde047";
+  const buttonHoverBg = theme === "dark" ? "#fde68a" : "#fef9c3"; // yellow-ish for dark, light-yellow for light
+  const buttonHoverBorder = theme === "dark" ? "#facc15" : "#fde047"; // amber for dark, lighter-amber for light
   const buttonHoverText =
     theme === "dark" ? "text-slate-800" : "text-yellow-700";
 
@@ -47,28 +44,51 @@ export default function SitesBar({
         ? buttonHoverBorder
         : buttonDefaultBorder;
 
-      const defaultTextClass = buttonDefaultText.split(" ")[0];
-      const hoverTextClass = buttonHoverText.split(" ")[0];
+      // Ensure classList is available and classes are valid strings
+      const defaultTextClass = buttonDefaultText.split(" ")[0]; // Take first class if multiple
+      const hoverTextClass = buttonHoverText.split(" ")[0]; // Take first class if multiple
 
       if (hovered) {
-        if (defaultTextClass) targetButton.classList.remove(defaultTextClass);
-        if (hoverTextClass) targetButton.classList.add(hoverTextClass);
+        if (
+          defaultTextClass &&
+          targetButton.classList.contains(defaultTextClass)
+        ) {
+          targetButton.classList.remove(defaultTextClass);
+        }
+        if (
+          hoverTextClass &&
+          !targetButton.classList.contains(hoverTextClass)
+        ) {
+          targetButton.classList.add(hoverTextClass);
+        }
       } else {
-        if (hoverTextClass) targetButton.classList.remove(hoverTextClass);
-        if (defaultTextClass) targetButton.classList.add(defaultTextClass);
+        if (hoverTextClass && targetButton.classList.contains(hoverTextClass)) {
+          targetButton.classList.remove(hoverTextClass);
+        }
+        if (
+          defaultTextClass &&
+          !targetButton.classList.contains(defaultTextClass)
+        ) {
+          targetButton.classList.add(defaultTextClass);
+        }
       }
     }
   };
 
   return (
     <div
-      className={`absolute bottom-0 w-full px-4 py-4 flex flex-wrap justify-center gap-3 ${barBgColor} z-10 shadow-upwards`}
+      className={`absolute bottom-0 left-0 w-full px-4 py-4 flex flex-wrap justify-center items-center gap-3 ${barBgColor} z-10 shadow-upwards`}
     >
-      {/* ... rest of the component ... */}
       {Array.from({ length: 80 }).map((_, i) => (
         <button
           key={`btn-${i}`}
           ref={(el) => (siteRefs.current[i] = el)}
+          onClick={() => {
+            // Add onClick handler
+            if (onSiteClick) {
+              onSiteClick(i, `Site ${i + 1}`); // Pass site index and a generated name
+            }
+          }}
           onMouseEnter={(e) => {
             handleHover(true, e.currentTarget);
             const svg = d3.select(svgRef.current);
@@ -88,7 +108,7 @@ export default function SitesBar({
               node4Ref.current.y,
               btnX,
               btnY,
-              60
+              60 // Assuming node radius is 60
             );
 
             svg
@@ -100,13 +120,15 @@ export default function SitesBar({
               .attr("y2", edge.y)
               .attr("stroke", connectorLineStroke)
               .attr("stroke-width", 3)
-              .lower();
+              .lower(); // draw line behind other svg elements if needed
           }}
           onMouseLeave={(e) => {
             handleHover(false, e.currentTarget);
             d3.select("#active-connector-line").remove();
           }}
-          className={`px-4 py-2 rounded ${buttonDefaultText} text-sm transition-colors duration-150 shadow-md`} // Individual buttons still have their shadow
+          className={`px-4 py-2 rounded ${buttonDefaultText} text-sm font-medium transition-all duration-150 shadow-md focus:outline-none focus:ring-2 focus:ring-opacity-50 ${
+            theme === "dark" ? "focus:ring-yellow-400" : "focus:ring-amber-500"
+          }`}
           style={{
             backgroundColor: buttonDefaultBg,
             border: `2px solid ${buttonDefaultBorder}`,
