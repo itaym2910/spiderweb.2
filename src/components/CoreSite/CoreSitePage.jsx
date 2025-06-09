@@ -68,14 +68,14 @@ export default function CoreSitePage({ theme = "dark" }) {
     navigate("..");
   };
 
-  const pageBgColor = theme === "dark" ? "bg-slate-900" : "bg-white";
+  const pageBgColor = theme === "dark" ? "bg-gray-800" : "bg-white";
   const loadingBgColor = theme === "dark" ? "bg-slate-800" : "bg-gray-100";
   const loadingTextColor = theme === "dark" ? "text-white" : "text-gray-700";
 
   const backButtonBg =
     theme === "dark"
-      ? "bg-gray-700 hover:bg-gray-600"
-      : "bg-gray-200 hover:bg-gray-300";
+      ? "bg-transparent hover:bg-gray-700"
+      : "bg-transparent hover:bg-gray-100";
   const backButtonText = theme === "dark" ? "text-white" : "text-gray-800";
 
   if (dimensions.width === 0 || dimensions.height === 0) {
@@ -94,7 +94,6 @@ export default function CoreSitePage({ theme = "dark" }) {
       ref={containerRef}
       className={`relative w-full h-full ${pageBgColor} overflow-hidden`}
     >
-      {/* Back Button */}
       <button
         onClick={handleBackToChart}
         className={`absolute top-3 left-3 z-20 px-3 py-1.5 rounded-md text-sm font-medium shadow-md
@@ -103,7 +102,7 @@ export default function CoreSitePage({ theme = "dark" }) {
                     focus:outline-none focus:ring-2 focus:ring-offset-2 
                     ${
                       theme === "dark"
-                        ? "focus:ring-blue-500 focus:ring-offset-slate-900"
+                        ? "focus:ring-blue-500 focus:ring-offset-gray-800"
                         : "focus:ring-blue-500 focus:ring-offset-white"
                     }`}
         title="Back to chart view"

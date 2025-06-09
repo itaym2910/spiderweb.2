@@ -22,7 +22,7 @@ export default function CoreSiteCanvas({
 
     // Theme-dependent colors
     const T = {
-      bgColor: theme === "dark" ? "#0f172a" : "#ffffff",
+      bgColor: theme === "dark" ? "#1f2937" : "#ffffff",
       zoneCircleFill: theme === "dark" ? "#38bdf8" : "#bae6fd", // Lighter blue for light mode
       zoneCircleOpacity: theme === "dark" ? 0.12 : 0.4,
       zoneLabelFill: theme === "dark" ? "#ffffff" : "#0c4a6e", // Darker blue/cyan for light mode text
