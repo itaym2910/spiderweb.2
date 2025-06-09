@@ -1,5 +1,5 @@
-// src/pages/MainLinesPage.jsx (or a similar path you prefer)
-// In src/FavLines.jsx
+import { useState } from "react";
+import { Star, ArrowUp, ArrowDown, XCircle } from "lucide-react"; // npm install lucide-react
 import {
   Table,
   TableHead,
@@ -7,172 +7,170 @@ import {
   TableBody,
   TableRow,
   TableCell,
-} from "./components/ui/table"; // Use './' for current directory (src)
-import { Card, CardContent } from "./components/ui/card"; // Check this path too
+} from "../components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 
-// Define the data directly within this component
-const mainLinesData = [
+// --- Data Source ---
+// In a real application, this would come from an API call.
+// We keep the full list here to simulate filtering.
+const allInterfacesData = [
   {
-    phrase: "Travel insurance",
-    synonyms: 4,
-    frequency: 34,
-    sentiment: -0.92,
-    impact: -31.3,
+    id: "cr01-gi1/0/1",
+    deviceName: "core-router-01",
+    interfaceName: "GigabitEthernet1/0/1",
+    description: "Uplink to ISP-A (Primary)",
+    status: "Up",
+    trafficIn: "850 Mbps",
+    trafficOut: "620 Mbps",
+    errors: { in: 0, out: 0 },
+    isFavorite: true, // This interface is a favorite
   },
   {
-    phrase: "Coupon code",
-    synonyms: 2,
-    frequency: 33,
-    sentiment: -0.86,
-    impact: -28.45,
+    id: "asw01-fa0/24",
+    deviceName: "access-switch-01",
+    interfaceName: "FastEthernet0/24",
+    description: "Connection to Marketing Dept Printer",
+    status: "Down",
+    trafficIn: "0 Mbps",
+    trafficOut: "0 Mbps",
+    errors: { in: 0, out: 0 },
+    isFavorite: false, // Not a favorite
   },
   {
-    phrase: "Wait time",
-    synonyms: 7,
-    frequency: 35,
-    sentiment: -0.75,
-    impact: -26.34,
+    id: "dsw01-te1/0/1",
+    deviceName: "dist-switch-01",
+    interfaceName: "TenGigabitEthernet1/0/1",
+    description: "Trunk to Core Router",
+    status: "Up",
+    trafficIn: "1.2 Gbps",
+    trafficOut: "980 Mbps",
+    errors: { in: 14, out: 3 },
+    isFavorite: true, // This interface is a favorite
   },
   {
-    phrase: "Credit card",
-    synonyms: 2,
-    frequency: 18,
-    sentiment: -0.84,
-    impact: -15.18,
-  },
-  {
-    phrase: "Booking confirmation",
-    synonyms: 3,
-    frequency: 16,
-    sentiment: -0.77,
-    impact: -12.33,
-  },
-  {
-    phrase: "Travel document",
-    synonyms: 1,
-    frequency: 11,
-    sentiment: -1.0,
-    impact: -11.0,
-  },
-  {
-    phrase: "Tour operator",
-    synonyms: 0,
-    frequency: 19,
-    sentiment: -0.53,
-    impact: -10.06,
-  },
-  {
-    phrase: "Cancellation insurance",
-    synonyms: 0,
-    frequency: 8,
-    sentiment: -0.92,
-    impact: -7.33,
-  },
-  {
-    phrase: "Price change",
-    synonyms: 0,
-    frequency: 8,
-    sentiment: -0.9,
-    impact: -7.24,
-  },
-  {
-    phrase: "Speak german",
-    synonyms: 0,
-    frequency: 10,
-    sentiment: -0.53,
-    impact: -5.33,
-  },
-  {
-    phrase: "15 minute",
-    synonyms: 0,
-    frequency: 7,
-    sentiment: -0.71,
-    impact: -5.0,
-  },
-  { phrase: "Flight time", synonyms: 0, frequency: 9, sentiment: 0, impact: 0 },
-  {
-    phrase: "Personal contact",
-    synonyms: 0,
-    frequency: 5,
-    sentiment: 0.07,
-    impact: 0.33,
-  },
-  {
-    phrase: "Book holiday",
-    synonyms: 0,
-    frequency: 11,
-    sentiment: 0.14,
-    impact: 1.5,
+    id: "fw01-eth1",
+    deviceName: "firewall-cluster-a",
+    interfaceName: "ethernet1/1",
+    description: "DMZ Zone Link",
+    status: "Up",
+    trafficIn: "340 Mbps",
+    trafficOut: "450 Mbps",
+    errors: { in: 0, out: 0 },
+    isFavorite: false, // Not a favorite
   },
 ];
 
-// The component no longer accepts 'data' as a prop
-export function MainLinesPage() {
-  if (!mainLinesData || mainLinesData.length === 0) {
+// --- Status Indicator Component (reusable and helpful) ---
+function StatusIndicator({ status }) {
+  const statusConfig = {
+    Up: {
+      color: "text-green-500",
+      Icon: ArrowUp,
+      label: "Up",
+    },
+    Down: {
+      color: "text-red-500",
+      Icon: ArrowDown,
+      label: "Down",
+    },
+    "Admin Down": {
+      color: "text-gray-500",
+      Icon: XCircle,
+      label: "Admin Down",
+    },
+  };
+
+  const config = statusConfig[status] || statusConfig["Admin Down"];
+
+  return (
+    <div className={`flex items-center gap-2 font-medium ${config.color}`}>
+      <config.Icon className="h-4 w-4" />
+      <span>{config.label}</span>
+    </div>
+  );
+}
+
+// --- The Main Page Component ---
+// This component now ONLY displays the favorite interfaces.
+export function FavoriteInterfacesPage() {
+  // We use state to hold the data, which would be populated from an API in a real app
+  const [interfaces, setInterfaces] = useState(allInterfacesData);
+
+  // Filter the data source to get only the favorited items
+  const favoriteInterfaces = interfaces.filter((iface) => iface.isFavorite);
+
+  // Handle the case where no favorites are selected
+  if (favoriteInterfaces.length === 0) {
     return (
-      <Card className="border dark:border-gray-700">
-        <CardContent className="p-4">
-          <p>No data available for Main Lines.</p>
-        </CardContent>
-      </Card>
+      <div className="p-4 md:p-8">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Star className="h-5 w-5 text-yellow-500" />
+              Favorite Network Interfaces
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-center text-gray-500 dark:text-gray-400">
+              You have not selected any favorite interfaces.
+            </p>
+            <p className="mt-2 text-center text-sm text-gray-400 dark:text-gray-500">
+              Go to the main dashboard to mark interfaces as favorites.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
+  // Render the table of favorite interfaces
   return (
-    <Card className="border dark:border-gray-700">
-      <CardContent className="overflow-x-auto p-4">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-b dark:border-gray-700">
-              <TableHead className="text-gray-600 dark:text-gray-300">
-                Phrase + [synonyms]
-              </TableHead>
-              <TableHead className="text-gray-600 dark:text-gray-300">
-                Frequency
-              </TableHead>
-              <TableHead className="text-gray-600 dark:text-gray-300">
-                Net sentiment
-              </TableHead>
-              <TableHead className="text-gray-600 dark:text-gray-300">
-                Total impact
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {mainLinesData.map((item, i) => (
-              <TableRow
-                key={i}
-                className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750"
-              >
-                <TableCell className="font-medium text-gray-900 dark:text-gray-100">
-                  {item.phrase} {item.synonyms ? `[${item.synonyms}]` : ""}
-                </TableCell>
-                <TableCell className="text-gray-700 dark:text-gray-300">
-                  {item.frequency}
-                </TableCell>
-                <TableCell
-                  className={`text-gray-700 dark:text-gray-300 ${
-                    item.sentiment < 0
-                      ? "text-red-600 dark:text-red-400"
-                      : "text-green-600 dark:text-green-400"
-                  }`}
-                >
-                  {item.sentiment.toFixed(2)}
-                </TableCell>
-                <TableCell
-                  className={`text-gray-700 dark:text-gray-300 font-semibold ${
-                    item.impact < 0
-                      ? "text-red-600 dark:text-red-400"
-                      : "text-green-600 dark:text-green-400"
-                  }`}
-                >
-                  {item.impact.toFixed(2)}
-                </TableCell>
+    <div className="p-4 md:p-8">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Star className="h-5 w-5 text-yellow-500" />
+            Favorite Network Interfaces
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto p-4">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Interface</TableHead>
+                <TableHead>Device</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Traffic (In / Out)</TableHead>
+                <TableHead>Errors (In / Out)</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+            </TableHeader>
+            <TableBody>
+              {favoriteInterfaces.map((iface) => (
+                <TableRow key={iface.id}>
+                  <TableCell>
+                    <div className="font-medium">{iface.interfaceName}</div>
+                    <div className="text-sm text-gray-500">{iface.description}</div>
+                  </TableCell>
+                  <TableCell>{iface.deviceName}</TableCell>
+                  <TableCell>
+                    <StatusIndicator status={iface.status} />
+                  </TableCell>
+                  <TableCell>{`${iface.trafficIn} / ${iface.trafficOut}`}</TableCell>
+                  <TableCell
+                    className={
+                      iface.errors.in > 0 || iface.errors.out > 0
+                        ? "font-bold text-orange-600 dark:text-orange-400"
+                        : ""
+                    }
+                  >
+                    {`${iface.errors.in} / ${iface.errors.out}`}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
