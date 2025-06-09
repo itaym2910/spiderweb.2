@@ -5,10 +5,18 @@ import { linkPositionFromEdges, getNodeGroups } from "./drawHelpers";
 import { renderCoreDevices } from "./renderCoreDevices";
 import { setupInteractions } from "./handleInteractions";
 
-const NetworkVisualizer5 = ({ theme }) => {
+const NetworkVisualizer5 = ({ theme, data, onZoneClick }) => {
   const svgRef = useRef();
+  console.log(
+    "[NetworkVisualizer5] Received onZoneClick prop. Type:",
+    typeof onZoneClick
+  );
 
   useEffect(() => {
+    console.log(
+      "[NetworkVisualizer5 useEffect] onZoneClick type:",
+      typeof onZoneClick
+    );
     const svgElement = svgRef.current;
     if (!svgElement) return;
 
@@ -70,7 +78,8 @@ const NetworkVisualizer5 = ({ theme }) => {
       nodes,
       links,
       NODE_GROUPS,
-      palette
+      palette,
+      onZoneClick
     );
 
     link.attr("stroke", palette.link);
@@ -151,7 +160,6 @@ const NetworkVisualizer5 = ({ theme }) => {
 
       const initialTransform = d3.zoomIdentity.translate(tx, ty).scale(k);
       svg.call(zoomBehavior.transform, initialTransform);
-
     } else {
       svg.call(zoomBehavior.transform, d3.zoomIdentity);
     }
@@ -160,7 +168,7 @@ const NetworkVisualizer5 = ({ theme }) => {
     requestAnimationFrame(() =>
       setupInteractions({ link, linkHover, filteredLinks, node, tooltip })
     );
-  }, [theme]);
+  }, [onZoneClick, theme, data]);
 
   return (
     <svg

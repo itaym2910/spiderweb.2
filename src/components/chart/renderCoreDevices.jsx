@@ -5,7 +5,8 @@ export function renderCoreDevices(
   nodes,
   links,
   NODE_GROUPS,
-  palette
+  palette,
+  onZoneClick
 ) {
   zoomLayer
     .append("g")
@@ -24,7 +25,29 @@ export function renderCoreDevices(
         .attr("cx", d.cx)
         .attr("cy", d.cy)
         .attr("fill", "#38bdf8")
-        .attr("fill-opacity", 0.12);
+        .attr("fill-opacity", 0.12)
+        .style("cursor", "pointer")
+        .on("click", (_event, d_clicked_zone) => {
+          console.log(
+            "[renderCoreDevices] Zone clicked in D3. Zone data:",
+            d_clicked_zone
+          ); // LOG 1
+          console.log(
+            "[renderCoreDevices] Is onZoneClick prop available? Type:",
+            typeof onZoneClick
+          ); // LOG 2
+          if (onZoneClick) {
+            console.log(
+              "[renderCoreDevices] Calling onZoneClick with ID:",
+              d_clicked_zone.id
+            ); // LOG 3
+            onZoneClick(d_clicked_zone.id);
+          } else {
+            console.error(
+              "[renderCoreDevices] onZoneClick is NOT defined here!"
+            ); // LOG 4
+          }
+        });
 
       // Determine label offset
       const labelOffset = d.cy < screenCenterY ? -160 : 180;
@@ -38,7 +61,8 @@ export function renderCoreDevices(
         .attr("fill", palette.label)
         .attr("font-size", "18px")
         .attr("text-anchor", "middle")
-        .attr("font-weight", "bold");
+        .attr("font-weight", "bold")
+        .style("pointer-events", "none"); // Label shouldn't block clicks on zone
     });
 
   const filteredLinks = links; // ✅ include inner zone link

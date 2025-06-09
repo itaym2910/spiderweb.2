@@ -5,10 +5,18 @@ import { linkPositionFromEdges, getNodeGroups } from "./drawHelpers";
 import { renderCoreDevices } from "./renderCoreDevices";
 import { setupInteractions } from "./handleInteractions";
 
-const NetworkVisualizer = ({ theme }) => {
+const NetworkVisualizer = ({ theme, data, onZoneClick }) => {
+  console.log(
+    "[NetworkVisualizer] Component rendering. Received onZoneClick prop. Type:",
+    typeof onZoneClick
+  );
   const svgRef = useRef();
 
   useEffect(() => {
+    console.log(
+      "[NetworkVisualizer useEffect] Inside useEffect. onZoneClick type:",
+      typeof onZoneClick
+    );
     const svgElement = svgRef.current;
     if (!svgElement) return; // Guard if ref not yet available
 
@@ -70,7 +78,8 @@ const NetworkVisualizer = ({ theme }) => {
     const zoomBehavior = d3
       .zoom()
       .scaleExtent([0.05, 8]) // Adjusted scaleExtent, can be tuned
-      .on("zoom", (event) => { // D3 v6+ event object
+      .on("zoom", (event) => {
+        // D3 v6+ event object
         zoomLayer.attr("transform", event.transform);
       });
 
@@ -82,7 +91,8 @@ const NetworkVisualizer = ({ theme }) => {
       nodes,
       links,
       NODE_GROUPS,
-      palette
+      palette,
+      onZoneClick
     );
 
     link.attr("stroke", palette.link);
@@ -146,9 +156,11 @@ const NetworkVisualizer = ({ theme }) => {
 
       if (dataWidth > 0 && dataHeight > 0) {
         k = Math.min(viewWidth / dataWidth, viewHeight / dataHeight);
-      } else if (dataWidth > 0) { // Content is a horizontal line
+      } else if (dataWidth > 0) {
+        // Content is a horizontal line
         k = viewWidth / dataWidth;
-      } else if (dataHeight > 0) { // Content is a vertical line
+      } else if (dataHeight > 0) {
+        // Content is a vertical line
         k = viewHeight / dataHeight;
       }
       // If dataWidth and dataHeight are 0 (single point), k remains 1
@@ -172,7 +184,6 @@ const NetworkVisualizer = ({ theme }) => {
       // Apply this transform to the SVG element that has the zoom behavior
       // This will also trigger the "zoom" event, setting the zoomLayer's transform
       svg.call(zoomBehavior.transform, initialTransform);
-
     } else {
       // Fallback if no nodes: just use identity transform (no zoom/pan)
       svg.call(zoomBehavior.transform, d3.zoomIdentity);
@@ -182,14 +193,10 @@ const NetworkVisualizer = ({ theme }) => {
     requestAnimationFrame(() => {
       setupInteractions({ link, linkHover, filteredLinks, node, tooltip });
     });
-
-    // console.log("Setup complete");
-    // console.log("Nodes:", d3.selectAll("circle.node").size());
-    // console.log("Hover lines:", d3.selectAll(".link-hover").size());
-  }, [theme]); // Re-run if theme changes.
+  }, [onZoneClick, data, theme]); // Re-run if theme changes.
 
   return (
-    <div> {/* Keep the div if it serves a purpose, otherwise it can be removed if svg is the only child */}
+    <div>
       <svg
         ref={svgRef}
         className="absolute top-0 left-0 w-full h-full bg-white dark:bg-gray-800"
