@@ -93,7 +93,7 @@ export default function SiteDetailPopup({
   return (
     <div
       style={dynamicStyles}
-      className={`fixed ${popupBg} shadow-2xl p-6 flex flex-col 
+      className={`fixed ${popupBg} p-6 flex flex-col 
                  transform transition-all duration-300 ease-in-out 
                  border ${borderColor} rounded-lg pointer-events-auto
                  ${

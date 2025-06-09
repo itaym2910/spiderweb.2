@@ -1,13 +1,12 @@
 // src/components/CoreSite/CoreSitePage.jsx
-import React, { useRef, useState, useLayoutEffect } from "react";
+import React, { useRef, useState, useLayoutEffect, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useNodeLayout } from "./useNodeLayout";
+import { useNodeLayout } from "./useNodeLayout"; // Ensure this path is correct
 import CoreSiteCanvas from "./CoreSiteCanvas";
 import SitesBar from "./SitesBar";
 import SiteDetailPopup from "./SiteDetailPopup";
 
 const BackArrowIcon = ({ className = "w-5 h-5" }) => (
-  // ... (icon svg)
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
@@ -24,24 +23,29 @@ const BackArrowIcon = ({ className = "w-5 h-5" }) => (
   </svg>
 );
 
-const POPUP_MAX_HEIGHT_VH = 40;
+// --- Constants for Popup Stacking ---
+const POPUP_MAX_HEIGHT_VH = 48;
 const POPUP_WIDTH_PX = 384;
-const POPUP_RIGHT_OFFSET_PX = 20;
-// const POPUP_SPACING_PX = 16; // REMOVE or set to 0
-const POPUP_SPACING_PX = 0; // MODIFIED: Set to 0 to remove the gap
-const POPUP_INITIAL_TOP_PX = 20;
+const POPUP_RIGHT_OFFSET_PX = 20; // Right offset for the primary (first opened) popup
+const POPUP_INITIAL_TOP_PX = 20; // Top offset for the primary (first opened) popup
+
+// How much each SUBSEQUENT popup (2nd, 3rd, etc.) is offset from the one "in front" of it
+const STACK_OFFSET_Y_PX = 20; // How much each subsequent popup is shifted down
+const STACK_OFFSET_X_PX = 0; // Set to 0 for vertical alignment, >0 for left shift
+const MAX_DEPTH_FOR_OFFSET_STACKING = 3; // Max number of popups to show distinct stacking offsets
 
 export default function CoreSitePage({ theme = "dark" }) {
   const { zoneId } = useParams();
   const navigate = useNavigate();
   const containerRef = useRef(null);
-  const svgRef = useRef();
+  const svgRef = useRef(null);
   const siteRefs = useRef([]);
-  const node4Ref = useRef(null);
+  const node4Ref = useRef(null); // Ref for "Node 4" or your central node
 
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [openPopups, setOpenPopups] = useState([]);
   const [nextPopupInstanceId, setNextPopupInstanceId] = useState(0);
+  const [activatedPopupIds, setActivatedPopupIds] = useState(new Set());
 
   useLayoutEffect(() => {
     const updateDimensions = () => {
@@ -62,11 +66,23 @@ export default function CoreSitePage({ theme = "dark" }) {
     dimensions.height
   );
 
-  // useEffect(() => {}, [zoneId, networkType, dimensions, theme]); // This useEffect was empty
-
   const handleSiteClick = (siteIndex, siteName) => {
+    const existingPopup = openPopups.find((p) => p.siteData.id === siteIndex);
+    if (existingPopup) {
+      if (
+        !existingPopup.isOpen &&
+        !activatedPopupIds.has(existingPopup.instanceId)
+      ) {
+        // If it exists but is marked for closing or not yet activated, re-activate
+        setActivatedPopupIds((prev) =>
+          new Set(prev).add(existingPopup.instanceId)
+        );
+      }
+      return;
+    }
+
     const newPopupData = {
-      id: siteIndex,
+      id: siteIndex, // siteIndex should be unique for each site button
       name: siteName,
       linkStatus: Math.random() > 0.3 ? "Up" : "Down",
       protocolStatus: Math.random() > 0.2 ? "Active" : "Inactive",
@@ -84,17 +100,36 @@ export default function CoreSitePage({ theme = "dark" }) {
       utilization: `${Math.floor(Math.random() * 100)}%`,
       jitter: `${Math.floor(Math.random() * 20)} ms`,
     };
+    const newInstanceId = nextPopupInstanceId;
 
     setOpenPopups((prevPopups) => [
       ...prevPopups,
       {
-        instanceId: nextPopupInstanceId,
+        instanceId: newInstanceId,
         siteData: newPopupData,
-        isOpen: true,
+        isOpen: false, // Add new popups with isOpen: false initially
       },
     ]);
+    setActivatedPopupIds((prev) => new Set(prev).add(newInstanceId));
     setNextPopupInstanceId((prevId) => prevId + 1);
   };
+
+  useEffect(() => {
+    if (activatedPopupIds.size > 0) {
+      const timerId = setTimeout(() => {
+        setOpenPopups((currentPopups) =>
+          currentPopups.map((p) => {
+            if (activatedPopupIds.has(p.instanceId)) {
+              return { ...p, isOpen: true };
+            }
+            return p;
+          })
+        );
+        setActivatedPopupIds(new Set());
+      }, 10); // Small delay (e.g., 10-50ms) can be more robust for browser rendering cycle
+      return () => clearTimeout(timerId);
+    }
+  }, [activatedPopupIds]);
 
   const handleClosePopup = (instanceIdToClose) => {
     setOpenPopups((prevPopups) =>
@@ -102,21 +137,22 @@ export default function CoreSitePage({ theme = "dark" }) {
         p.instanceId === instanceIdToClose ? { ...p, isOpen: false } : p
       )
     );
+    setActivatedPopupIds((prev) => {
+      const next = new Set(prev);
+      next.delete(instanceIdToClose);
+      return next;
+    });
     setTimeout(() => {
       setOpenPopups((prevPopups) =>
         prevPopups.filter((p) => p.instanceId !== instanceIdToClose)
       );
-    }, 300);
+    }, 300); // Match SiteDetailPopup animation duration
   };
 
-  const handleBackToChart = () => {
-    navigate("..");
-  };
-
+  const handleBackToChart = () => navigate("..");
   const pageBgColor = theme === "dark" ? "bg-gray-800" : "bg-white";
   const loadingBgColor = theme === "dark" ? "bg-slate-800" : "bg-gray-100";
   const loadingTextColor = theme === "dark" ? "text-white" : "text-gray-700";
-
   const backButtonBg =
     theme === "dark"
       ? "bg-transparent hover:bg-gray-700"
@@ -141,7 +177,7 @@ export default function CoreSitePage({ theme = "dark" }) {
     >
       <button
         onClick={handleBackToChart}
-        className={`absolute top-3 left-3 z-20 px-3 py-1.5 rounded-md text-sm font-medium 
+        className={`absolute top-0 left-10 z-30 px-3 py-1.5 rounded-md text-sm font-medium 
                     flex items-center gap-1.5
                     ${backButtonBg} ${backButtonText}
                     focus:outline-none focus:ring-2 focus:ring-offset-2 
@@ -152,14 +188,13 @@ export default function CoreSitePage({ theme = "dark" }) {
                     }`}
         title="Back to chart view"
       >
-        <BackArrowIcon className="w-4 h-4" />
         Back
       </button>
 
       <svg ref={svgRef} className="absolute top-0 left-0 w-full h-full z-0" />
       <CoreSiteCanvas
         svgRef={svgRef}
-        node4Ref={node4Ref}
+        node4Ref={node4Ref} // Make sure CoreSiteCanvas uses this to find the central node
         nodes={nodes}
         links={links}
         centerX={centerX}
@@ -171,34 +206,53 @@ export default function CoreSitePage({ theme = "dark" }) {
       />
       <SitesBar
         svgRef={svgRef}
-        node4Ref={node4Ref}
+        node4Ref={node4Ref} // Pass node4Ref to SitesBar
         siteRefs={siteRefs}
         theme={theme}
         onSiteClick={handleSiteClick}
       />
 
-      <div className="fixed right-0 top-0 h-full pointer-events-none">
+      {/* Popup Container */}
+      <div className="fixed right-0 top-0 h-full pointer-events-none z-20">
         {openPopups.map((popup, index) => {
-          const popupApproxHeightPx =
-            (POPUP_MAX_HEIGHT_VH / 100) * dimensions.height;
+          const stackDepth = index;
+          const stackDepthForOffset = Math.min(
+            stackDepth,
+            MAX_DEPTH_FOR_OFFSET_STACKING - 1
+          );
 
-          // MODIFIED: POPUP_SPACING_PX is now 0, so it's effectively removed from the sum
-          const topPosition =
-            POPUP_INITIAL_TOP_PX +
-            index * (popupApproxHeightPx + POPUP_SPACING_PX);
+          const topPos =
+            POPUP_INITIAL_TOP_PX + stackDepthForOffset * STACK_OFFSET_Y_PX;
+          const rightPos =
+            POPUP_RIGHT_OFFSET_PX + stackDepthForOffset * STACK_OFFSET_X_PX;
+          const currentZIndex = 100 + (openPopups.length - stackDepth);
+
+          const isVisiblyStacked = stackDepth < MAX_DEPTH_FOR_OFFSET_STACKING;
+          const finalIsOpenState = popup.isOpen && isVisiblyStacked;
+
+          let finalTopPos = topPos;
+          let finalRightPos = rightPos;
+          if (!isVisiblyStacked && popup.isOpen) {
+            finalTopPos =
+              POPUP_INITIAL_TOP_PX +
+              (MAX_DEPTH_FOR_OFFSET_STACKING - 1) * STACK_OFFSET_Y_PX;
+            finalRightPos =
+              POPUP_RIGHT_OFFSET_PX +
+              (MAX_DEPTH_FOR_OFFSET_STACKING - 1) * STACK_OFFSET_X_PX;
+          }
 
           return (
             <SiteDetailPopup
               key={popup.instanceId}
-              isOpen={popup.isOpen}
+              isOpen={finalIsOpenState}
               onClose={() => handleClosePopup(popup.instanceId)}
               siteData={popup.siteData}
-              // theme prop is not used by SiteDetailPopup directly if it observes documentElement
-              topPosition={topPosition}
-              zIndex={100 + openPopups.length - index}
+              topPosition={finalTopPos}
+              popupRightOffsetPx={finalRightPos}
+              zIndex={currentZIndex}
               maxWidthVh={POPUP_MAX_HEIGHT_VH}
               popupWidthPx={POPUP_WIDTH_PX}
-              popupRightOffsetPx={POPUP_RIGHT_OFFSET_PX}
+              // Removed theme prop as SiteDetailPopup gets it from documentElement
             />
           );
         })}
