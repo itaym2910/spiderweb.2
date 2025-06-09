@@ -96,7 +96,7 @@ export default function CoreSitePage({ theme = "dark" }) {
     >
       <button
         onClick={handleBackToChart}
-        className={`absolute top-3 left-3 z-20 px-3 py-1.5 rounded-md text-sm font-medium shadow-md
+        className={`absolute top-3 left-3 z-20 px-3 py-1.5 rounded-md text-sm font-medium 
                     flex items-center gap-1.5
                     ${backButtonBg} ${backButtonText}
                     focus:outline-none focus:ring-2 focus:ring-offset-2 
