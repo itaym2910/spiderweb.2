@@ -1,13 +1,31 @@
 // CoreSitePage.jsx
 import React, { useRef, useState, useLayoutEffect, useEffect } from "react";
-import { useParams, useMatch } from "react-router-dom";
-import { useNodeLayout } from "./useNodeLayout"; // Adjust path
-import CoreSiteCanvas from "./CoreSiteCanvas"; // Adjust path
-import SitesBar from "./SitesBar"; // Adjust path
+import { useParams, useMatch, useNavigate } from "react-router-dom"; // Added useNavigate
+import { useNodeLayout } from "./useNodeLayout";
+import CoreSiteCanvas from "./CoreSiteCanvas";
+import SitesBar from "./SitesBar";
+
+// SVG Icon for Back Arrow (optional, you can use text "Back")
+const BackArrowIcon = ({ className = "w-5 h-5" }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+    className={className}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
+    />
+  </svg>
+);
 
 export default function CoreSitePage({ theme = "dark" }) {
-  // Added theme prop with a default
   const { zoneId } = useParams();
+  const navigate = useNavigate(); // Hook for navigation
   const containerRef = useRef(null);
   const svgRef = useRef();
   const siteRefs = useRef([]);
@@ -15,8 +33,8 @@ export default function CoreSitePage({ theme = "dark" }) {
 
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
-  const isLZoneMatch = useMatch("l-zone/:zoneId");
-  const isPZoneMatch = useMatch("p-zone/:zoneId");
+  const isLZoneMatch = useMatch("/l-zone/:zoneId"); // More specific match
+  const isPZoneMatch = useMatch("/p-zone/:zoneId"); // More specific match
 
   let networkType = "unknown";
   if (isLZoneMatch) {
@@ -44,22 +62,21 @@ export default function CoreSitePage({ theme = "dark" }) {
     dimensions.height
   );
 
-  useEffect(() => {
-    console.log(
-      `[CoreSitePage] Effect for data fetching. Zone ID: ${zoneId}, Network Type: ${networkType}, Dimensions: ${dimensions.width}x${dimensions.height}, Theme: ${theme}`
-    );
-    // Add logic here if data fetching depends on theme
-  }, [zoneId, networkType, dimensions, theme]); // Added theme to dependencies
+  useEffect(() => {}, [zoneId, networkType, dimensions, theme]);
 
-  // Theme-dependent Tailwind classes
+  const handleBackToChart = () => {
+    navigate("..");
+  };
+
   const pageBgColor = theme === "dark" ? "bg-slate-900" : "bg-white";
   const loadingBgColor = theme === "dark" ? "bg-slate-800" : "bg-gray-100";
   const loadingTextColor = theme === "dark" ? "text-white" : "text-gray-700";
-  const infoBoxBg =
+
+  const backButtonBg =
     theme === "dark"
-      ? "bg-black bg-opacity-50"
-      : "bg-gray-100 bg-opacity-80 border border-gray-300";
-  const infoBoxText = theme === "dark" ? "text-white" : "text-gray-700";
+      ? "bg-gray-700 hover:bg-gray-600"
+      : "bg-gray-200 hover:bg-gray-300";
+  const backButtonText = theme === "dark" ? "text-white" : "text-gray-800";
 
   if (dimensions.width === 0 || dimensions.height === 0) {
     return (
@@ -77,11 +94,24 @@ export default function CoreSitePage({ theme = "dark" }) {
       ref={containerRef}
       className={`relative w-full h-full ${pageBgColor} overflow-hidden`}
     >
-      <div
-        className={`absolute top-2 left-2 ${infoBoxBg} ${infoBoxText} p-1.5 text-xs rounded shadow-md z-20`}
+      {/* Back Button */}
+      <button
+        onClick={handleBackToChart}
+        className={`absolute top-3 left-3 z-20 px-3 py-1.5 rounded-md text-sm font-medium shadow-md
+                    flex items-center gap-1.5
+                    ${backButtonBg} ${backButtonText}
+                    focus:outline-none focus:ring-2 focus:ring-offset-2 
+                    ${
+                      theme === "dark"
+                        ? "focus:ring-blue-500 focus:ring-offset-slate-900"
+                        : "focus:ring-blue-500 focus:ring-offset-white"
+                    }`}
+        title="Back to chart view"
       >
-        Displaying: {networkType} - Zone: {zoneId}
-      </div>
+        <BackArrowIcon className="w-4 h-4" />
+        Back
+      </button>
+
       <svg ref={svgRef} className="absolute top-0 left-0 w-full h-full z-0" />
       <CoreSiteCanvas
         svgRef={svgRef}
@@ -92,15 +122,15 @@ export default function CoreSitePage({ theme = "dark" }) {
         centerY={centerY}
         width={dimensions.width}
         height={dimensions.height}
-        currentZoneId={zoneId} // Pass zoneId to potentially display it in the canvas
+        currentZoneId={zoneId}
         currentNetworkType={networkType}
-        theme={theme} // Pass theme down
+        theme={theme}
       />
       <SitesBar
         svgRef={svgRef}
         node4Ref={node4Ref}
         siteRefs={siteRefs}
-        theme={theme} // Pass theme down
+        theme={theme}
       />
     </div>
   );
