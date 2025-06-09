@@ -2,15 +2,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, Routes, Route } from "react-router-dom";
 import { Card, CardContent } from "./components/ui/card";
-import {
-  Table,
-  TableHead,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableCell,
-} from "./components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
+
 import NetworkVisualizerWrapper from "./components/NetworkVisualizerWrapper";
 import NetworkVisualizer5Wrapper from "./components/NetworkVisualizer5Wrapper";
 import CoreSitePage from "./components/CoreSite/CoreSitePage"; // Ensure path is correct
@@ -18,6 +11,8 @@ import { data } from "./dataMainLines";
 
 // Accept isSidebarCollapsed prop
 export function DashboardPage({ isAppFullscreen, isSidebarCollapsed }) {
+
+
   const [theme, setTheme] = useState(
     document.documentElement.classList.contains("dark") ? "dark" : "light"
   );
@@ -25,7 +20,7 @@ export function DashboardPage({ isAppFullscreen, isSidebarCollapsed }) {
   const location = useLocation();
 
   useEffect(() => {
-    const observer = new MutationObserver(() => {
+    const observer = new MutationObserver(() => { // Corrected line: removed the rogue underscore
       const isDark = document.documentElement.classList.contains("dark");
       setTheme(isDark ? "dark" : "light");
     });
@@ -35,6 +30,7 @@ export function DashboardPage({ isAppFullscreen, isSidebarCollapsed }) {
     });
     return () => observer.disconnect();
   }, []);
+
 
   const handleTabChange = () => {
     const currentPath = location.pathname;
@@ -69,6 +65,7 @@ export function DashboardPage({ isAppFullscreen, isSidebarCollapsed }) {
   // Construct a dynamic key for charts based on both fullscreen and sidebar state
   const chartKeySuffix = `${isAppFullscreen}-${isSidebarCollapsed}`;
 
+
   return (
     <div
       className={`flex flex-col h-full p-0 ${
@@ -91,6 +88,7 @@ export function DashboardPage({ isAppFullscreen, isSidebarCollapsed }) {
           <TabsTrigger value="l_network">L-chart</TabsTrigger>
           <TabsTrigger value="p_network">P-chart</TabsTrigger>
         </TabsList>
+
 
         <TabsContent value="table" className="flex-1 flex flex-col min-h-0">
           {/* ... Table Card ... */}
@@ -192,10 +190,12 @@ export function DashboardPage({ isAppFullscreen, isSidebarCollapsed }) {
                     element={<CoreSitePage theme={theme} />} // Pass theme to CoreSitePage
                   />
                 </Routes>
+
               </div>
             </CardContent>
           </Card>
         </TabsContent>
+
 
         <TabsContent value="p_network" className="flex-1 flex flex-col min-h-0">
           <Card
@@ -227,6 +227,7 @@ export function DashboardPage({ isAppFullscreen, isSidebarCollapsed }) {
                     element={<CoreSitePage theme={theme} />} // Pass theme to CoreSitePage
                   />
                 </Routes>
+
               </div>
             </CardContent>
           </Card>
