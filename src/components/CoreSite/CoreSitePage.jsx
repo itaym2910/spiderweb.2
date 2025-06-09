@@ -1,12 +1,13 @@
 // src/components/CoreSite/CoreSitePage.jsx
-import React, { useRef, useState, useLayoutEffect, useEffect } from "react";
-import { useParams, useMatch, useNavigate } from "react-router-dom";
+import React, { useRef, useState, useLayoutEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { useNodeLayout } from "./useNodeLayout";
 import CoreSiteCanvas from "./CoreSiteCanvas";
 import SitesBar from "./SitesBar";
 import SiteDetailPopup from "./SiteDetailPopup";
 
 const BackArrowIcon = ({ className = "w-5 h-5" }) => (
+  // ... (icon svg)
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
@@ -23,13 +24,12 @@ const BackArrowIcon = ({ className = "w-5 h-5" }) => (
   </svg>
 );
 
-// --- Constants for Popup Stacking ---
-const POPUP_MAX_HEIGHT_VH = 48; // Max height of one popup as % of viewport height
-const POPUP_WIDTH_PX = 384; // Corresponds to md:w-96
+const POPUP_MAX_HEIGHT_VH = 40;
+const POPUP_WIDTH_PX = 384;
 const POPUP_RIGHT_OFFSET_PX = 20;
-const POPUP_SPACING_PX = 16; // Vertical space between popups
-const POPUP_INITIAL_TOP_PX = 20; // Margin from viewport top for the first popup
-// --- End Constants ---
+// const POPUP_SPACING_PX = 16; // REMOVE or set to 0
+const POPUP_SPACING_PX = 0; // MODIFIED: Set to 0 to remove the gap
+const POPUP_INITIAL_TOP_PX = 20;
 
 export default function CoreSitePage({ theme = "dark" }) {
   const { zoneId } = useParams();
@@ -40,21 +40,8 @@ export default function CoreSitePage({ theme = "dark" }) {
   const node4Ref = useRef(null);
 
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-
-  // --- MODIFIED STATE FOR MULTIPLE POPUPS ---
-  const [openPopups, setOpenPopups] = useState([]); // Array of popup objects
-  const [nextPopupInstanceId, setNextPopupInstanceId] = useState(0); // For unique keys
-  // --- END MODIFIED STATE ---
-
-  const isLZoneMatch = useMatch("/l-zone/:zoneId");
-  const isPZoneMatch = useMatch("/p-zone/:zoneId");
-
-  let networkType = "unknown";
-  if (isLZoneMatch) {
-    networkType = "L-Network";
-  } else if (isPZoneMatch) {
-    networkType = "P-Network";
-  }
+  const [openPopups, setOpenPopups] = useState([]);
+  const [nextPopupInstanceId, setNextPopupInstanceId] = useState(0);
 
   useLayoutEffect(() => {
     const updateDimensions = () => {
@@ -75,13 +62,11 @@ export default function CoreSitePage({ theme = "dark" }) {
     dimensions.height
   );
 
-  useEffect(() => {}, [zoneId, networkType, dimensions, theme]);
+  // useEffect(() => {}, [zoneId, networkType, dimensions, theme]); // This useEffect was empty
 
-  // --- MODIFIED HANDLERS FOR MULTIPLE POPUPS ---
   const handleSiteClick = (siteIndex, siteName) => {
     const newPopupData = {
-      // siteData fields
-      id: siteIndex, // This is the site's own ID from the bar
+      id: siteIndex,
       name: siteName,
       linkStatus: Math.random() > 0.3 ? "Up" : "Down",
       protocolStatus: Math.random() > 0.2 ? "Active" : "Inactive",
@@ -103,9 +88,9 @@ export default function CoreSitePage({ theme = "dark" }) {
     setOpenPopups((prevPopups) => [
       ...prevPopups,
       {
-        instanceId: nextPopupInstanceId, // Unique ID for this popup instance
+        instanceId: nextPopupInstanceId,
         siteData: newPopupData,
-        isOpen: true, // Mark as initially open for animation
+        isOpen: true,
       },
     ]);
     setNextPopupInstanceId((prevId) => prevId + 1);
@@ -117,20 +102,14 @@ export default function CoreSitePage({ theme = "dark" }) {
         p.instanceId === instanceIdToClose ? { ...p, isOpen: false } : p
       )
     );
-    // Remove from array after animation (optional, for smoother UX)
     setTimeout(() => {
       setOpenPopups((prevPopups) =>
         prevPopups.filter((p) => p.instanceId !== instanceIdToClose)
       );
-    }, 300); // Match animation duration
+    }, 300);
   };
-  // --- END MODIFIED HANDLERS ---
 
   const handleBackToChart = () => {
-    if (openPopups.length > 0) {
-      // Close all popups or just navigate? For now, just navigate.
-      // Or setOpenPopups([]);
-    }
     navigate("..");
   };
 
@@ -198,14 +177,12 @@ export default function CoreSitePage({ theme = "dark" }) {
         onSiteClick={handleSiteClick}
       />
 
-      {/* --- RENDER MULTIPLE POPUPS --- */}
       <div className="fixed right-0 top-0 h-full pointer-events-none">
-        {" "}
-        {/* Container for popups, adjust if needed */}
         {openPopups.map((popup, index) => {
-          // Calculate approximate height of one popup in pixels
           const popupApproxHeightPx =
             (POPUP_MAX_HEIGHT_VH / 100) * dimensions.height;
+
+          // MODIFIED: POPUP_SPACING_PX is now 0, so it's effectively removed from the sum
           const topPosition =
             POPUP_INITIAL_TOP_PX +
             index * (popupApproxHeightPx + POPUP_SPACING_PX);
@@ -213,13 +190,12 @@ export default function CoreSitePage({ theme = "dark" }) {
           return (
             <SiteDetailPopup
               key={popup.instanceId}
-              isOpen={popup.isOpen} // Used for animation
+              isOpen={popup.isOpen}
               onClose={() => handleClosePopup(popup.instanceId)}
               siteData={popup.siteData}
-              theme={theme}
-              // --- Pass styling props for stacking ---
+              // theme prop is not used by SiteDetailPopup directly if it observes documentElement
               topPosition={topPosition}
-              zIndex={100 + openPopups.length - index} // Higher index (later popup) gets higher z-index
+              zIndex={100 + openPopups.length - index}
               maxWidthVh={POPUP_MAX_HEIGHT_VH}
               popupWidthPx={POPUP_WIDTH_PX}
               popupRightOffsetPx={POPUP_RIGHT_OFFSET_PX}
@@ -227,7 +203,6 @@ export default function CoreSitePage({ theme = "dark" }) {
           );
         })}
       </div>
-      {/* --- END RENDER MULTIPLE POPUPS --- */}
     </div>
   );
 }
