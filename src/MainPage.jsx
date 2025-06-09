@@ -5,16 +5,22 @@ import { AlertsPage } from "./AlertsPage";
 import { AdminPanelPage } from "./AdminPanelPage";
 import SearchPage from "./SearchPage";
 
-// Receive isFullscreen from App.js
-function MainPage({ currentPage, isFullscreen }) {
+// Receive isFullscreen and isSidebarCollapsed from App.js
+function MainPage({ currentPage, isFullscreen, isSidebarCollapsed }) {
   // console.log("Current page in MainPage:", currentPage);
   // console.log("Is Fullscreen in MainPage:", isFullscreen);
+  // console.log("Is Sidebar Collapsed in MainPage:", isSidebarCollapsed);
 
   const renderContent = () => {
     switch (currentPage) {
       case "Dashboard":
-        // Pass isFullscreen to DashboardPage
-        return <DashboardPage isAppFullscreen={isFullscreen} />;
+        // Pass isFullscreen and isSidebarCollapsed to DashboardPage
+        return (
+          <DashboardPage
+            isAppFullscreen={isFullscreen}
+            isSidebarCollapsed={isSidebarCollapsed}
+          />
+        );
       case "Search":
         return <SearchPage />;
       case "Notifications":
@@ -34,9 +40,13 @@ function MainPage({ currentPage, isFullscreen }) {
           </div>
         );
       default:
-        // console.log("Defaulting to DashboardPage because currentPage is:", currentPage);
-        // Pass isFullscreen to DashboardPage here too for default case
-        return <DashboardPage isAppFullscreen={isFullscreen} />;
+        // Pass relevant props to DashboardPage here too for default case
+        return (
+          <DashboardPage
+            isAppFullscreen={isFullscreen}
+            isSidebarCollapsed={isSidebarCollapsed}
+          />
+        );
     }
   };
 

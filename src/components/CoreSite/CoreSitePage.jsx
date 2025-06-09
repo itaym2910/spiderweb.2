@@ -1,11 +1,12 @@
 // CoreSitePage.jsx
-import React, { useRef, useState, useLayoutEffect, useEffect } from "react"; // Added useEffect
-import { useParams, useMatch } from "react-router-dom"; // useMatch is already here
+import React, { useRef, useState, useLayoutEffect, useEffect } from "react";
+import { useParams, useMatch } from "react-router-dom";
 import { useNodeLayout } from "./useNodeLayout"; // Adjust path
 import CoreSiteCanvas from "./CoreSiteCanvas"; // Adjust path
 import SitesBar from "./SitesBar"; // Adjust path
 
-export default function CoreSitePage() {
+export default function CoreSitePage({ theme = "dark" }) {
+  // Added theme prop with a default
   const { zoneId } = useParams();
   const containerRef = useRef(null);
   const svgRef = useRef();
@@ -14,8 +15,8 @@ export default function CoreSitePage() {
 
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
-  const isLZoneMatch = useMatch("l-zone/:zoneId"); // Matches if current path segment is l-zone/:zoneId
-  const isPZoneMatch = useMatch("p-zone/:zoneId"); // Matches if current path segment is p-zone/:zoneId
+  const isLZoneMatch = useMatch("l-zone/:zoneId");
+  const isPZoneMatch = useMatch("p-zone/:zoneId");
 
   let networkType = "unknown";
   if (isLZoneMatch) {
@@ -38,32 +39,33 @@ export default function CoreSitePage() {
     return () => window.removeEventListener("resize", updateDimensions);
   }, []);
 
-  // useNodeLayout might eventually need to know the networkType if L and P networks have different layout logic
-  // For now, it only uses dimensions.
   const { nodes, links, centerX, centerY } = useNodeLayout(
     dimensions.width,
     dimensions.height
-    // networkType // You could pass networkType here if useNodeLayout needs it
   );
 
-  // Example of how you might use networkType and zoneId for fetching data
   useEffect(() => {
     console.log(
-      `[CoreSitePage] Effect for data fetching. Zone ID: ${zoneId}, Network Type: ${networkType}, Dimensions: ${dimensions.width}x${dimensions.height}`
+      `[CoreSitePage] Effect for data fetching. Zone ID: ${zoneId}, Network Type: ${networkType}, Dimensions: ${dimensions.width}x${dimensions.height}, Theme: ${theme}`
     );
-    if (zoneId && networkType !== "unknown" && dimensions.width > 0) {
-      // Example: fetchData(zoneId, networkType).then(setDataForCanvas);
-      // For now, useNodeLayout is providing static data based on dimensions.
-      // If useNodeLayout were to fetch or generate data based on networkType,
-      // you'd trigger that here or pass networkType to it.
-    }
-  }, [zoneId, networkType, dimensions]); // Re-run if these change
+    // Add logic here if data fetching depends on theme
+  }, [zoneId, networkType, dimensions, theme]); // Added theme to dependencies
+
+  // Theme-dependent Tailwind classes
+  const pageBgColor = theme === "dark" ? "bg-slate-900" : "bg-white";
+  const loadingBgColor = theme === "dark" ? "bg-slate-800" : "bg-gray-100";
+  const loadingTextColor = theme === "dark" ? "text-white" : "text-gray-700";
+  const infoBoxBg =
+    theme === "dark"
+      ? "bg-black bg-opacity-50"
+      : "bg-gray-100 bg-opacity-80 border border-gray-300";
+  const infoBoxText = theme === "dark" ? "text-white" : "text-gray-700";
 
   if (dimensions.width === 0 || dimensions.height === 0) {
     return (
       <div
         ref={containerRef}
-        className="w-full h-full bg-slate-800 text-white flex items-center justify-center"
+        className={`w-full h-full ${loadingBgColor} ${loadingTextColor} flex items-center justify-center`}
       >
         Loading dimensions...
       </div>
@@ -73,9 +75,11 @@ export default function CoreSitePage() {
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full bg-slate-900 overflow-hidden"
+      className={`relative w-full h-full ${pageBgColor} overflow-hidden`}
     >
-      <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white p-1 text-xs rounded z-20">
+      <div
+        className={`absolute top-2 left-2 ${infoBoxBg} ${infoBoxText} p-1.5 text-xs rounded shadow-md z-20`}
+      >
         Displaying: {networkType} - Zone: {zoneId}
       </div>
       <svg ref={svgRef} className="absolute top-0 left-0 w-full h-full z-0" />
@@ -88,13 +92,16 @@ export default function CoreSitePage() {
         centerY={centerY}
         width={dimensions.width}
         height={dimensions.height}
-        // You could also pass networkType or zoneId to CoreSiteCanvas if it needs to alter rendering
-        // e.g., to display the zone name or change zone circle appearance.
-        // For now, CoreSiteCanvas has a hardcoded "Zone A" label.
-        currentZoneId={zoneId}
+        currentZoneId={zoneId} // Pass zoneId to potentially display it in the canvas
         currentNetworkType={networkType}
+        theme={theme} // Pass theme down
       />
-      <SitesBar svgRef={svgRef} node4Ref={node4Ref} siteRefs={siteRefs} />
+      <SitesBar
+        svgRef={svgRef}
+        node4Ref={node4Ref}
+        siteRefs={siteRefs}
+        theme={theme} // Pass theme down
+      />
     </div>
   );
 }

@@ -1,3 +1,4 @@
+// src/DashboardPage.js
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, Routes, Route } from "react-router-dom";
 import { Card, CardContent } from "./components/ui/card";
@@ -12,10 +13,11 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import NetworkVisualizerWrapper from "./components/NetworkVisualizerWrapper";
 import NetworkVisualizer5Wrapper from "./components/NetworkVisualizer5Wrapper";
-import CoreSitePage from "./components/CoreSite/CoreSitePage";
+import CoreSitePage from "./components/CoreSite/CoreSitePage"; // Ensure path is correct
 import { data } from "./dataMainLines";
 
-export function DashboardPage({ isAppFullscreen }) {
+// Accept isSidebarCollapsed prop
+export function DashboardPage({ isAppFullscreen, isSidebarCollapsed }) {
   const [theme, setTheme] = useState(
     document.documentElement.classList.contains("dark") ? "dark" : "light"
   );
@@ -64,23 +66,25 @@ export function DashboardPage({ isAppFullscreen }) {
     }
   };
 
+  // Construct a dynamic key for charts based on both fullscreen and sidebar state
+  const chartKeySuffix = `${isAppFullscreen}-${isSidebarCollapsed}`;
+
   return (
     <div
       className={`flex flex-col h-full p-0 ${
-        // p-0, App.js main handles outer padding
         isAppFullscreen
-          ? "bg-white dark:bg-gray-800" // In fullscreen, simple background
-          : "bg-white dark:bg-gray-800 rounded-lg shadow-md" // Normal state with rounded/shadow
+          ? "bg-white dark:bg-gray-800"
+          : "bg-white dark:bg-gray-800 rounded-lg shadow-md"
       }`}
     >
       <Tabs
         defaultValue="table"
-        className="w-full flex flex-col flex-1" // Tabs component grows
+        className="w-full flex flex-col flex-1"
         onValueChange={handleTabChange}
       >
         <TabsList
           className={`bg-gray-100 dark:bg-gray-700 p-1 rounded-lg ${
-            isAppFullscreen ? "mx-0 my-0 rounded-none" : "mb-4" // Adjust for fullscreen
+            isAppFullscreen ? "mx-0 my-0 rounded-none" : "mb-4"
           }`}
         >
           <TabsTrigger value="table">Main Lines</TabsTrigger>
@@ -88,23 +92,18 @@ export function DashboardPage({ isAppFullscreen }) {
           <TabsTrigger value="p_network">P-chart</TabsTrigger>
         </TabsList>
 
-        {/* Table Tab */}
-        <TabsContent
-          value="table"
-          className="flex-1 flex flex-col min-h-0" // Ensure it can grow
-        >
+        <TabsContent value="table" className="flex-1 flex flex-col min-h-0">
+          {/* ... Table Card ... */}
           <Card
             className={`flex-1 flex flex-col min-h-0 ${
-              // Card grows
               isAppFullscreen
-                ? "border-0 rounded-none shadow-none" // Fullscreen: no border/radius/shadow
-                : "border dark:border-gray-700" // Normal: with border
+                ? "border-0 rounded-none shadow-none"
+                : "border dark:border-gray-700"
             }`}
           >
             <CardContent
               className={`overflow-auto flex-1 ${
-                // CardContent scrolls, takes space
-                isAppFullscreen ? "p-0" : "p-4" // Fullscreen: no padding
+                isAppFullscreen ? "p-0" : "p-4"
               }`}
             >
               <Table>
@@ -163,12 +162,7 @@ export function DashboardPage({ isAppFullscreen }) {
           </Card>
         </TabsContent>
 
-        {/* L-Network Tab */}
-        <TabsContent
-          value="l_network"
-          key="l_network_content"
-          className="flex-1 flex flex-col min-h-0"
-        >
+        <TabsContent value="l_network" className="flex-1 flex flex-col min-h-0">
           <Card
             className={`flex-1 flex flex-col min-h-0 ${
               isAppFullscreen
@@ -186,22 +180,24 @@ export function DashboardPage({ isAppFullscreen }) {
                   <Route
                     index
                     element={
-                      <NetworkVisualizerWrapper data={data} theme={theme} />
+                      <NetworkVisualizerWrapper
+                        key={`l-visualizer-${chartKeySuffix}`} // Updated key
+                        data={data}
+                        theme={theme}
+                      />
                     }
                   />
-                  <Route path="l-zone/:zoneId" element={<CoreSitePage />} />
+                  <Route
+                    path="l-zone/:zoneId"
+                    element={<CoreSitePage theme={theme} />} // Pass theme to CoreSitePage
+                  />
                 </Routes>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* P-Network Tab */}
-        <TabsContent
-          value="p_network"
-          key="p_network_content"
-          className="flex-1 flex flex-col min-h-0"
-        >
+        <TabsContent value="p_network" className="flex-1 flex flex-col min-h-0">
           <Card
             className={`flex-1 flex flex-col min-h-0 ${
               isAppFullscreen
@@ -219,10 +215,17 @@ export function DashboardPage({ isAppFullscreen }) {
                   <Route
                     index
                     element={
-                      <NetworkVisualizer5Wrapper data={data} theme={theme} />
+                      <NetworkVisualizer5Wrapper
+                        key={`p-visualizer-${chartKeySuffix}`} // Updated key
+                        data={data}
+                        theme={theme}
+                      />
                     }
                   />
-                  <Route path="p-zone/:zoneId" element={<CoreSitePage />} />
+                  <Route
+                    path="p-zone/:zoneId"
+                    element={<CoreSitePage theme={theme} />} // Pass theme to CoreSitePage
+                  />
                 </Routes>
               </div>
             </CardContent>
