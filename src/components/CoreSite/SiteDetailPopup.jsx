@@ -6,8 +6,14 @@ import {
   MdClose,
 } from "react-icons/md";
 
-const DetailItem = ({ label, value, labelColor, valueColor }) => (
-  <div>
+const DetailItem = ({
+  label,
+  value,
+  labelColor,
+  valueColor,
+  className = "",
+}) => (
+  <div className={className}>
     <p className={`text-xs uppercase tracking-wider ${labelColor}`}>{label}</p>
     <p className={`text-base ${valueColor}`}>{value || "N/A"}</p>
   </div>
@@ -17,7 +23,6 @@ export default function SiteDetailPopup({
   isOpen,
   onClose,
   siteData,
-  // theme, // REMOVED: 'theme' prop is no longer needed here
   topPosition,
   zIndex,
   maxWidthVh,
@@ -45,12 +50,9 @@ export default function SiteDetailPopup({
 
   if (!siteData) return null;
 
-  // All styling decisions now use 'currentTheme'
-  const popupBg =
-    currentTheme === "dark"
-      ? "bg-gray-800 border-gray-700"
-      : "bg-white border-gray-300";
-  // ... other style variables using currentTheme ...
+  const popupBgClass = currentTheme === "dark" ? "bg-gray-800" : "bg-white";
+  const popupBorderColorClass =
+    currentTheme === "dark" ? "border-gray-700" : "border-gray-300";
   const textColor = currentTheme === "dark" ? "text-gray-100" : "text-gray-900";
   const labelColor =
     currentTheme === "dark" ? "text-gray-400" : "text-gray-500";
@@ -60,15 +62,16 @@ export default function SiteDetailPopup({
       : "text-gray-800 font-medium";
   const closeButtonHoverBg =
     currentTheme === "dark" ? "hover:bg-gray-700" : "hover:bg-gray-200";
-  const borderColor =
-    currentTheme === "dark" ? "border-gray-600" : "border-gray-300";
 
-  const bottomToggleButtonBg =
+  const toggleButtonBg =
     currentTheme === "dark"
       ? "bg-gray-700 hover:bg-gray-600"
       : "bg-gray-200 hover:bg-gray-300";
-  const bottomToggleButtonText =
+  const toggleButtonText =
     currentTheme === "dark" ? "text-blue-400" : "text-blue-600";
+
+  const inlineToggleButtonHoverBg =
+    currentTheme === "dark" ? "hover:bg-gray-700" : "hover:bg-gray-100";
 
   const siteIdentifier = siteData.name || `Site ${siteData.id}`;
   const buttonText = `${siteIdentifier} Details`;
@@ -93,9 +96,9 @@ export default function SiteDetailPopup({
   return (
     <div
       style={dynamicStyles}
-      className={`fixed ${popupBg} p-6 flex flex-col 
+      className={`fixed ${popupBgClass} p-6 flex flex-col 
                  transform transition-all duration-300 ease-in-out 
-                 border ${borderColor} rounded-lg pointer-events-auto
+                 border ${popupBorderColorClass} rounded-lg pointer-events-auto
                  ${
                    isOpen
                      ? "translate-x-0 opacity-100"
@@ -127,81 +130,93 @@ export default function SiteDetailPopup({
         </button>
       </div>
 
-      {/* Scrollable Content Area */}
       <div
-        className={`flex-1 overflow-y-auto space-y-4 pr-5 min-h-0 relative ${scrollbarClasses}`}
+        className={`flex-1 overflow-y-auto space-y-4 pr-5 min-h-0 relative ${scrollbarClasses}
+                   ${isInterfaceDetailsOpen ? "pb-16" : "pb-0"}`}
       >
-        {/* ... content ... */}
+        <div className="flex space-x-4">
+          <DetailItem
+            label="Physical Status"
+            value={siteData.physicalStatus}
+            labelColor={labelColor}
+            valueColor={valueColor}
+            className="flex-1"
+          />
+          <DetailItem
+            label="Protocol Status"
+            value={siteData.protocolStatus}
+            labelColor={labelColor}
+            valueColor={valueColor}
+            className="flex-1"
+          />
+        </div>
         <DetailItem
-          label="Link Status"
-          value={siteData.linkStatus}
+          label="OSPF"
+          value={siteData.ospfStatus}
           labelColor={labelColor}
           valueColor={valueColor}
         />
         <DetailItem
-          label="Protocol Status"
-          value={siteData.protocolStatus}
+          label="MPLS"
+          value={siteData.mplsStatus}
           labelColor={labelColor}
           valueColor={valueColor}
         />
+
         <div className={`flex justify-between items-center pt-3`}>
           <DetailItem
             label="Bandwidth"
             value={siteData.bandwidth}
             labelColor={labelColor}
             valueColor={valueColor}
+            className={isInterfaceDetailsOpen ? "" : "flex-1"}
           />
+
+          {!isInterfaceDetailsOpen && (
+            <button
+              onClick={toggleInterfaceDetails}
+              aria-expanded="false"
+              aria-controls={`link-interface-details-section-${siteData.id}`}
+              className={`p-1 rounded-full ml-2 focus:outline-none focus:ring-2 focus:ring-opacity-50
+                          ${inlineToggleButtonHoverBg} ${toggleButtonText}
+                          ${
+                            currentTheme === "dark"
+                              ? "focus:ring-blue-500"
+                              : "focus:ring-blue-600"
+                          }`}
+              aria-label="Show link interface details"
+            >
+              <MdKeyboardArrowDown size={24} />
+            </button>
+          )}
         </div>
+
         {isInterfaceDetailsOpen && (
           <div
             id={`link-interface-details-section-${siteData.id}`}
             className="space-y-4 pt-2"
           >
             <DetailItem
-              label="MPLS"
-              value={siteData.mpls}
+              label="Description"
+              value={siteData.description}
               labelColor={labelColor}
               valueColor={valueColor}
             />
             <DetailItem
-              label="CVC"
-              value={siteData.cvc}
+              label="Media Type"
+              value={siteData.mediaType}
               labelColor={labelColor}
               valueColor={valueColor}
             />
             <DetailItem
-              label="TX"
-              value={siteData.tx}
+              label="CDP"
+              value={siteData.cdpNeighbors}
               labelColor={labelColor}
               valueColor={valueColor}
             />
             <DetailItem
-              label="RX"
-              value={siteData.rx}
-              labelColor={labelColor}
-              valueColor={valueColor}
-            />
-            <DetailItem
-              label="Interface Type"
-              value={siteData.interfaceType}
-              labelColor={labelColor}
-              valueColor={valueColor}
-            />
-            <DetailItem
-              label="Duplex Mode"
-              value={siteData.duplexMode}
-              labelColor={labelColor}
-              valueColor={valueColor}
-            />
-            <DetailItem
-              label="Speed"
-              value={siteData.speed}
-              labelColor={labelColor}
-              valueColor={valueColor}
-            />
-            <DetailItem
-              label="Error Rate"
-              value={siteData.errorRate}
+              label="Container Name"
+              value={siteData.containerName}
               labelColor={labelColor}
               valueColor={valueColor}
             />
@@ -212,54 +227,61 @@ export default function SiteDetailPopup({
               valueColor={valueColor}
             />
             <DetailItem
-              label="Administrative Status"
-              value={siteData.adminStatus}
+              label="CRC Errors"
+              value={siteData.crcErrors}
               labelColor={labelColor}
               valueColor={valueColor}
             />
             <DetailItem
-              label="Utilization"
-              value={siteData.utilization}
+              label="Input Data Rate"
+              value={siteData.inputDataRate}
               labelColor={labelColor}
               valueColor={valueColor}
             />
             <DetailItem
-              label="Jitter"
-              value={siteData.jitter}
+              label="Output Data Rate"
+              value={siteData.outputDataRate}
+              labelColor={labelColor}
+              valueColor={valueColor}
+            />
+            <DetailItem
+              label="TX Power"
+              value={siteData.txPower}
+              labelColor={labelColor}
+              valueColor={valueColor}
+            />
+            <DetailItem
+              label="RX Power"
+              value={siteData.rxPower}
               labelColor={labelColor}
               valueColor={valueColor}
             />
           </div>
         )}
-        <div className="h-0" /> {/* Spacer div */}
-        <div
-          className={`sticky bottom-4 w-full flex justify-end pr-0 pointer-events-none z-10`}
-        >
-          <button
-            onClick={toggleInterfaceDetails}
-            aria-expanded={isInterfaceDetailsOpen}
-            aria-controls={`link-interface-details-section-${siteData.id}`}
-            className={`p-2 rounded-full shadow-md pointer-events-auto
-                          focus:outline-none focus:ring-2 focus:ring-opacity-75
-                          ${bottomToggleButtonBg} ${bottomToggleButtonText}
-                          ${
-                            currentTheme === "dark"
-                              ? "focus:ring-blue-500"
-                              : "focus:ring-blue-600"
-                          }`}
-            aria-label={
-              isInterfaceDetailsOpen
-                ? "Hide link interface details"
-                : "Show link interface details"
-            }
+
+        {isInterfaceDetailsOpen && (
+          <div
+            className={`sticky bottom-4 w-full flex justify-end pr-0 pointer-events-none z-10`}
           >
-            {isInterfaceDetailsOpen ? (
+            <button
+              onClick={toggleInterfaceDetails}
+              aria-expanded="true"
+              aria-controls={`link-interface-details-section-${siteData.id}`}
+              className={`p-2 rounded-full shadow-md pointer-events-auto
+                            focus:outline-none focus:ring-2 focus:ring-opacity-75
+                            ${toggleButtonBg} ${toggleButtonText} 
+                            ${
+                              /* Note: toggleButtonBg used here, not bottomToggleButtonBg if distinct*/
+                              currentTheme === "dark"
+                                ? "focus:ring-blue-500"
+                                : "focus:ring-blue-600"
+                            }`}
+              aria-label="Hide link interface details"
+            >
               <MdKeyboardArrowUp size={24} />
-            ) : (
-              <MdKeyboardArrowDown size={24} />
-            )}
-          </button>
-        </div>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

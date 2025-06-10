@@ -1,7 +1,7 @@
 // src/components/CoreSite/CoreSitePage.jsx
 import React, { useRef, useState, useLayoutEffect, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useNodeLayout } from "./useNodeLayout"; // Ensure this path is correct
+import { useNodeLayout } from "./useNodeLayout";
 import CoreSiteCanvas from "./CoreSiteCanvas";
 import SitesBar from "./SitesBar";
 import SiteDetailPopup from "./SiteDetailPopup";
@@ -23,24 +23,23 @@ const BackArrowIcon = ({ className = "w-5 h-5" }) => (
   </svg>
 );
 
-// --- Constants for Popup Stacking ---
 const POPUP_MAX_HEIGHT_VH = 48;
 const POPUP_WIDTH_PX = 384;
-const POPUP_RIGHT_OFFSET_PX = 20; // Right offset for the primary (first opened) popup
-const POPUP_INITIAL_TOP_PX = 20; // Top offset for the primary (first opened) popup
 
-// How much each SUBSEQUENT popup (2nd, 3rd, etc.) is offset from the one "in front" of it
-const STACK_OFFSET_Y_PX = 20; // How much each subsequent popup is shifted down
-const STACK_OFFSET_X_PX = 0; // Set to 0 for vertical alignment, >0 for left shift
-const MAX_DEPTH_FOR_OFFSET_STACKING = 3; // Max number of popups to show distinct stacking offsets
+const STACK_OFFSET_Y_PX = 20;
+const STACK_OFFSET_X_PX = 0;
+const MAX_DEPTH_FOR_OFFSET_STACKING = 3;
 
-export default function CoreSitePage({ theme = "dark" }) {
+export default function CoreSitePage({
+  theme = "dark",
+  popupAnchor = { top: 20, right: 20 },
+}) {
   const { zoneId } = useParams();
   const navigate = useNavigate();
   const containerRef = useRef(null);
   const svgRef = useRef(null);
   const siteRefs = useRef([]);
-  const node4Ref = useRef(null); // Ref for "Node 4" or your central node
+  const node4Ref = useRef(null);
 
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [openPopups, setOpenPopups] = useState([]);
@@ -67,22 +66,9 @@ export default function CoreSitePage({ theme = "dark" }) {
   );
 
   const handleSiteClick = (siteIndex, siteName) => {
-    const existingPopup = openPopups.find((p) => p.siteData.id === siteIndex);
-    if (existingPopup) {
-      if (
-        !existingPopup.isOpen &&
-        !activatedPopupIds.has(existingPopup.instanceId)
-      ) {
-        // If it exists but is marked for closing or not yet activated, re-activate
-        setActivatedPopupIds((prev) =>
-          new Set(prev).add(existingPopup.instanceId)
-        );
-      }
-      return;
-    }
-
-    const newPopupData = {
-      id: siteIndex, // siteIndex should be unique for each site button
+    const newRandomData = {
+      // Function to generate your data
+      id: siteIndex,
       name: siteName,
       linkStatus: Math.random() > 0.3 ? "Up" : "Down",
       protocolStatus: Math.random() > 0.2 ? "Active" : "Inactive",
@@ -99,6 +85,98 @@ export default function CoreSitePage({ theme = "dark" }) {
       adminStatus: Math.random() > 0.2 ? "Up" : "Down (administratively)",
       utilization: `${Math.floor(Math.random() * 100)}%`,
       jitter: `${Math.floor(Math.random() * 20)} ms`,
+      // Add other fields needed by SiteDetailPopup
+      ospfStatus: Math.random() > 0.5 ? "Enabled" : "Disabled",
+      mplsStatus: Math.random() > 0.6 ? "Active" : "Inactive", // Note: you had mpls above too
+      physicalStatus: Math.random() > 0.2 ? "Up" : "Down",
+      description: `Interface Eth0/${siteIndex} - ${siteName} connection (updated ${new Date().toLocaleTimeString()})`,
+      mediaType: Math.random() > 0.3 ? "Fiber LC" : "Copper RJ45",
+      cdpNeighbors: `${Math.floor(Math.random() * 3) + 1} neighbors`,
+      containerName: `POD-${Math.floor(Math.random() * 10)}`,
+      crcErrors: `${Math.floor(Math.random() * 5)}`,
+      inputDataRate: `${(Math.random() * 500).toFixed(2)} Mbps`,
+      outputDataRate: `${(Math.random() * 300).toFixed(2)} Mbps`,
+      txPower: `${(Math.random() * -5 - 1).toFixed(2)} dBm`,
+      rxPower: `${(Math.random() * -7 - 1).toFixed(2)} dBm`,
+    };
+
+    setOpenPopups((prevPopups) => {
+      const existingPopupIndex = prevPopups.findIndex(
+        (p) => p.siteData.id === siteIndex
+      );
+
+      if (existingPopupIndex > -1) {
+        const updatedPopups = [...prevPopups];
+        updatedPopups[existingPopupIndex] = {
+          ...updatedPopups[existingPopupIndex],
+          siteData: newRandomData,
+          isOpen: true,
+        };
+
+        if (
+          !activatedPopupIds.has(updatedPopups[existingPopupIndex].instanceId)
+        ) {
+          setActivatedPopupIds((prev) =>
+            new Set(prev).add(updatedPopups[existingPopupIndex].instanceId)
+          );
+        }
+        return updatedPopups;
+      } else {
+        const newInstanceId = nextPopupInstanceId;
+        setNextPopupInstanceId((prevId) => prevId + 1);
+        setActivatedPopupIds((prev) => new Set(prev).add(newInstanceId));
+        return [
+          ...prevPopups,
+          {
+            instanceId: newInstanceId,
+            siteData: newRandomData,
+            isOpen: false,
+          },
+        ];
+      }
+    });
+  };
+
+  const handleLinkClick = (clickedLinkData) => {
+    // clickedLinkData will be the D3 data object for the link, e.g.,
+    // { id: "L1-2", source: {id: "Node 1", ...}, target: {id: "Node 2", ...}, capacity: "10G", ... }
+
+    const linkId =
+      clickedLinkData.id ||
+      `link-${clickedLinkData.source.id}-${clickedLinkData.target.id}`;
+
+    // Check if a popup for this link already exists
+    const existingPopup = openPopups.find(
+      (p) => p.siteData.id === linkId && p.popupType === "link"
+    );
+    if (existingPopup) {
+      if (
+        !existingPopup.isOpen &&
+        !activatedPopupIds.has(existingPopup.instanceId)
+      ) {
+        setActivatedPopupIds((prev) =>
+          new Set(prev).add(existingPopup.instanceId)
+        );
+      }
+      return;
+    }
+
+    // Generate data for the link popup
+    const newLinkPopupData = {
+      id: linkId, // Use link's ID or a generated one
+      name: `Link: ${clickedLinkData.source.id} ↔ ${clickedLinkData.target.id}`,
+      popupType: "link", // Differentiate from 'site' popups
+      sourceNode: clickedLinkData.source.id,
+      targetNode: clickedLinkData.target.id,
+      linkCapacity:
+        clickedLinkData.capacity || `${Math.floor(Math.random() * 9) + 1} Gbps`,
+      linkUtilization: `${Math.floor(Math.random() * 100)}%`,
+      linkLatency: `${Math.floor(Math.random() * 50) + 1} ms`,
+      interfaceA:
+        clickedLinkData.interfaceA || `eth0/${Math.floor(Math.random() * 4)}`, // Example
+      interfaceB:
+        clickedLinkData.interfaceB || `gi1/${Math.floor(Math.random() * 2)}`, // Example
+      // Add more link-specific fields as needed
     };
     const newInstanceId = nextPopupInstanceId;
 
@@ -106,8 +184,9 @@ export default function CoreSitePage({ theme = "dark" }) {
       ...prevPopups,
       {
         instanceId: newInstanceId,
-        siteData: newPopupData,
+        siteData: newLinkPopupData,
         isOpen: false, // Add new popups with isOpen: false initially
+        popupType: "link", // Store the type
       },
     ]);
     setActivatedPopupIds((prev) => new Set(prev).add(newInstanceId));
@@ -126,7 +205,7 @@ export default function CoreSitePage({ theme = "dark" }) {
           })
         );
         setActivatedPopupIds(new Set());
-      }, 10); // Small delay (e.g., 10-50ms) can be more robust for browser rendering cycle
+      }, 10);
       return () => clearTimeout(timerId);
     }
   }, [activatedPopupIds]);
@@ -146,7 +225,7 @@ export default function CoreSitePage({ theme = "dark" }) {
       setOpenPopups((prevPopups) =>
         prevPopups.filter((p) => p.instanceId !== instanceIdToClose)
       );
-    }, 300); // Match SiteDetailPopup animation duration
+    }, 300);
   };
 
   const handleBackToChart = () => navigate("..");
@@ -194,7 +273,7 @@ export default function CoreSitePage({ theme = "dark" }) {
       <svg ref={svgRef} className="absolute top-0 left-0 w-full h-full z-0" />
       <CoreSiteCanvas
         svgRef={svgRef}
-        node4Ref={node4Ref} // Make sure CoreSiteCanvas uses this to find the central node
+        node4Ref={node4Ref}
         nodes={nodes}
         links={links}
         centerX={centerX}
@@ -203,16 +282,16 @@ export default function CoreSitePage({ theme = "dark" }) {
         height={dimensions.height}
         currentZoneId={zoneId}
         theme={theme}
+        onLinkClick={handleLinkClick}
       />
       <SitesBar
         svgRef={svgRef}
-        node4Ref={node4Ref} // Pass node4Ref to SitesBar
+        node4Ref={node4Ref}
         siteRefs={siteRefs}
         theme={theme}
         onSiteClick={handleSiteClick}
       />
 
-      {/* Popup Container */}
       <div className="fixed right-0 top-0 h-full pointer-events-none z-20">
         {openPopups.map((popup, index) => {
           const stackDepth = index;
@@ -221,23 +300,25 @@ export default function CoreSitePage({ theme = "dark" }) {
             MAX_DEPTH_FOR_OFFSET_STACKING - 1
           );
 
-          const topPos =
-            POPUP_INITIAL_TOP_PX + stackDepthForOffset * STACK_OFFSET_Y_PX;
-          const rightPos =
-            POPUP_RIGHT_OFFSET_PX + stackDepthForOffset * STACK_OFFSET_X_PX;
-          const currentZIndex = 100 + (openPopups.length - stackDepth);
+          const baseTop = popupAnchor.top;
+          const baseRight = popupAnchor.right;
 
+          const topPos = baseTop + stackDepthForOffset * STACK_OFFSET_Y_PX;
+          const rightPos = baseRight + stackDepthForOffset * STACK_OFFSET_X_PX;
+
+          const currentZIndex = 100 + (openPopups.length - stackDepth);
           const isVisiblyStacked = stackDepth < MAX_DEPTH_FOR_OFFSET_STACKING;
+
           const finalIsOpenState = popup.isOpen && isVisiblyStacked;
 
           let finalTopPos = topPos;
           let finalRightPos = rightPos;
+
           if (!isVisiblyStacked && popup.isOpen) {
             finalTopPos =
-              POPUP_INITIAL_TOP_PX +
-              (MAX_DEPTH_FOR_OFFSET_STACKING - 1) * STACK_OFFSET_Y_PX;
+              baseTop + (MAX_DEPTH_FOR_OFFSET_STACKING - 1) * STACK_OFFSET_Y_PX;
             finalRightPos =
-              POPUP_RIGHT_OFFSET_PX +
+              baseRight +
               (MAX_DEPTH_FOR_OFFSET_STACKING - 1) * STACK_OFFSET_X_PX;
           }
 
@@ -252,7 +333,6 @@ export default function CoreSitePage({ theme = "dark" }) {
               zIndex={currentZIndex}
               maxWidthVh={POPUP_MAX_HEIGHT_VH}
               popupWidthPx={POPUP_WIDTH_PX}
-              // Removed theme prop as SiteDetailPopup gets it from documentElement
             />
           );
         })}

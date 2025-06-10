@@ -1,5 +1,5 @@
 // src/DashboardPage.js
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, Routes, Route } from "react-router-dom";
 import { Card, CardContent } from "./components/ui/card";
 import {
@@ -33,6 +33,12 @@ export function DashboardPage({
   const navigate = useNavigate();
   const location = useLocation();
 
+  const tabContentCardRef = useRef(null);
+  const [popupAnchorCoords, setPopupAnchorCoords] = useState({
+    top: 20,
+    right: 20,
+  });
+
   useEffect(() => {
     const observer = new MutationObserver(() => {
       const isDark = document.documentElement.classList.contains("dark");
@@ -44,6 +50,35 @@ export function DashboardPage({
     });
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    const updateAnchor = () => {
+      if (tabContentCardRef.current) {
+        const rect = tabContentCardRef.current.getBoundingClientRect();
+
+        setPopupAnchorCoords({
+          top: rect.top,
+          right: window.innerWidth - rect.right,
+        });
+      } else {
+        const appHeader = document.querySelector("header");
+        const mainPadding = 24;
+        setPopupAnchorCoords({
+          top:
+            (appHeader ? appHeader.getBoundingClientRect().bottom : 0) +
+            mainPadding,
+          right: mainPadding,
+        });
+      }
+    };
+
+    updateAnchor();
+
+    window.addEventListener("resize", updateAnchor);
+    return () => {
+      window.removeEventListener("resize", updateAnchor);
+    };
+  }, [activeTabValue, isAppFullscreen, isSidebarCollapsed]);
 
   const handleTabChangeForNavigation = (newTab) => {
     setActiveTabValue(newTab);
@@ -84,15 +119,9 @@ export function DashboardPage({
       return null;
     }
 
-    // Adjust button position if TabsList is always visible.
-    // Top offset might need to be larger if TabsList takes significant height.
-    // For now, keeping top-2 left-2 assuming CardContent has enough space.
-    // If the CardContent itself is padded (e.g., p-4 not p-0 in fullscreen),
-    // top-2 left-2 will be relative to that padding.
-    // If CardContent becomes p-0, then top-2 left-2 is from the very edge of the card.
     const buttonPositionClasses = isAppFullscreen
       ? "top-2 left-2"
-      : "top-2 left-2"; // Or adjust if CardContent padding changes
+      : "top-2 left-2";
 
     if (isFullscreenActive) {
       return (
@@ -122,17 +151,16 @@ export function DashboardPage({
   return (
     <div
       className={`flex flex-col h-full ${
-        isAppFullscreen // If app is fullscreen, the main wrapper might not need padding removed
-          ? "bg-white dark:bg-gray-800" // Overall background for fullscreen dashboard area
+        isAppFullscreen
+          ? "bg-white dark:bg-gray-800"
           : "bg-white dark:bg-gray-800 rounded-lg shadow-md"
-      } ${isAppFullscreen ? "p-0" : ""}`} // Outer div no longer needs p-0 if App.js main has p-0
+      } ${isAppFullscreen ? "p-0" : ""}`}
     >
       <Tabs
         defaultValue="table"
-        className="w-full flex flex-col flex-1" // flex-1 ensures Tabs fills the container
+        className="w-full flex flex-col flex-1"
         onValueChange={handleTabChangeForNavigation}
       >
-        {/* --- MODIFICATION: TabsList is ALWAYS visible --- */}
         <TabsList
           className={`bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-4 ${
             isAppFullscreen ? "mx-0 mt-0 rounded-none sticky top-0 z-40" : "" // Sticky if fullscreen
@@ -142,19 +170,19 @@ export function DashboardPage({
           <TabsTrigger value="l_network">L-chart</TabsTrigger>
           <TabsTrigger value="p_network">P-chart</TabsTrigger>
         </TabsList>
-        {/* --- END MODIFICATION --- */}
 
         <TabsContent value="table" className="flex-1 flex flex-col min-h-0">
           <Card
+            ref={activeTabValue === "table" ? tabContentCardRef : null}
             className={`flex-1 flex flex-col min-h-0 ${
-              isAppFullscreen && activeTabValue === "table" // Only special style if this tab is active in fullscreen
+              isAppFullscreen && activeTabValue === "table"
                 ? "border-0 rounded-none shadow-none"
                 : "border dark:border-gray-700"
             }`}
           >
             <CardContent
               className={`overflow-auto flex-1 ${
-                isAppFullscreen && activeTabValue === "table" ? "p-4" : "p-4" // Table always has some padding
+                isAppFullscreen && activeTabValue === "table" ? "p-4" : "p-4"
               } relative`}
             >
               <Table>
@@ -214,28 +242,23 @@ export function DashboardPage({
         </TabsContent>
 
         <TabsContent value="l_network" className="flex-1 flex flex-col min-h-0">
-          {" "}
-          {/* Ensure content can fill space */}
           <Card
+            ref={activeTabValue === "l_network" ? tabContentCardRef : null}
             className={`flex-1 flex flex-col min-h-0 ${
-              // flex-1 allows card to grow
-              isAppFullscreen && activeTabValue === "l_network" // Special styling only if this tab is active in fullscreen
+              isAppFullscreen && activeTabValue === "l_network"
                 ? "border-0 rounded-none shadow-none"
                 : "border dark:border-gray-700"
             }`}
           >
             <CardContent
               className={`flex-1 flex flex-col min-h-0 ${
-                // flex-1 for content to grow
                 isAppFullscreen && activeTabValue === "l_network"
                   ? "p-0"
-                  : "p-4" // p-0 if active in fullscreen for max chart space
+                  : "p-4"
               } relative`}
             >
               {activeTabValue === "l_network" && renderFullscreenToggleButton()}
               <div className="relative w-full flex-1 min-h-0">
-                {" "}
-                {/* flex-1 for chart area */}
                 <Routes>
                   <Route
                     index
@@ -249,7 +272,12 @@ export function DashboardPage({
                   />
                   <Route
                     path="l-zone/:zoneId"
-                    element={<CoreSitePage theme={theme} />}
+                    element={
+                      <CoreSitePage
+                        theme={theme}
+                        popupAnchor={popupAnchorCoords}
+                      />
+                    }
                   />
                 </Routes>
               </div>
@@ -258,28 +286,23 @@ export function DashboardPage({
         </TabsContent>
 
         <TabsContent value="p_network" className="flex-1 flex flex-col min-h-0">
-          {" "}
-          {/* Ensure content can fill space */}
           <Card
+            ref={activeTabValue === "p_network" ? tabContentCardRef : null}
             className={`flex-1 flex flex-col min-h-0 ${
-              // flex-1 allows card to grow
-              isAppFullscreen && activeTabValue === "p_network" // Special styling only if this tab is active in fullscreen
+              isAppFullscreen && activeTabValue === "p_network"
                 ? "border-0 rounded-none shadow-none"
                 : "border dark:border-gray-700"
             }`}
           >
             <CardContent
               className={`flex-1 flex flex-col min-h-0 ${
-                // flex-1 for content to grow
                 isAppFullscreen && activeTabValue === "p_network"
                   ? "p-0"
-                  : "p-4" // p-0 if active in fullscreen for max chart space
+                  : "p-4"
               } relative`}
             >
               {activeTabValue === "p_network" && renderFullscreenToggleButton()}
               <div className="relative w-full flex-1 min-h-0">
-                {" "}
-                {/* flex-1 for chart area */}
                 <Routes>
                   <Route
                     index
@@ -293,7 +316,12 @@ export function DashboardPage({
                   />
                   <Route
                     path="p-zone/:zoneId"
-                    element={<CoreSitePage theme={theme} />}
+                    element={
+                      <CoreSitePage
+                        theme={theme}
+                        popupAnchor={popupAnchorCoords}
+                      />
+                    }
                   />
                 </Routes>
               </div>

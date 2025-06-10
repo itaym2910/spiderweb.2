@@ -12,28 +12,27 @@ export default function CoreSiteCanvas({
   centerY,
   width,
   height,
-  currentZoneId, // Added to potentially use
-  theme = "dark", // Added theme prop with a default
+  currentZoneId,
+  theme = "dark",
 }) {
   useEffect(() => {
     if (!svgRef.current || width === 0 || height === 0) {
       return;
     }
 
-    // Theme-dependent colors
     const T = {
       bgColor: theme === "dark" ? "#1f2937" : "#ffffff",
-      zoneCircleFill: theme === "dark" ? "#38bdf8" : "#bae6fd", // Lighter blue for light mode
+      zoneCircleFill: theme === "dark" ? "#38bdf8" : "#bae6fd",
       zoneCircleOpacity: theme === "dark" ? 0.12 : 0.4,
-      zoneLabelFill: theme === "dark" ? "#ffffff" : "#0c4a6e", // Darker blue/cyan for light mode text
-      linkStroke: theme === "dark" ? "#94a3b8" : "#cbd5e1", // Lighter gray for light mode
+      zoneLabelFill: theme === "dark" ? "#ffffff" : "#0c4a6e",
+      linkStroke: theme === "dark" ? "#94a3b8" : "#cbd5e1",
       linkStrokeOpacity: 0.6,
-      linkHoverStroke: "#f59e0b", // Amber for hover, good contrast on both
-      nodeFill: theme === "dark" ? "#29c6e0" : "#67e8f9", // Lighter cyan for light mode
-      nodeStroke: theme === "dark" ? "#60a5fa" : "#7dd3fc", // Lighter blue for light mode
-      nodeTextFill: theme === "dark" ? "#ffffff" : "#155e75", // Darker cyan for text on light mode nodes
-      nodeHoverFill: theme === "dark" ? "#fde68a" : "#fef08a", // Light yellow for hover
-      nodeHoverStroke: "#f59e0b", // Amber for hover stroke
+      linkHoverStroke: "#f59e0b",
+      nodeFill: theme === "dark" ? "#29c6e0" : "#67e8f9",
+      nodeStroke: theme === "dark" ? "#60a5fa" : "#7dd3fc",
+      nodeTextFill: theme === "dark" ? "#ffffff" : "#155e75",
+      nodeHoverFill: theme === "dark" ? "#fde68a" : "#fef08a",
+      nodeHoverStroke: "#f59e0b",
     };
 
     const svg = d3
@@ -45,7 +44,6 @@ export default function CoreSiteCanvas({
     svg.selectAll("*").remove();
     const zoomLayer = svg.append("g");
 
-    // Zone circle and label
     zoomLayer
       .append("circle")
       .attr("cx", centerX)
@@ -57,14 +55,13 @@ export default function CoreSiteCanvas({
     zoomLayer
       .append("text")
       .attr("x", centerX)
-      .attr("y", centerY - 200) // Adjust position as needed
-      .text(currentZoneId ? `Zone ${currentZoneId}` : "Central Zone") // Use currentZoneId
+      .attr("y", centerY - 200)
+      .text(currentZoneId ? `Zone ${currentZoneId}` : "Central Zone")
       .attr("fill", T.zoneLabelFill)
       .attr("font-size", "18px")
       .attr("text-anchor", "middle")
       .attr("font-weight", "bold");
 
-    // Links
     const visibleLinks = zoomLayer
       .append("g")
       .selectAll("line.link")
@@ -119,7 +116,6 @@ export default function CoreSiteCanvas({
           .attr("stroke-width", 2);
       });
 
-    // Nodes
     zoomLayer
       .append("g")
       .selectAll("circle.node")
@@ -133,7 +129,6 @@ export default function CoreSiteCanvas({
       .attr("stroke", T.nodeStroke)
       .attr("stroke-width", 2);
 
-    // Node labels
     zoomLayer
       .append("g")
       .selectAll("text.node-label")
@@ -168,7 +163,7 @@ export default function CoreSiteCanvas({
     height,
     currentZoneId,
     theme,
-  ]); // Added theme and currentZoneId to dependencies
+  ]);
 
   return null;
 }
