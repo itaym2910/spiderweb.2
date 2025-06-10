@@ -1,6 +1,6 @@
 // src/DashboardPage.js
-import React, { useState, useEffect, useRef } from "react";
-import { useNavigate, useLocation, Routes, Route } from "react-router-dom";
+import React from "react";
+import { Routes, Route } from "react-router-dom";
 import { Card, CardContent } from "./components/ui/card";
 import {
   Table,
@@ -17,6 +17,8 @@ import CoreSitePage from "./components/CoreSite/CoreSitePage";
 import { data } from "./dataMainLines";
 import { FullscreenIcon, ExitFullscreenIcon } from "./App"; // Adjust path if App.js is elsewhere
 
+import { useDashboardLogic } from "./useDashboardLogic";
+
 export function DashboardPage({
   isAppFullscreen,
   isSidebarCollapsed,
@@ -25,95 +27,20 @@ export function DashboardPage({
   enterFullscreenButtonClasses,
   exitFullscreenButtonClasses,
 }) {
-  const [theme, setTheme] = useState(
-    document.documentElement.classList.contains("dark") ? "dark" : "light"
-  );
-  const [activeTabValue, setActiveTabValue] = useState("table");
-
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  const tabContentCardRef = useRef(null);
-  const [popupAnchorCoords, setPopupAnchorCoords] = useState({
-    top: 20,
-    right: 20,
+  const {
+    theme,
+    activeTabValue,
+    tabContentCardRef,
+    popupAnchorCoords,
+    handleTabChangeForNavigation,
+    chartKeySuffix,
+  } = useDashboardLogic({
+    isAppFullscreen,
+    isSidebarCollapsed,
   });
 
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      const isDark = document.documentElement.classList.contains("dark");
-      setTheme(isDark ? "dark" : "light");
-    });
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const updateAnchor = () => {
-      if (tabContentCardRef.current) {
-        const rect = tabContentCardRef.current.getBoundingClientRect();
-
-        setPopupAnchorCoords({
-          top: rect.top,
-          right: window.innerWidth - rect.right,
-        });
-      } else {
-        const appHeader = document.querySelector("header");
-        const mainPadding = 24;
-        setPopupAnchorCoords({
-          top:
-            (appHeader ? appHeader.getBoundingClientRect().bottom : 0) +
-            mainPadding,
-          right: mainPadding,
-        });
-      }
-    };
-
-    updateAnchor();
-
-    window.addEventListener("resize", updateAnchor);
-    return () => {
-      window.removeEventListener("resize", updateAnchor);
-    };
-  }, [activeTabValue, isAppFullscreen, isSidebarCollapsed]);
-
-  const handleTabChangeForNavigation = (newTab) => {
-    setActiveTabValue(newTab);
-
-    const currentPath = location.pathname;
-    const isOnLZoneDetail = currentPath.includes("/l-zone/");
-    const isOnPZoneDetail = currentPath.includes("/p-zone/");
-
-    if (isOnLZoneDetail || isOnPZoneDetail) {
-      let calculatedBasePath = currentPath;
-      if (isOnLZoneDetail) {
-        calculatedBasePath = currentPath.split("/l-zone/")[0];
-      } else if (isOnPZoneDetail) {
-        calculatedBasePath = currentPath.split("/p-zone/")[0];
-      }
-      calculatedBasePath =
-        calculatedBasePath === "" || calculatedBasePath === undefined
-          ? "/"
-          : calculatedBasePath;
-      if (!calculatedBasePath.startsWith("/")) {
-        calculatedBasePath = "/" + calculatedBasePath;
-      }
-      if (calculatedBasePath !== currentPath) {
-        try {
-          navigate(calculatedBasePath);
-        } catch (e) {
-          console.error("Navigation error in handleTabChange:", e);
-        }
-      }
-    }
-  };
-
-  const chartKeySuffix = `${isAppFullscreen}-${isSidebarCollapsed}`;
-
   const renderFullscreenToggleButton = () => {
+    // ... (rest of the function remains the same)
     if (!toggleAppFullscreen) return null;
     if (activeTabValue !== "l_network" && activeTabValue !== "p_network") {
       return null;
@@ -157,13 +84,14 @@ export function DashboardPage({
       } ${isAppFullscreen ? "p-0" : ""}`}
     >
       <Tabs
-        defaultValue="table"
+        value={activeTabValue} // Controlled by this state
+        defaultValue="table" // Add this back for robust initial rendering
         className="w-full flex flex-col flex-1"
         onValueChange={handleTabChangeForNavigation}
       >
         <TabsList
           className={`bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-4 ${
-            isAppFullscreen ? "mx-0 mt-0 rounded-none sticky top-0 z-40" : "" // Sticky if fullscreen
+            isAppFullscreen ? "mx-0 mt-0 rounded-none sticky top-0 z-40" : ""
           }`}
         >
           <TabsTrigger value="table">Main Lines</TabsTrigger>
@@ -171,6 +99,7 @@ export function DashboardPage({
           <TabsTrigger value="p_network">P-chart</TabsTrigger>
         </TabsList>
 
+        {/* Rest of the TabsContent remains the same */}
         <TabsContent value="table" className="flex-1 flex flex-col min-h-0">
           <Card
             ref={activeTabValue === "table" ? tabContentCardRef : null}
