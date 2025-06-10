@@ -5,19 +5,21 @@ import { getEdgePoint } from "./drawHelpers";
 
 export default function SitesBar({
   svgRef,
-  node4Ref,
+  focusedNodeDataRef, // Renamed from node4Ref, this is the ref object to READ from
+  focusedNodeId, // ID of the currently focused node
   siteRefs,
   theme = "dark",
-  onSiteClick, // Add onSiteClick prop
+  onSiteClick,
+  // nodes prop might not be needed if focusedNodeDataRef is sufficient
 }) {
   const barBgColor = "bg-transparent";
 
-  const buttonDefaultBg = theme === "dark" ? "#29c6e0" : "#e0f2fe"; // cyan-ish for dark, light-blue for light
-  const buttonDefaultBorder = theme === "dark" ? "#60a5fa" : "#7dd3fc"; // blue-ish for dark, lighter-blue for light
+  const buttonDefaultBg = theme === "dark" ? "#29c6e0" : "#e0f2fe";
+  const buttonDefaultBorder = theme === "dark" ? "#60a5fa" : "#7dd3fc";
   const buttonDefaultText = theme === "dark" ? "text-white" : "text-sky-700";
 
-  const buttonHoverBg = theme === "dark" ? "#fde68a" : "#fef9c3"; // yellow-ish for dark, light-yellow for light
-  const buttonHoverBorder = theme === "dark" ? "#facc15" : "#fde047"; // amber for dark, lighter-amber for light
+  const buttonHoverBg = theme === "dark" ? "#fde68a" : "#fef9c3";
+  const buttonHoverBorder = theme === "dark" ? "#facc15" : "#fde047";
   const buttonHoverText =
     theme === "dark" ? "text-slate-800" : "text-yellow-700";
 
@@ -29,12 +31,15 @@ export default function SitesBar({
     const nodeHoverFill = theme === "dark" ? "#fde68a" : "#fef08a";
     const nodeHoverStroke = theme === "dark" ? "#facc15" : "#f59e0b";
 
-    d3.select(svgRef.current)
-      .selectAll("circle.node")
-      .filter((d) => d.id === "Node 4")
-      .attr("fill", hovered ? nodeHoverFill : nodeDefaultFill)
-      .attr("stroke", hovered ? nodeHoverStroke : nodeDefaultStroke)
-      .attr("stroke-width", hovered ? 4 : 2);
+    // Highlight the currently focused node
+    if (focusedNodeId) {
+      d3.select(svgRef.current)
+        .selectAll("circle.node")
+        .filter((d) => d.id === focusedNodeId) // Use focusedNodeId
+        .attr("fill", hovered ? nodeHoverFill : nodeDefaultFill)
+        .attr("stroke", hovered ? nodeHoverStroke : nodeDefaultStroke)
+        .attr("stroke-width", hovered ? 4 : 2);
+    }
 
     if (targetButton) {
       targetButton.style.backgroundColor = hovered
@@ -44,9 +49,8 @@ export default function SitesBar({
         ? buttonHoverBorder
         : buttonDefaultBorder;
 
-      // Ensure classList is available and classes are valid strings
-      const defaultTextClass = buttonDefaultText.split(" ")[0]; // Take first class if multiple
-      const hoverTextClass = buttonHoverText.split(" ")[0]; // Take first class if multiple
+      const defaultTextClass = buttonDefaultText.split(" ")[0];
+      const hoverTextClass = buttonHoverText.split(" ")[0];
 
       if (hovered) {
         if (
@@ -75,18 +79,19 @@ export default function SitesBar({
     }
   };
 
+  const numberOfSites = focusedNodeId === "Node 3" ? 30 : 80;
+
   return (
     <div
       className={`absolute bottom-0 left-0 w-full px-4 py-4 flex flex-wrap justify-center items-center gap-3 ${barBgColor} z-10 shadow-upwards`}
     >
-      {Array.from({ length: 80 }).map((_, i) => (
+      {Array.from({ length: numberOfSites }).map((_, i) => (
         <button
           key={`btn-${i}`}
           ref={(el) => (siteRefs.current[i] = el)}
           onClick={() => {
-            // Add onClick handler
             if (onSiteClick) {
-              onSiteClick(i, `Site ${i + 1}`); // Pass site index and a generated name
+              onSiteClick(i, `Site ${i + 1} (via ${focusedNodeId || "N/A"})`);
             }
           }}
           onMouseEnter={(e) => {
@@ -98,14 +103,18 @@ export default function SitesBar({
             const btnX = btnBox.left + btnBox.width / 2 - svgBox.left;
             const btnY = btnBox.top + btnBox.height / 2 - svgBox.top;
 
-            if (!node4Ref.current) {
-              console.warn("[SitesBar] node4Ref.current is not set on hover.");
+            if (!focusedNodeDataRef.current) {
+              // Check the ref holding the D3 node data
+              console.warn(
+                "[SitesBar] focusedNodeDataRef.current is not set on hover."
+              );
               return;
             }
 
+            const nodeData = focusedNodeDataRef.current;
             const edge = getEdgePoint(
-              node4Ref.current.x,
-              node4Ref.current.y,
+              nodeData.x, // Use coordinates from the D3 node data
+              nodeData.y,
               btnX,
               btnY,
               60 // Assuming node radius is 60
@@ -120,7 +129,7 @@ export default function SitesBar({
               .attr("y2", edge.y)
               .attr("stroke", connectorLineStroke)
               .attr("stroke-width", 3)
-              .lower(); // draw line behind other svg elements if needed
+              .lower();
           }}
           onMouseLeave={(e) => {
             handleHover(false, e.currentTarget);

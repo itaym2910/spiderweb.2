@@ -2,7 +2,7 @@
 import { useState, useLayoutEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useNodeLayout } from "./useNodeLayout";
-import { usePopupManager } from "./usePopupManager"; // Import the new popup manager hook
+import { usePopupManager } from "./usePopupManager";
 
 export function useCoreSiteData(popupAnchor) {
   const { zoneId } = useParams();
@@ -10,8 +10,8 @@ export function useCoreSiteData(popupAnchor) {
   const containerRef = useRef(null);
 
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [selectedNodeId, setSelectedNodeId] = useState("Node 4"); // Default to Node 4
 
-  // Use the popup manager hook
   const { openPopups, addOrUpdatePopup, closePopup, getPopupPositioning } =
     usePopupManager(popupAnchor);
 
@@ -29,7 +29,7 @@ export function useCoreSiteData(popupAnchor) {
     }
     window.addEventListener("resize", updateDimensions);
     return () => window.removeEventListener("resize", updateDimensions);
-  }, []); // containerRef is stable, no need to add as dependency unless it can change identity
+  }, []);
 
   const { nodes, links, centerX, centerY } = useNodeLayout(
     dimensions.width,
@@ -58,7 +58,7 @@ export function useCoreSiteData(popupAnchor) {
       rxPower: `${(Math.random() * -7 - 1).toFixed(2)} dBm`,
       adminStatus: Math.random() > 0.2 ? "Up" : "Down (administratively)",
     };
-    addOrUpdatePopup(siteDetailPayload); // Delegate to popup manager
+    addOrUpdatePopup(siteDetailPayload);
   };
 
   const handleLinkClick = (linkData) => {
@@ -73,13 +73,12 @@ export function useCoreSiteData(popupAnchor) {
       utilization: `${Math.floor(Math.random() * 100)}%`,
       status: Math.random() > 0.15 ? "Up" : "Down",
     };
-    addOrUpdatePopup(newLinkPopupData); // Delegate to popup manager
+    addOrUpdatePopup(newLinkPopupData);
   };
 
   const handleBackToChart = () => navigate("..");
 
   return {
-    // Core site data and refs
     zoneId,
     containerRef,
     dimensions,
@@ -87,13 +86,13 @@ export function useCoreSiteData(popupAnchor) {
     links,
     centerX,
     centerY,
-    // Click handlers
+    selectedNodeId, // Expose selectedNodeId
+    setSelectedNodeId, // Expose setter
     handleSiteClick,
     handleLinkClick,
     handleBackToChart,
-    // Popup related state and functions from usePopupManager
     openPopups,
-    closePopup, // Renamed from handleClosePopup for consistency if preferred
+    closePopup,
     getPopupPositioning,
   };
 }

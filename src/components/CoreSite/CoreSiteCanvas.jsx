@@ -5,7 +5,8 @@ import { linkPositionFromEdges } from "./drawHelpers";
 
 export default function CoreSiteCanvas({
   svgRef,
-  node4Ref,
+  focusedNodeDataRef, // Renamed from node4Ref, this is the ref object to populate
+  focusedNodeId, // ID of the node to find and assign to focusedNodeDataRef.current
   nodes,
   links,
   centerX,
@@ -118,8 +119,6 @@ export default function CoreSiteCanvas({
       })
       .on("click", function (event, d_clicked_link) {
         if (onLinkClick) {
-          console.log("Link clicked in D3:", d_clicked_link);
-
           onLinkClick(d_clicked_link);
         }
       });
@@ -151,18 +150,22 @@ export default function CoreSiteCanvas({
       .attr("text-anchor", "middle")
       .attr("dy", ".35em");
 
-    if (nodes && nodes.length > 0) {
-      const foundNode = nodes.find((n) => n.id === "Node 4");
-      node4Ref.current = foundNode || null;
+    // Find the focused node and update the ref
+    if (focusedNodeDataRef && nodes && nodes.length > 0 && focusedNodeId) {
+      const foundNode = nodes.find((n) => n.id === focusedNodeId);
+      focusedNodeDataRef.current = foundNode || null;
       if (!foundNode) {
-        console.warn("[CoreSiteCanvas] Node 4 not found in nodes data");
+        console.warn(
+          `[CoreSiteCanvas] Node ${focusedNodeId} not found in nodes data`
+        );
       }
-    } else {
-      node4Ref.current = null;
+    } else if (focusedNodeDataRef) {
+      focusedNodeDataRef.current = null;
     }
   }, [
     svgRef,
-    node4Ref,
+    focusedNodeDataRef, // Add to dependencies
+    focusedNodeId, // Add to dependencies
     nodes,
     links,
     centerX,

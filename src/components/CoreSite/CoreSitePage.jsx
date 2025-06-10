@@ -1,6 +1,6 @@
 // src/components/CoreSite/CoreSitePage.jsx
 import React from "react";
-import { useCoreSiteData } from "./useCoreSiteData"; // Updated import
+import { useCoreSiteData } from "./useCoreSiteData";
 import CoreSiteView from "./CoreSiteView";
 
 export default function CoreSitePage({
@@ -15,13 +15,15 @@ export default function CoreSitePage({
     links,
     centerX,
     centerY,
+    selectedNodeId, // Get from hook
+    setSelectedNodeId, // Get from hook
     openPopups,
     handleSiteClick,
     handleLinkClick,
-    closePopup, // Updated from handleClosePopup
+    closePopup,
     handleBackToChart,
     getPopupPositioning,
-  } = useCoreSiteData(popupAnchor); // Use the refactored hook
+  } = useCoreSiteData(popupAnchor);
 
   return (
     <CoreSiteView
@@ -33,10 +35,12 @@ export default function CoreSitePage({
       links={links}
       centerX={centerX}
       centerY={centerY}
+      selectedNodeId={selectedNodeId} // Pass down
+      setSelectedNodeId={setSelectedNodeId} // Pass down
       openPopups={openPopups}
       onSiteClick={handleSiteClick}
       onLinkClick={handleLinkClick}
-      onClosePopup={closePopup} // Pass the renamed function
+      onClosePopup={closePopup}
       onBackToChart={handleBackToChart}
       getPopupPositioning={getPopupPositioning}
     />
