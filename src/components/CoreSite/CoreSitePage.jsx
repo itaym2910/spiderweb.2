@@ -66,14 +66,17 @@ export default function CoreSitePage({
   );
 
   const handleSiteClick = (siteIndex, siteName) => {
-    const newRandomData = {
-      // Function to generate your data
+    // Generate the data payload for the site
+    const siteDetailPayload = {
+      // Renamed variable for clarity during change
       id: siteIndex,
       name: siteName,
+      type: "site", // Important to distinguish it's a site
+      // --- ALL YOUR SITE-SPECIFIC FIELDS FROM THE PREVIOUS newPopupData DEFINITION ---
       linkStatus: Math.random() > 0.3 ? "Up" : "Down",
       protocolStatus: Math.random() > 0.2 ? "Active" : "Inactive",
       bandwidth: `${Math.floor(Math.random() * 90) + 10} Mbps`,
-      mpls: Math.random() > 0.5 ? "Enabled" : "Disabled",
+      mpls: Math.random() > 0.5 ? "Enabled" : "Disabled", // Or mplsStatus if that's what SiteDetailPopup expects
       cvc: `VLAN-${Math.floor(Math.random() * 1000) + 100}`,
       tx: `${(Math.random() * 100).toFixed(2)} Mbps`,
       rx: `${(Math.random() * 100).toFixed(2)} Mbps`,
@@ -85,11 +88,11 @@ export default function CoreSitePage({
       adminStatus: Math.random() > 0.2 ? "Up" : "Down (administratively)",
       utilization: `${Math.floor(Math.random() * 100)}%`,
       jitter: `${Math.floor(Math.random() * 20)} ms`,
-      // Add other fields needed by SiteDetailPopup
+      // Fields specific to the new list requested for SiteDetailPopup
       ospfStatus: Math.random() > 0.5 ? "Enabled" : "Disabled",
-      mplsStatus: Math.random() > 0.6 ? "Active" : "Inactive", // Note: you had mpls above too
+      // mplsStatus: Math.random() > 0.6 ? "Active" : "Inactive", // You have 'mpls' above, choose one
       physicalStatus: Math.random() > 0.2 ? "Up" : "Down",
-      description: `Interface Eth0/${siteIndex} - ${siteName} connection (updated ${new Date().toLocaleTimeString()})`,
+      description: `Interface for ${siteName}`,
       mediaType: Math.random() > 0.3 ? "Fiber LC" : "Copper RJ45",
       cdpNeighbors: `${Math.floor(Math.random() * 3) + 1} neighbors`,
       containerName: `POD-${Math.floor(Math.random() * 10)}`,
@@ -100,54 +103,67 @@ export default function CoreSitePage({
       rxPower: `${(Math.random() * -7 - 1).toFixed(2)} dBm`,
     };
 
+    // Logic to check for existing popups and update/add
     setOpenPopups((prevPopups) => {
       const existingPopupIndex = prevPopups.findIndex(
-        (p) => p.siteData.id === siteIndex
+        (p) =>
+          p.detailData &&
+          p.detailData.id === siteIndex &&
+          p.detailData.type === "site"
       );
 
       if (existingPopupIndex > -1) {
+        // Popup exists, update its data (if you want to refresh data on re-click)
         const updatedPopups = [...prevPopups];
         updatedPopups[existingPopupIndex] = {
           ...updatedPopups[existingPopupIndex],
-          siteData: newRandomData,
-          isOpen: true,
+          detailData: siteDetailPayload, // Use detailData
+          isOpen: false, // Set to false to re-trigger animation via useEffect
         };
-
-        if (
-          !activatedPopupIds.has(updatedPopups[existingPopupIndex].instanceId)
-        ) {
-          setActivatedPopupIds((prev) =>
-            new Set(prev).add(updatedPopups[existingPopupIndex].instanceId)
-          );
-        }
+        // Mark for activation
+        setActivatedPopupIds((prev) =>
+          new Set(prev).add(updatedPopups[existingPopupIndex].instanceId)
+        );
         return updatedPopups;
       } else {
+        // Popup doesn't exist, add a new one
         const newInstanceId = nextPopupInstanceId;
-        setNextPopupInstanceId((prevId) => prevId + 1);
         setActivatedPopupIds((prev) => new Set(prev).add(newInstanceId));
+        setNextPopupInstanceId((prevId) => prevId + 1); // Increment only for truly new popups
         return [
           ...prevPopups,
           {
             instanceId: newInstanceId,
-            siteData: newRandomData,
-            isOpen: false,
+            detailData: siteDetailPayload, // <--- CHANGE 'siteData' to 'detailData'
+            isOpen: false, // For two-step animation
           },
         ];
       }
     });
   };
 
-  const handleLinkClick = (clickedLinkData) => {
-    // clickedLinkData will be the D3 data object for the link, e.g.,
-    // { id: "L1-2", source: {id: "Node 1", ...}, target: {id: "Node 2", ...}, capacity: "10G", ... }
+  const handleLinkClick = (linkData) => {
+    console.log("Handling link click for:", linkData);
 
-    const linkId =
-      clickedLinkData.id ||
-      `link-${clickedLinkData.source.id}-${clickedLinkData.target.id}`;
+    const newLinkPopupData = {
+      id: linkData.id || `link-${linkData.source.id}-${linkData.target.id}`,
+      name: `Link: ${linkData.source.id} ↔ ${linkData.target.id}`,
+      type: "link",
+      sourceNode: linkData.source.id,
+      targetNode: linkData.target.id,
+      linkBandwidth: `${Math.floor(Math.random() * 1000) + 100} Gbps`,
+      latency: `${Math.floor(Math.random() * 50) + 1} ms`,
+      utilization: `${Math.floor(Math.random() * 100)}%`,
+      status: Math.random() > 0.15 ? "Up" : "Down",
+    };
 
-    // Check if a popup for this link already exists
+    const newInstanceId = nextPopupInstanceId;
+
     const existingPopup = openPopups.find(
-      (p) => p.siteData.id === linkId && p.popupType === "link"
+      (p) =>
+        p.detailData &&
+        p.detailData.id === newLinkPopupData.id &&
+        p.detailData.type === "link"
     );
     if (existingPopup) {
       if (
@@ -158,35 +174,17 @@ export default function CoreSitePage({
           new Set(prev).add(existingPopup.instanceId)
         );
       }
+
       return;
     }
-
-    // Generate data for the link popup
-    const newLinkPopupData = {
-      id: linkId, // Use link's ID or a generated one
-      name: `Link: ${clickedLinkData.source.id} ↔ ${clickedLinkData.target.id}`,
-      popupType: "link", // Differentiate from 'site' popups
-      sourceNode: clickedLinkData.source.id,
-      targetNode: clickedLinkData.target.id,
-      linkCapacity:
-        clickedLinkData.capacity || `${Math.floor(Math.random() * 9) + 1} Gbps`,
-      linkUtilization: `${Math.floor(Math.random() * 100)}%`,
-      linkLatency: `${Math.floor(Math.random() * 50) + 1} ms`,
-      interfaceA:
-        clickedLinkData.interfaceA || `eth0/${Math.floor(Math.random() * 4)}`, // Example
-      interfaceB:
-        clickedLinkData.interfaceB || `gi1/${Math.floor(Math.random() * 2)}`, // Example
-      // Add more link-specific fields as needed
-    };
-    const newInstanceId = nextPopupInstanceId;
 
     setOpenPopups((prevPopups) => [
       ...prevPopups,
       {
         instanceId: newInstanceId,
-        siteData: newLinkPopupData,
-        isOpen: false, // Add new popups with isOpen: false initially
-        popupType: "link", // Store the type
+
+        detailData: newLinkPopupData,
+        isOpen: false,
       },
     ]);
     setActivatedPopupIds((prev) => new Set(prev).add(newInstanceId));
@@ -327,7 +325,7 @@ export default function CoreSitePage({
               key={popup.instanceId}
               isOpen={finalIsOpenState}
               onClose={() => handleClosePopup(popup.instanceId)}
-              siteData={popup.siteData}
+              detailData={popup.detailData}
               topPosition={finalTopPos}
               popupRightOffsetPx={finalRightPos}
               zIndex={currentZIndex}

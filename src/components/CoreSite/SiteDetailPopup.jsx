@@ -22,7 +22,7 @@ const DetailItem = ({
 export default function SiteDetailPopup({
   isOpen,
   onClose,
-  siteData,
+  detailData, // Changed from siteData
   topPosition,
   zIndex,
   maxWidthVh,
@@ -48,8 +48,9 @@ export default function SiteDetailPopup({
     return () => observer.disconnect();
   }, []);
 
-  if (!siteData) return null;
+  if (!detailData) return null;
 
+  // Styling variables based on currentTheme
   const popupBgClass = currentTheme === "dark" ? "bg-gray-800" : "bg-white";
   const popupBorderColorClass =
     currentTheme === "dark" ? "border-gray-700" : "border-gray-300";
@@ -63,18 +64,16 @@ export default function SiteDetailPopup({
   const closeButtonHoverBg =
     currentTheme === "dark" ? "hover:bg-gray-700" : "hover:bg-gray-200";
 
-  const toggleButtonBg =
+  // Corrected: Styles for the ALWAYS VISIBLE BOTTOM toggle button
+  const stickyToggleButtonBg = // Renamed from bottomToggleButtonBg for clarity if used consistently
     currentTheme === "dark"
       ? "bg-gray-700 hover:bg-gray-600"
       : "bg-gray-200 hover:bg-gray-300";
-  const toggleButtonText =
+  const stickyToggleButtonText = // Renamed from bottomToggleButtonText
     currentTheme === "dark" ? "text-blue-400" : "text-blue-600";
 
-  const inlineToggleButtonHoverBg =
-    currentTheme === "dark" ? "hover:bg-gray-700" : "hover:bg-gray-100";
-
-  const siteIdentifier = siteData.name || `Site ${siteData.id}`;
-  const buttonText = `${siteIdentifier} Details`;
+  // const siteIdentifier = detailData.name || `Site ${detailData.id}`; // Used directly in header button
+  // const buttonText = `${siteIdentifier} Details`; // REMOVED - composed directly in JSX
 
   const toggleInterfaceDetails = () => {
     setIsInterfaceDetailsOpen(!isInterfaceDetailsOpen);
@@ -93,6 +92,14 @@ export default function SiteDetailPopup({
       ? "dark-scrollbar dark-scrollbar-firefox"
       : "light-scrollbar light-scrollbar-firefox";
 
+  // Construct the header button text dynamically
+  const headerButtonText =
+    detailData.type === "link"
+      ? `Link: ${detailData.sourceNode || "?"} ↔ ${
+          detailData.targetNode || "?"
+        }`
+      : `${detailData.name || `Item ${detailData.id}`} Details`;
+
   return (
     <div
       style={dynamicStyles}
@@ -106,16 +113,16 @@ export default function SiteDetailPopup({
                  }`}
       role="dialog"
       aria-modal="true"
-      aria-labelledby={`site-detail-popup-title-${siteData.id}`}
+      aria-labelledby={`detail-popup-title-${detailData.id}`}
     >
       {/* Header */}
       <div className={`flex justify-between items-center mb-4 pb-4 shrink-0`}>
         <button
-          id={`site-detail-popup-title-${siteData.id}`}
+          id={`detail-popup-title-${detailData.id}`}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 truncate"
           style={{ maxWidth: "calc(100% - 40px)" }}
         >
-          {buttonText}
+          {headerButtonText} {/* Use the constructed headerButtonText */}
         </button>
         <button
           onClick={onClose}
@@ -124,164 +131,244 @@ export default function SiteDetailPopup({
               ? "focus:ring-offset-gray-800"
               : "focus:ring-offset-white"
           } focus:ring-blue-500 flex-shrink-0`}
-          aria-label="Close site details"
+          aria-label="Close details"
         >
           <MdClose size={22} />
         </button>
       </div>
 
+      {/* Scrollable Content Area */}
       <div
         className={`flex-1 overflow-y-auto space-y-4 pr-5 min-h-0 relative ${scrollbarClasses}
                    ${isInterfaceDetailsOpen ? "pb-16" : "pb-0"}`}
       >
-        <div className="flex space-x-4">
-          <DetailItem
-            label="Physical Status"
-            value={siteData.physicalStatus}
-            labelColor={labelColor}
-            valueColor={valueColor}
-            className="flex-1"
-          />
-          <DetailItem
-            label="Protocol Status"
-            value={siteData.protocolStatus}
-            labelColor={labelColor}
-            valueColor={valueColor}
-            className="flex-1"
-          />
-        </div>
-        <DetailItem
-          label="OSPF"
-          value={siteData.ospfStatus}
-          labelColor={labelColor}
-          valueColor={valueColor}
-        />
-        <DetailItem
-          label="MPLS"
-          value={siteData.mplsStatus}
-          labelColor={labelColor}
-          valueColor={valueColor}
-        />
+        {/* Conditional Rendering based on detailData.type */}
+        {detailData.type === "site" && (
+          <>
+            <div className="flex space-x-4">
+              <DetailItem
+                label="Physical Status"
+                value={detailData.physicalStatus}
+                labelColor={labelColor}
+                valueColor={valueColor}
+                className="flex-1"
+              />
+              <DetailItem
+                label="Protocol Status"
+                value={detailData.protocolStatus}
+                labelColor={labelColor}
+                valueColor={valueColor}
+                className="flex-1"
+              />
+            </div>
+            <DetailItem
+              label="OSPF"
+              value={detailData.ospfStatus}
+              labelColor={labelColor}
+              valueColor={valueColor}
+            />
+            <DetailItem
+              label="MPLS"
+              value={detailData.mplsStatus}
+              labelColor={labelColor}
+              valueColor={valueColor}
+            />
+            <div className={`flex justify-between items-center pt-0`}>
+              <DetailItem
+                label="Bandwidth"
+                value={detailData.bandwidth}
+                labelColor={labelColor}
+                valueColor={valueColor}
+                className={isInterfaceDetailsOpen ? "" : "flex-1"}
+              />
+            </div>
+          </>
+        )}
 
-        <div className={`flex justify-between items-center pt-3`}>
-          <DetailItem
-            label="Bandwidth"
-            value={siteData.bandwidth}
-            labelColor={labelColor}
-            valueColor={valueColor}
-            className={isInterfaceDetailsOpen ? "" : "flex-1"}
-          />
+        {detailData.type === "link" && (
+          <>
+            <DetailItem
+              label="Source Node"
+              value={detailData.sourceNode}
+              labelColor={labelColor}
+              valueColor={valueColor}
+            />
+            <DetailItem
+              label="Target Node"
+              value={detailData.targetNode}
+              labelColor={labelColor}
+              valueColor={valueColor}
+            />
+            <DetailItem
+              label="Link Status"
+              value={detailData.status}
+              labelColor={labelColor}
+              valueColor={valueColor}
+            />
+            <div className={`flex justify-between items-center pt-0`}>
+              <DetailItem
+                label="Link Bandwidth"
+                value={detailData.linkBandwidth}
+                labelColor={labelColor}
+                valueColor={valueColor}
+                className={isInterfaceDetailsOpen ? "" : "flex-1"}
+              />
+            </div>
+            <DetailItem
+              label="Latency"
+              value={detailData.latency}
+              labelColor={labelColor}
+              valueColor={valueColor}
+            />
+            <DetailItem
+              label="Utilization"
+              value={detailData.utilization}
+              labelColor={labelColor}
+              valueColor={valueColor}
+            />
+          </>
+        )}
 
-          {!isInterfaceDetailsOpen && (
-            <button
-              onClick={toggleInterfaceDetails}
-              aria-expanded="false"
-              aria-controls={`link-interface-details-section-${siteData.id}`}
-              className={`p-1 rounded-full ml-2 focus:outline-none focus:ring-2 focus:ring-opacity-50
-                          ${inlineToggleButtonHoverBg} ${toggleButtonText}
+        {isInterfaceDetailsOpen && (
+          <div
+            id={`additional-details-section-${detailData.id}`}
+            className="space-y-4 pt-2"
+          >
+            {detailData.type === "site" && (
+              <>
+                <DetailItem
+                  label="Description"
+                  value={detailData.description}
+                  labelColor={labelColor}
+                  valueColor={valueColor}
+                />
+                <DetailItem
+                  label="Media Type"
+                  value={detailData.mediaType}
+                  labelColor={labelColor}
+                  valueColor={valueColor}
+                />
+                <DetailItem
+                  label="CDP Neighbors"
+                  value={detailData.cdpNeighbors}
+                  labelColor={labelColor}
+                  valueColor={valueColor}
+                />
+                <DetailItem
+                  label="Container Name"
+                  value={detailData.containerName}
+                  labelColor={labelColor}
+                  valueColor={valueColor}
+                />
+                <DetailItem
+                  label="MTU"
+                  value={detailData.mtu}
+                  labelColor={labelColor}
+                  valueColor={valueColor}
+                />
+                <DetailItem
+                  label="CRC Errors"
+                  value={detailData.crcErrors}
+                  labelColor={labelColor}
+                  valueColor={valueColor}
+                />
+                <DetailItem
+                  label="Input Data Rate"
+                  value={detailData.inputDataRate}
+                  labelColor={labelColor}
+                  valueColor={valueColor}
+                />
+                <DetailItem
+                  label="Output Data Rate"
+                  value={detailData.outputDataRate}
+                  labelColor={labelColor}
+                  valueColor={valueColor}
+                />
+                <DetailItem
+                  label="TX Power"
+                  value={detailData.txPower}
+                  labelColor={labelColor}
+                  valueColor={valueColor}
+                />
+                <DetailItem
+                  label="RX Power"
+                  value={detailData.rxPower}
+                  labelColor={labelColor}
+                  valueColor={valueColor}
+                />
+                <DetailItem
+                  label="Admin Status"
+                  value={detailData.adminStatus}
+                  labelColor={labelColor}
+                  valueColor={valueColor}
+                />
+              </>
+            )}
+            {detailData.type === "link" && (
+              <>
+                <DetailItem
+                  label="Link Description"
+                  value={detailData.linkDescription || detailData.name}
+                  labelColor={labelColor}
+                  valueColor={valueColor}
+                />
+                <DetailItem
+                  label="Interface (Source)"
+                  value={detailData.sourceInterface}
+                  labelColor={labelColor}
+                  valueColor={valueColor}
+                />
+                <DetailItem
+                  label="Interface (Target)"
+                  value={detailData.targetInterface}
+                  labelColor={labelColor}
+                  valueColor={valueColor}
+                />
+                <DetailItem
+                  label="Encapsulation"
+                  value={detailData.encapsulation || "N/A"}
+                  labelColor={labelColor}
+                  valueColor={valueColor}
+                />
+                <DetailItem
+                  label="Last Flap"
+                  value={detailData.lastFlap || "N/A"}
+                  labelColor={labelColor}
+                  valueColor={valueColor}
+                />
+              </>
+            )}
+          </div>
+        )}
+
+        <div className={!isInterfaceDetailsOpen ? "h-16" : "h-0"} />
+
+        <div
+          className={`sticky bottom-4 w-full flex justify-end pr-0 pointer-events-none z-10`}
+        >
+          <button
+            onClick={toggleInterfaceDetails}
+            aria-expanded={isInterfaceDetailsOpen}
+            aria-controls={`additional-details-section-${detailData.id}`}
+            className={`p-2 rounded-full shadow-md pointer-events-auto
+                          focus:outline-none focus:ring-2 focus:ring-opacity-75
+                          ${stickyToggleButtonBg} ${stickyToggleButtonText} {/* CORRECTED: Using defined variables */}
                           ${
                             currentTheme === "dark"
                               ? "focus:ring-blue-500"
                               : "focus:ring-blue-600"
                           }`}
-              aria-label="Show link interface details"
-            >
-              <MdKeyboardArrowDown size={24} />
-            </button>
-          )}
-        </div>
-
-        {isInterfaceDetailsOpen && (
-          <div
-            id={`link-interface-details-section-${siteData.id}`}
-            className="space-y-4 pt-2"
+            aria-label={
+              isInterfaceDetailsOpen ? "Hide more details" : "Show more details"
+            }
           >
-            <DetailItem
-              label="Description"
-              value={siteData.description}
-              labelColor={labelColor}
-              valueColor={valueColor}
-            />
-            <DetailItem
-              label="Media Type"
-              value={siteData.mediaType}
-              labelColor={labelColor}
-              valueColor={valueColor}
-            />
-            <DetailItem
-              label="CDP"
-              value={siteData.cdpNeighbors}
-              labelColor={labelColor}
-              valueColor={valueColor}
-            />
-            <DetailItem
-              label="Container Name"
-              value={siteData.containerName}
-              labelColor={labelColor}
-              valueColor={valueColor}
-            />
-            <DetailItem
-              label="MTU"
-              value={siteData.mtu}
-              labelColor={labelColor}
-              valueColor={valueColor}
-            />
-            <DetailItem
-              label="CRC Errors"
-              value={siteData.crcErrors}
-              labelColor={labelColor}
-              valueColor={valueColor}
-            />
-            <DetailItem
-              label="Input Data Rate"
-              value={siteData.inputDataRate}
-              labelColor={labelColor}
-              valueColor={valueColor}
-            />
-            <DetailItem
-              label="Output Data Rate"
-              value={siteData.outputDataRate}
-              labelColor={labelColor}
-              valueColor={valueColor}
-            />
-            <DetailItem
-              label="TX Power"
-              value={siteData.txPower}
-              labelColor={labelColor}
-              valueColor={valueColor}
-            />
-            <DetailItem
-              label="RX Power"
-              value={siteData.rxPower}
-              labelColor={labelColor}
-              valueColor={valueColor}
-            />
-          </div>
-        )}
-
-        {isInterfaceDetailsOpen && (
-          <div
-            className={`sticky bottom-4 w-full flex justify-end pr-0 pointer-events-none z-10`}
-          >
-            <button
-              onClick={toggleInterfaceDetails}
-              aria-expanded="true"
-              aria-controls={`link-interface-details-section-${siteData.id}`}
-              className={`p-2 rounded-full shadow-md pointer-events-auto
-                            focus:outline-none focus:ring-2 focus:ring-opacity-75
-                            ${toggleButtonBg} ${toggleButtonText} 
-                            ${
-                              /* Note: toggleButtonBg used here, not bottomToggleButtonBg if distinct*/
-                              currentTheme === "dark"
-                                ? "focus:ring-blue-500"
-                                : "focus:ring-blue-600"
-                            }`}
-              aria-label="Hide link interface details"
-            >
+            {isInterfaceDetailsOpen ? (
               <MdKeyboardArrowUp size={24} />
-            </button>
-          </div>
-        )}
+            ) : (
+              <MdKeyboardArrowDown size={24} />
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

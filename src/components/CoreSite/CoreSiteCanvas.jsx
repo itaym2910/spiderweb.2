@@ -14,6 +14,7 @@ export default function CoreSiteCanvas({
   height,
   currentZoneId,
   theme = "dark",
+  onLinkClick,
 }) {
   useEffect(() => {
     if (!svgRef.current || width === 0 || height === 0) {
@@ -114,6 +115,13 @@ export default function CoreSiteCanvas({
           .attr("fill", T.nodeFill)
           .attr("stroke", T.nodeStroke)
           .attr("stroke-width", 2);
+      })
+      .on("click", function (event, d_clicked_link) {
+        if (onLinkClick) {
+          console.log("Link clicked in D3:", d_clicked_link);
+
+          onLinkClick(d_clicked_link);
+        }
       });
 
     zoomLayer
@@ -163,6 +171,7 @@ export default function CoreSiteCanvas({
     height,
     currentZoneId,
     theme,
+    onLinkClick,
   ]);
 
   return null;
