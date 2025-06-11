@@ -24,7 +24,7 @@ const BackArrowIcon = ({ className = "w-5 h-5" }) => (
 
 export default function CoreSiteView({
   theme,
-  zoneId,
+  zoneId, // Already available here
   containerRef,
   dimensions,
   nodes,
@@ -32,7 +32,7 @@ export default function CoreSiteView({
   centerX,
   centerY,
   selectedNodeId,
-  setSelectedNodeId, // Keep this to pass to the handler
+  setSelectedNodeId,
   openPopups,
   onSiteClick,
   onLinkClick,
@@ -112,7 +112,7 @@ export default function CoreSiteView({
         onToggleSwitch={handleToggleSwitch} // Pass the handler
         node4Text={node4Text}
         node3Text={node3Text}
-        // controlsGroupTop={controlsGroupTop} // Pass if calculated here and needed by child
+        zoneId={zoneId}
       />
 
       <svg ref={svgRef} className="absolute top-0 left-0 w-full h-full z-0" />

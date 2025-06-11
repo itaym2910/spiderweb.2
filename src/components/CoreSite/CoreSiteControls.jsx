@@ -10,7 +10,7 @@ export default function CoreSiteControls({
   onToggleSwitch, // Renamed from setSelectedNodeId for clarity of action
   node4Text,
   node3Text,
-  // controlsGroupTop, // This can be calculated internally or passed if more dynamic
+  zoneId,
 }) {
   const toggleTrackBg = theme === "dark" ? "bg-gray-700" : "bg-gray-200";
   const toggleThumbBg = theme === "dark" ? "bg-sky-600" : "bg-sky-500";
@@ -18,14 +18,18 @@ export default function CoreSiteControls({
   const toggleTrackText = theme === "dark" ? "text-gray-400" : "text-gray-500";
   const zoneTitleColor = theme === "dark" ? "text-white" : "text-sky-800";
 
-  // Calculate top position for the controls group
-  // This value might need fine-tuning or could be passed as a prop if more complex logic is needed
-  const controlsGroupTop = centerY - 250;
+  const newButtonBg =
+    theme === "dark"
+      ? "bg-indigo-600 hover:bg-indigo-700"
+      : "bg-indigo-500 hover:bg-indigo-600";
+  const newButtonText = "text-white";
 
+  const controlsGroupTop = centerY - 250;
   const isNode4Selected = selectedNodeId === "Node 4";
 
+  const showNewButton = zoneId === "Zone 5" || zoneId === "Zone 6";
+
   if (centerX === 0 || centerY === 0) {
-    // Don't render if canvas isn't ready
     return null;
   }
 
@@ -42,6 +46,25 @@ export default function CoreSiteControls({
       <div className={`mb-2 text-lg font-bold ${zoneTitleColor}`}>
         {displayZoneId}
       </div>
+
+      {/* Conditionally Rendered "Node 5 and Node 6" Button */}
+      {showNewButton && (
+        <button
+          type="button"
+          // onClick={() => console.log("'Node 5 and Node 6' button clicked")} // Placeholder onClick
+          className={`mb-3 px-4 py-2 rounded-md text-sm font-semibold shadow-sm 
+                      focus:outline-none focus:ring-2 focus:ring-opacity-75
+                      ${newButtonBg} ${newButtonText}
+                      ${
+                        theme === "dark"
+                          ? "focus:ring-indigo-400 focus:ring-offset-gray-800"
+                          : "focus:ring-indigo-500 focus:ring-offset-white"
+                      }
+                    `}
+        >
+          Node 5 and Node 6
+        </button>
+      )}
 
       {/* Toggle Switch for Node Selection */}
       <button

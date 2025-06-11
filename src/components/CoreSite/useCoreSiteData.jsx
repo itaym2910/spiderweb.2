@@ -5,12 +5,15 @@ import { useNodeLayout } from "./useNodeLayout";
 import { usePopupManager } from "./usePopupManager";
 
 export function useCoreSiteData(popupAnchor) {
-  const { zoneId } = useParams();
+  const { zoneId } = useParams(); // zoneId is obtained here
   const navigate = useNavigate();
   const containerRef = useRef(null);
 
+  // Log 5: Check zoneId from useParams
+  console.log("[useCoreSiteData] zoneId from useParams:", zoneId);
+
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [selectedNodeId, setSelectedNodeId] = useState("Node 4"); // Default to Node 4
+  const [selectedNodeId, setSelectedNodeId] = useState("Node 4");
 
   const { openPopups, addOrUpdatePopup, closePopup, getPopupPositioning } =
     usePopupManager(popupAnchor);
@@ -31,9 +34,19 @@ export function useCoreSiteData(popupAnchor) {
     return () => window.removeEventListener("resize", updateDimensions);
   }, []);
 
+  // Pass zoneId to useNodeLayout
   const { nodes, links, centerX, centerY } = useNodeLayout(
     dimensions.width,
-    dimensions.height
+    dimensions.height,
+    zoneId // <--- Pass zoneId here
+  );
+
+  // Log 6: Check nodes and links received from useNodeLayout
+  console.log(
+    "[useCoreSiteData] Nodes from useNodeLayout:",
+    nodes ? nodes.map((n) => n.id).join(", ") : "undefined",
+    "Links count:",
+    links ? links.length : "undefined"
   );
 
   const handleSiteClick = (siteIndex, siteName) => {
@@ -86,8 +99,8 @@ export function useCoreSiteData(popupAnchor) {
     links,
     centerX,
     centerY,
-    selectedNodeId, // Expose selectedNodeId
-    setSelectedNodeId, // Expose setter
+    selectedNodeId,
+    setSelectedNodeId,
     handleSiteClick,
     handleLinkClick,
     handleBackToChart,

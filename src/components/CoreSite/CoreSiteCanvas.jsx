@@ -37,10 +37,30 @@ export default function CoreSiteCanvas({
   }, [theme]);
 
   useEffect(() => {
+    // Log 7: Check props received by CoreSiteCanvas useEffect
+    console.log(
+      "[CoreSiteCanvas useEffect] Nodes:",
+      nodes ? nodes.map((n) => n.id).join(", ") : "undefined",
+      "Links count:",
+      links ? links.length : "undefined"
+    );
+    console.log(
+      "[CoreSiteCanvas useEffect] Width:",
+      width,
+      "Height:",
+      height,
+      "FocusedNodeId:",
+      focusedNodeId
+    );
+
     if (!svgRef.current || width === 0 || height === 0 || !nodes || !links) {
-      // Added checks for nodes/links
+      console.log(
+        "[CoreSiteCanvas useEffect] Skipping drawCoreSiteChart due to missing refs, dimensions, or data."
+      );
       return;
     }
+
+    console.log("[CoreSiteCanvas useEffect] Calling drawCoreSiteChart.");
 
     // Configure and call the D3 renderer
     drawCoreSiteChart(svgRef.current, {
