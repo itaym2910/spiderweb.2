@@ -1,5 +1,5 @@
 // src/components/CoreSite/useCoreSiteData.js
-import { useState, useLayoutEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useNodeLayout } from "./useNodeLayout";
 import { usePopupManager } from "./usePopupManager";
@@ -15,13 +15,34 @@ export function useCoreSiteData(popupAnchor) {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [selectedNodeId, setSelectedNodeId] = useState("Node 4");
   const [showExtendedNodes, setShowExtendedNodes] = useState(false); // NEW STATE
+  const [animateExtendedLayoutUp, setAnimateExtendedLayoutUp] = useState(false);
 
   const { openPopups, addOrUpdatePopup, closePopup, getPopupPositioning } =
     usePopupManager(popupAnchor);
 
+  useEffect(() => {
+    if (showExtendedNodes) {
+      // Phase 1: Show N5, N6 lower down (animateExtendedLayoutUp is false)
+      setAnimateExtendedLayoutUp(false); // Ensure it's initially false for the lower position
+      const timer = setTimeout(() => {
+        // Phase 2: Trigger animation upwards
+        setAnimateExtendedLayoutUp(true);
+      }, 100); // Small delay before triggering the upward animation
+      return () => clearTimeout(timer);
+    } else {
+      // When hiding extended nodes, reset the animation state
+      setAnimateExtendedLayoutUp(false);
+    }
+  }, [showExtendedNodes]);
+
   useLayoutEffect(() => {
-    // Reset showExtendedNodes when zoneId changes, if desired,
-    // or persist it based on your UX preference. For now, let's reset.
+    if (zoneId !== "Zone 5" && zoneId !== "Zone 6") {
+      setShowExtendedNodes(false); // Reset if navigating away from Z5/Z6
+    }
+    // setShowExtendedNodes(false); // Original reset, might conflict if we want to keep state within Z5/Z6
+  }, [zoneId]);
+
+  useLayoutEffect(() => {
     setShowExtendedNodes(false);
   }, [zoneId]);
 
@@ -44,8 +65,8 @@ export function useCoreSiteData(popupAnchor) {
   const { nodes, links, centerX, centerY } = useNodeLayout(
     dimensions.width,
     dimensions.height,
-    // zoneId, // zoneId is no longer directly used by useNodeLayout for N5/N6 visibility
-    showExtendedNodes // Pass the new state
+    showExtendedNodes,
+    animateExtendedLayoutUp
   );
 
   // Log 6: Check nodes and links received from useNodeLayout

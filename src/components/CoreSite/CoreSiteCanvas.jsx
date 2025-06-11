@@ -14,7 +14,6 @@ export default function CoreSiteCanvas({
   centerY,
   width,
   height,
-
   theme = "dark",
   onLinkClick,
 }) {
@@ -67,13 +66,12 @@ export default function CoreSiteCanvas({
       nodesData: nodes,
       linksData: links,
       focusedNodeId,
-      width,
-      height,
-      centerX,
-      centerY,
-      // currentZoneId, // Pass if needed by renderer for any non-visual logic
+      width, // Canvas width
+      height, // Canvas height
+      centerX, // Pass the canvas centerX
+      centerY, // Pass the centerY FOR THE D3 ZONE CIRCLE
       themeColors,
-      onLinkClickCallback: onLinkClick, // Pass the callback
+      onLinkClickCallback: onLinkClick,
     });
 
     // Update focusedNodeDataRef (this logic remains in the React component)
