@@ -5,6 +5,7 @@ import SitesBar from "./SitesBar";
 import SiteDetailPopup from "./SiteDetailPopup";
 
 const BackArrowIcon = ({ className = "w-5 h-5" }) => (
+  // ... (icon code)
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
@@ -23,13 +24,13 @@ const BackArrowIcon = ({ className = "w-5 h-5" }) => (
 
 export default function CoreSiteView({
   theme,
-  zoneId,
+  zoneId, // This is the currentZoneId from useParams()
   containerRef,
   dimensions,
   nodes,
   links,
-  centerX, // D3 center X
-  centerY, // D3 center Y
+  centerX,
+  centerY,
   selectedNodeId,
   setSelectedNodeId,
   openPopups,
@@ -51,22 +52,24 @@ export default function CoreSiteView({
       ? "bg-transparent hover:bg-gray-700"
       : "bg-transparent hover:bg-gray-100";
   const backButtonText = theme === "dark" ? "text-white" : "text-gray-800";
-  const controlButtonBg =
-    theme === "dark"
-      ? "bg-sky-600 hover:bg-sky-500"
-      : "bg-sky-500 hover:bg-sky-400";
-  const controlButtonActiveBg =
-    theme === "dark"
-      ? "bg-amber-500 hover:bg-amber-400"
-      : "bg-amber-400 hover:bg-amber-300";
 
-  // The D3 "Central Zone" text is at y: centerY - 200.
-  // A single button is roughly 40px high.
-  // We want the bottom of the buttons to be roughly above the text.
-  // Let's place the top of the button container slightly higher than the zone text.
-  // If the text's visual top is around centerY - 218,
-  // placing the buttons' top at centerY - 250 or centerY - 260 should work.
-  const focusButtonContainerTop = centerY - 260; // Adjust this value as needed
+  const toggleTrackBg = theme === "dark" ? "bg-gray-700" : "bg-gray-200";
+  const toggleThumbBg = theme === "dark" ? "bg-sky-600" : "bg-sky-500";
+  const toggleThumbText = theme === "dark" ? "text-white" : "text-white";
+  const toggleTrackText = theme === "dark" ? "text-gray-400" : "text-gray-500";
+  const zoneTitleColor = theme === "dark" ? "text-white" : "text-sky-800";
+
+  // The D3 circle is at cy: centerY. The D3 text was at centerY - 200.
+  // Let's position our new HTML zone label and toggle switch group relative to that.
+  // If the toggle switch height is ~36px (h-9), and zone label ~24px + margin ~8px = 32px. Total ~68px.
+  // To place this group somewhat above where the D3 text was (centerY - 200),
+  // a top position for the group could be around centerY - 200 - (68/2) - some_offset
+  // Let's try:
+  const controlsGroupTop = centerY - 250; // Top of the entire (Zone Label + Toggle) group
+
+  const handleToggleSwitch = () => {
+    setSelectedNodeId(selectedNodeId === "Node 4" ? "Node 3" : "Node 4");
+  };
 
   if (dimensions.width === 0 || dimensions.height === 0) {
     return (
@@ -79,6 +82,11 @@ export default function CoreSiteView({
     );
   }
 
+  const isNode4Selected = selectedNodeId === "Node 4";
+  const node4Text = "Node 4 (80 Sites)";
+  const node3Text = "Node 3 (30 Sites)";
+  const displayZoneId = zoneId ? `Zone ${zoneId}` : "Central Zone";
+
   return (
     <div
       ref={containerRef}
@@ -86,6 +94,7 @@ export default function CoreSiteView({
     >
       {/* Header Area for Back Button */}
       <div className="absolute top-0 left-0 right-0 h-16 flex items-center px-4 z-30 pointer-events-none">
+        {/* ... (back button code) ... */}
         <div className="flex-none pointer-events-auto">
           <button
             onClick={onBackToChart}
@@ -106,65 +115,72 @@ export default function CoreSiteView({
         </div>
       </div>
 
-      {/* Side-by-side Focus Node Buttons, aligned with D3 Zone */}
+      {/* Zone Label and Toggle Switch Group */}
       {centerX > 0 && centerY > 0 && (
         <div
-          className="absolute flex flex-row items-center gap-2 z-30" // Changed to flex-row
+          className="absolute flex flex-col items-center z-30"
           style={{
             left: `${centerX}px`,
-            top: `${focusButtonContainerTop}px`,
-            transform: "translateX(-50%)", // Horizontally center the block
+            top: `${controlsGroupTop}px`, // Use the new top for the group
+            transform: "translateX(-50%)",
           }}
         >
+          {/* Zone Name Label */}
+          <div className={`mb-2 text-lg font-bold ${zoneTitleColor}`}>
+            {displayZoneId}
+          </div>
+
+          {/* Toggle Switch for Node Selection */}
           <button
-            onClick={() => setSelectedNodeId("Node 4")}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium text-white
-                        ${
-                          selectedNodeId === "Node 4"
-                            ? controlButtonActiveBg
-                            : controlButtonBg
-                        }
-                        focus:outline-none focus:ring-2 focus:ring-offset-2
+            type="button"
+            onClick={handleToggleSwitch}
+            className={`relative inline-flex items-center h-9 rounded-full w-auto min-w-[300px] p-1
+                        transition-colors duration-200 ease-in-out cursor-pointer group
+                        focus:outline-none focus:ring-2 focus:ring-offset-2 
                         ${
                           theme === "dark"
                             ? "focus:ring-offset-gray-800"
                             : "focus:ring-offset-white"
                         }
                         ${
-                          selectedNodeId === "Node 4"
-                            ? "focus:ring-amber-300"
-                            : "focus:ring-sky-300"
-                        }
-                        `}
-          >
-            Focus Node 4 (80 Sites)
-          </button>
-          <button
-            onClick={() => setSelectedNodeId("Node 3")}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium text-white
-                        ${
-                          selectedNodeId === "Node 3"
-                            ? controlButtonActiveBg
-                            : controlButtonBg
-                        }
-                        focus:outline-none focus:ring-2 focus:ring-offset-2
-                        ${
                           theme === "dark"
-                            ? "focus:ring-offset-gray-800"
-                            : "focus:ring-offset-white"
+                            ? "focus:ring-sky-500"
+                            : "focus:ring-sky-600"
                         }
-                        ${
-                          selectedNodeId === "Node 3"
-                            ? "focus:ring-amber-300"
-                            : "focus:ring-sky-300"
-                        }
-                        `}
+                        ${toggleTrackBg}`}
+            role="switch"
+            aria-checked={isNode4Selected}
           >
-            Focus Node 3 (30 Sites)
+            <span className="sr-only">Select Focused Node</span>
+            <div className="absolute inset-0 flex items-center justify-around w-full px-1">
+              <span className={`text-xs font-medium ${toggleTrackText}`}>
+                {node4Text}
+              </span>
+              <span className={`text-xs font-medium ${toggleTrackText}`}>
+                {node3Text}
+              </span>
+            </div>
+            <span
+              aria-hidden="true"
+              className={`pointer-events-none relative inline-flex items-center justify-center 
+                          h-7 w-[calc(50%-4px)] rounded-full 
+                          ${toggleThumbBg} shadow-md ring-0 
+                          transform transition-transform duration-200 ease-in-out`}
+              style={{
+                transform: isNode4Selected
+                  ? "translateX(0%)"
+                  : "translateX(calc(100% + 4px))",
+              }}
+            >
+              <span className={`text-xs font-medium ${toggleThumbText}`}>
+                {isNode4Selected ? node4Text : node3Text}
+              </span>
+            </span>
           </button>
         </div>
       )}
 
+      {/* ... (rest of the component: SVG, SitesBar, Popups) ... */}
       <svg ref={svgRef} className="absolute top-0 left-0 w-full h-full z-0" />
       <CoreSiteCanvas
         svgRef={svgRef}
@@ -176,7 +192,7 @@ export default function CoreSiteView({
         centerY={centerY}
         width={dimensions.width}
         height={dimensions.height}
-        currentZoneId={zoneId}
+        currentZoneId={zoneId} // Pass currentZoneId (renamed from zoneId in props to avoid conflict)
         theme={theme}
         onLinkClick={onLinkClick}
       />
