@@ -15,14 +15,16 @@ export default function CoreSitePage({
     links,
     centerX,
     centerY,
-    selectedNodeId, // Get from hook
-    setSelectedNodeId, // Get from hook
+    selectedNodeId,
+    setSelectedNodeId,
     openPopups,
     handleSiteClick,
     handleLinkClick,
     closePopup,
     handleBackToChart,
     getPopupPositioning,
+    showExtendedNodes, // Get from hook
+    handleToggleExtendedNodes, // Get from hook
   } = useCoreSiteData(popupAnchor);
 
   return (
@@ -35,14 +37,16 @@ export default function CoreSitePage({
       links={links}
       centerX={centerX}
       centerY={centerY}
-      selectedNodeId={selectedNodeId} // Pass down
-      setSelectedNodeId={setSelectedNodeId} // Pass down
+      selectedNodeId={selectedNodeId}
+      setSelectedNodeId={setSelectedNodeId}
       openPopups={openPopups}
       onSiteClick={handleSiteClick}
       onLinkClick={handleLinkClick}
       onClosePopup={closePopup}
       onBackToChart={handleBackToChart}
       getPopupPositioning={getPopupPositioning}
+      showExtendedNodes={showExtendedNodes} // Pass down
+      onToggleExtendedNodes={handleToggleExtendedNodes} // Pass down
     />
   );
 }

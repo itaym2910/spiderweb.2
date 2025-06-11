@@ -11,6 +11,8 @@ export default function CoreSiteControls({
   node4Text,
   node3Text,
   zoneId,
+  showExtendedNodes, // Receive prop
+  onToggleExtendedNodes, // Receive prop
 }) {
   const toggleTrackBg = theme === "dark" ? "bg-gray-700" : "bg-gray-200";
   const toggleThumbBg = theme === "dark" ? "bg-sky-600" : "bg-sky-500";
@@ -27,7 +29,15 @@ export default function CoreSiteControls({
   const controlsGroupTop = centerY - 250;
   const isNode4Selected = selectedNodeId === "Node 4";
 
-  const showNewButton = zoneId === "Zone 5" || zoneId === "Zone 6";
+  //const showNewButton = zoneId === "Zone 5" || zoneId === "Zone 6";
+
+  // Determine if the button itself should be visible (only in Zone 5 or 6)
+  const isButtonVisibleForZone = zoneId === "Zone 5" || zoneId === "Zone 6";
+
+  // Determine the button's text based on showExtendedNodes state
+  const extendedNodesButtonText = showExtendedNodes
+    ? "Node 1 and Node 2"
+    : "Node 5 and Node 6";
 
   if (centerX === 0 || centerY === 0) {
     return null;
@@ -48,10 +58,10 @@ export default function CoreSiteControls({
       </div>
 
       {/* Conditionally Rendered "Node 5 and Node 6" Button */}
-      {showNewButton && (
+      {isButtonVisibleForZone && (
         <button
           type="button"
-          // onClick={() => console.log("'Node 5 and Node 6' button clicked")} // Placeholder onClick
+          onClick={onToggleExtendedNodes} // Use the passed handler
           className={`mb-3 px-4 py-2 rounded-md text-sm font-semibold shadow-sm 
                       focus:outline-none focus:ring-2 focus:ring-opacity-75
                       ${newButtonBg} ${newButtonText}
@@ -62,7 +72,7 @@ export default function CoreSiteControls({
                       }
                     `}
         >
-          Node 5 and Node 6
+          {extendedNodesButtonText} {/* Dynamic button text */}
         </button>
       )}
 

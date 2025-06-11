@@ -14,9 +14,16 @@ export function useCoreSiteData(popupAnchor) {
 
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [selectedNodeId, setSelectedNodeId] = useState("Node 4");
+  const [showExtendedNodes, setShowExtendedNodes] = useState(false); // NEW STATE
 
   const { openPopups, addOrUpdatePopup, closePopup, getPopupPositioning } =
     usePopupManager(popupAnchor);
+
+  useLayoutEffect(() => {
+    // Reset showExtendedNodes when zoneId changes, if desired,
+    // or persist it based on your UX preference. For now, let's reset.
+    setShowExtendedNodes(false);
+  }, [zoneId]);
 
   useLayoutEffect(() => {
     const updateDimensions = () => {
@@ -34,11 +41,11 @@ export function useCoreSiteData(popupAnchor) {
     return () => window.removeEventListener("resize", updateDimensions);
   }, []);
 
-  // Pass zoneId to useNodeLayout
   const { nodes, links, centerX, centerY } = useNodeLayout(
     dimensions.width,
     dimensions.height,
-    zoneId // <--- Pass zoneId here
+    // zoneId, // zoneId is no longer directly used by useNodeLayout for N5/N6 visibility
+    showExtendedNodes // Pass the new state
   );
 
   // Log 6: Check nodes and links received from useNodeLayout
@@ -48,6 +55,7 @@ export function useCoreSiteData(popupAnchor) {
     "Links count:",
     links ? links.length : "undefined"
   );
+  console.log("[useCoreSiteData] showExtendedNodes:", showExtendedNodes);
 
   const handleSiteClick = (siteIndex, siteName) => {
     const siteDetailPayload = {
@@ -91,8 +99,12 @@ export function useCoreSiteData(popupAnchor) {
 
   const handleBackToChart = () => navigate("..");
 
+  const handleToggleExtendedNodes = () => {
+    setShowExtendedNodes((prev) => !prev);
+  };
+
   return {
-    zoneId,
+    zoneId, // Still needed for CoreSiteControls to decide if the button appears
     containerRef,
     dimensions,
     nodes,
@@ -101,6 +113,8 @@ export function useCoreSiteData(popupAnchor) {
     centerY,
     selectedNodeId,
     setSelectedNodeId,
+    showExtendedNodes, // Expose this state
+    handleToggleExtendedNodes, // Expose the handler
     handleSiteClick,
     handleLinkClick,
     handleBackToChart,

@@ -39,6 +39,8 @@ export default function CoreSiteView({
   onClosePopup,
   onBackToChart,
   getPopupPositioning,
+  showExtendedNodes, // Receive prop
+  onToggleExtendedNodes,
 }) {
   const svgRef = useRef(null);
   const siteRefs = useRef([]);
@@ -73,7 +75,11 @@ export default function CoreSiteView({
 
   const node4Text = "Node 4 (80 Sites)";
   const node3Text = "Node 3 (30 Sites)";
-  const displayZoneId = zoneId ? `Zone ${zoneId}` : "Central Zone";
+  const displayZoneId = zoneId
+    ? zoneId.startsWith("Zone ")
+      ? zoneId
+      : `Zone ${zoneId}`
+    : "Central Zone";
 
   return (
     <div
@@ -109,10 +115,12 @@ export default function CoreSiteView({
         centerY={centerY}
         displayZoneId={displayZoneId}
         selectedNodeId={selectedNodeId}
-        onToggleSwitch={handleToggleSwitch} // Pass the handler
+        onToggleSwitch={handleToggleSwitch} // For the N3/N4 toggle
         node4Text={node4Text}
         node3Text={node3Text}
-        zoneId={zoneId}
+        zoneId={zoneId} // Still needed to decide if the new button *appears*
+        showExtendedNodes={showExtendedNodes} // Pass to controls
+        onToggleExtendedNodes={onToggleExtendedNodes} // Pass to controls
       />
 
       <svg ref={svgRef} className="absolute top-0 left-0 w-full h-full z-0" />
