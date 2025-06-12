@@ -5,7 +5,7 @@ import { linkPositionFromEdges, getNodeGroups } from "./drawHelpers";
 import { renderCoreDevices } from "./renderCoreDevices";
 import { setupInteractions } from "./handleInteractions";
 
-const NetworkVisualizer = ({ theme, data, onZoneClick }) => {
+const NetworkVisualizer = ({ theme, data, onZoneClick, onLinkClick }) => {
   console.log(
     "[NetworkVisualizer] Component rendering. Received onZoneClick prop. Type:",
     typeof onZoneClick
@@ -197,9 +197,10 @@ const NetworkVisualizer = ({ theme, data, onZoneClick }) => {
         tooltip,
         palette,
         zoomLayer,
+        onLinkClick,
       })
     );
-  }, [onZoneClick, data, theme]);
+  }, [onZoneClick, data, theme, onLinkClick]);
 
   return (
     <div>

@@ -2,13 +2,55 @@
 import { linkPositionFromEdges } from "./drawHelpers";
 import * as d3 from "d3";
 
+// --- Helper function to create payload for link popups ---
+function createLinkPopupPayload(linkDataObject) {
+  if (!linkDataObject) return null;
+
+  const sourceId =
+    typeof linkDataObject.source === "object" && linkDataObject.source !== null
+      ? linkDataObject.source.id
+      : linkDataObject.source;
+  const targetId =
+    typeof linkDataObject.target === "object" && linkDataObject.target !== null
+      ? linkDataObject.target.id
+      : linkDataObject.target;
+
+  return {
+    ...linkDataObject, // Spread existing link data
+    type: "link", // Explicitly set type for the popup
+    id:
+      linkDataObject.id ||
+      `${sourceId}-${targetId}-${Math.random().toString(16).slice(2)}`, // Ensure an ID for the popup state
+
+    // Fields expected by SiteDetailPopup for type: "link"
+    // Adjust these based on the actual properties available in your linkDataObject
+    // and what SiteDetailPopup expects.
+    sourceNode: sourceId,
+    targetNode: targetId,
+    name:
+      linkDataObject.name ||
+      linkDataObject.id ||
+      `Link ${sourceId}-${targetId}`, // A display name
+    status: linkDataObject.status || "N/A",
+    linkBandwidth:
+      linkDataObject.bandwidth || linkDataObject.linkBandwidth || "N/A",
+    latency: linkDataObject.latency || "N/A",
+    utilization: linkDataObject.utilization || "N/A",
+    linkDescription:
+      linkDataObject.description || linkDataObject.linkDescription || "N/A",
+    sourceInterface: linkDataObject.sourceInterface || "N/A",
+    targetInterface: linkDataObject.targetInterface || "N/A",
+    encapsulation: linkDataObject.encapsulation || "N/A",
+    lastFlap: linkDataObject.lastFlap || "N/A",
+  };
+}
+
 function handleMouseOut(d_hovered_orig, linkSelection, tooltip, palette) {
   if (
     !d_hovered_orig ||
     typeof d_hovered_orig.source === "undefined" ||
     typeof d_hovered_orig.target === "undefined"
   ) {
-    // Attempt generic cleanup if data is bad
     linkSelection
       .attr("stroke", palette.link)
       .attr("stroke-opacity", 0.6)
@@ -66,9 +108,7 @@ function handleMouseOut(d_hovered_orig, linkSelection, tooltip, palette) {
     if (typeof s_id === "undefined" || typeof t_id === "undefined") {
       return;
     }
-
     const straightKey = [s_id, t_id].sort().join("--");
-
     if (straightKey === key_unhovered) {
       d3.select(this)
         .attr("stroke", palette.link)
@@ -97,7 +137,8 @@ function handleMouseOver(
   linkSelection,
   zoomLayer,
   tooltip,
-  palette
+  palette,
+  onLinkClick // <<< Added onLinkClick parameter
 ) {
   const sourceId =
     typeof d_hovered_orig.source === "object" && d_hovered_orig.source !== null
@@ -312,6 +353,13 @@ function handleMouseOver(
         }
       })
       .on("click", function (event, d_clicked_duplicate_link) {
+        if (onLinkClick) {
+          // <<< USE onLinkClick passed to handleMouseOver
+          const payload = createLinkPopupPayload(d_clicked_duplicate_link);
+          if (payload) {
+            onLinkClick(payload);
+          }
+        }
         console.log(
           // Retained as requested
           "[Link Click] Curved/Duplicate link ID:",
@@ -330,17 +378,18 @@ export function setupInteractions({
   tooltip,
   palette,
   zoomLayer,
+  onLinkClick, // <<< NEW PROP received by setupInteractions
 }) {
   if (!zoomLayer || !zoomLayer.node()) {
     console.error(
       "zoomLayer was not provided or is invalid in setupInteractions."
-    ); // Retain error log
+    );
     return;
   }
   if (!linkHover || !linkHover.size()) {
     console.error(
       "`linkHover` selection (for .link-hover) is empty or invalid in setupInteractions. Hover will not work."
-    ); // Retain error log
+    );
     return;
   }
 
@@ -349,13 +398,15 @@ export function setupInteractions({
   linkHover
     .on("mouseover", function (event, d_hovered_linkhover) {
       handleMouseOver(
+        // <<< PASS onLinkClick to handleMouseOver
         d_hovered_linkhover,
         allNodes,
         filteredLinks,
         link,
         zoomLayer,
         tooltip,
-        palette
+        palette,
+        onLinkClick // Pass the onLinkClick from setupInteractions's scope
       );
     })
     .on("mouseout", function (event, d_hovered_linkhover) {
@@ -427,6 +478,13 @@ export function setupInteractions({
       }
     })
     .on("click", function (event, d_clicked_linkhover) {
+      if (onLinkClick) {
+        // <<< USE onLinkClick received by setupInteractions
+        const payload = createLinkPopupPayload(d_clicked_linkhover);
+        if (payload) {
+          onLinkClick(payload);
+        }
+      }
       console.log(
         "[Link Click] Straight link (.link-hover) ID:",
         d_clicked_linkhover.id

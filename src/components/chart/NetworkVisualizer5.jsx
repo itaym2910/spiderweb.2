@@ -5,7 +5,7 @@ import { linkPositionFromEdges, getNodeGroups } from "./drawHelpers";
 import { renderCoreDevices } from "./renderCoreDevices";
 import { setupInteractions } from "./handleInteractions";
 
-const NetworkVisualizer5 = ({ theme, data, onZoneClick }) => {
+const NetworkVisualizer5 = ({ theme, data, onZoneClick, onLinkClick }) => {
   const svgRef = useRef();
   console.log(
     "[NetworkVisualizer5] Received onZoneClick prop. Type:",
@@ -174,9 +174,10 @@ const NetworkVisualizer5 = ({ theme, data, onZoneClick }) => {
         tooltip,
         palette,
         zoomLayer,
+        onLinkClick,
       })
     );
-  }, [onZoneClick, data, theme]);
+  }, [onZoneClick, data, theme, onLinkClick]);
 
   return (
     <svg
