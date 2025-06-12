@@ -50,6 +50,7 @@ const NetworkVisualizer5 = ({ theme, data, onZoneClick, onLinkClick }) => {
       bg: isDark ? "#1f2937" : "#ffffff",
       link: isDark ? "#94a3b8" : "#6b7280",
       node: isDark ? "#29c6e0" : "#29c6e0",
+      nodeHoverDirect: isDark ? "#1d9bb4" : "#22b8d4",
       stroke: isDark ? "#60a5fa" : "#1d4ed8",
       label: isDark ? "#ffffff" : "#1f2937",
     };

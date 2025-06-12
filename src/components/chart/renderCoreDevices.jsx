@@ -62,11 +62,10 @@ export function renderCoreDevices(
         .attr("font-size", "18px")
         .attr("text-anchor", "middle")
         .attr("font-weight", "bold")
-        .style("pointer-events", "none"); // Label shouldn't block clicks on zone
+        .style("pointer-events", "none");
     });
 
-  const filteredLinks = links; // ✅ include inner zone link
-
+  const filteredLinks = links;
   const linkGroup = zoomLayer.append("g");
 
   const link = linkGroup
@@ -94,10 +93,31 @@ export function renderCoreDevices(
     .join("circle")
     .attr("class", "node")
     .attr("r", 60)
-    .attr("fill", palette.node)
+    .attr("fill", palette.node) // Default fill
     .attr("stroke", palette.stroke)
     .attr("stroke-width", 2)
-    .style("opacity", 0.9);
+    .style("opacity", 0.9)
+    .style("cursor", "pointer") // Add cursor pointer to nodes
+    .on("mouseover", function () {
+      const selection = d3.select(this);
+      // Check if the node is NOT already highlighted yellow by link hover (from handleInteractions.js)
+      // The hardcoded yellow color from handleInteractions is "#fde68a"
+      if (selection.attr("fill") !== "#fde68a") {
+        selection.attr("fill", palette.nodeHoverDirect); // Apply direct hover color
+      }
+    })
+    .on("mouseout", function () {
+      const selection = d3.select(this);
+      // Only revert if it was our direct hover color.
+      // If it's yellow, handleInteractions.js will manage reverting it.
+      if (selection.attr("fill") === palette.nodeHoverDirect) {
+        selection.attr("fill", palette.node); // Revert to default
+      }
+    })
+    .on("click", function (event, d_node) {
+      console.log("Node clicked:", d_node.id);
+      event.stopPropagation(); // Prevent interference with other click handlers (e.g., zoom)
+    });
 
   const label = zoomLayer
     .append("g")
