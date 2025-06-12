@@ -72,17 +72,15 @@ const NetworkVisualizer = ({ theme, data, onZoneClick }) => {
 
     svg.selectAll("*").remove();
     const tooltipLayer = svg.append("g");
-    const zoomLayer = svg.append("g");
+    const zoomLayer = svg.append("g").attr("class", "main-zoom-layer");
 
     // 1. Define and store the zoom behavior
     const zoomBehavior = d3
       .zoom()
       .scaleExtent([0.05, 8]) // Adjusted scaleExtent, can be tuned
-      .on("zoom", (event) => {
-        // D3 v6+ event object
-        zoomLayer.attr("transform", event.transform);
+      .on("zoom", ({ transform }) => {
+        zoomLayer.attr("transform", transform); // zoomLayer is transformed
       });
-
     // Apply the zoom behavior to the SVG
     svg.call(zoomBehavior);
 
@@ -190,10 +188,18 @@ const NetworkVisualizer = ({ theme, data, onZoneClick }) => {
     }
     // --- End Initial Transform ---
 
-    requestAnimationFrame(() => {
-      setupInteractions({ link, linkHover, filteredLinks, node, tooltip });
-    });
-  }, [onZoneClick, data, theme]); // Re-run if theme changes.
+    requestAnimationFrame(() =>
+      setupInteractions({
+        link,
+        linkHover,
+        filteredLinks,
+        node,
+        tooltip,
+        palette,
+        zoomLayer,
+      })
+    );
+  }, [onZoneClick, data, theme]);
 
   return (
     <div>

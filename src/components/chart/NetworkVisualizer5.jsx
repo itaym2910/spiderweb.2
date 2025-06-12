@@ -62,7 +62,7 @@ const NetworkVisualizer5 = ({ theme, data, onZoneClick }) => {
 
     svg.selectAll("*").remove();
     const tooltipLayer = svg.append("g");
-    const zoomLayer = svg.append("g");
+    const zoomLayer = svg.append("g").attr("class", "main-zoom-layer");
 
     const zoomBehavior = d3
       .zoom()
@@ -166,9 +166,17 @@ const NetworkVisualizer5 = ({ theme, data, onZoneClick }) => {
     // --- End Initial Transform ---
 
     requestAnimationFrame(() =>
-      setupInteractions({ link, linkHover, filteredLinks, node, tooltip })
+      setupInteractions({
+        link,
+        linkHover,
+        filteredLinks,
+        node,
+        tooltip,
+        palette,
+        zoomLayer,
+      })
     );
-  }, [onZoneClick, theme, data]);
+  }, [onZoneClick, data, theme]);
 
   return (
     <svg
