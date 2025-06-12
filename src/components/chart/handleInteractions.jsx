@@ -2,7 +2,93 @@
 import { linkPositionFromEdges } from "./drawHelpers";
 import * as d3 from "d3";
 
-// ... (groupLinksByPair function remains the same) ...
+function handleMouseOut(d_hovered_orig, linkSelection, tooltip, palette) {
+  if (
+    !d_hovered_orig ||
+    typeof d_hovered_orig.source === "undefined" ||
+    typeof d_hovered_orig.target === "undefined"
+  ) {
+    // Attempt generic cleanup if data is bad
+    linkSelection
+      .attr("stroke", palette.link)
+      .attr("stroke-opacity", 0.6)
+      .style("pointer-events", "auto")
+      .attr("stroke-width", 2);
+    d3.selectAll("circle.node")
+      .attr("fill", palette.node)
+      .attr("stroke", palette.stroke)
+      .attr("stroke-width", 2);
+    d3.selectAll("path.duplicate-link").remove();
+    d3.selectAll("path.duplicate-link-hover").remove();
+    tooltip.attr("opacity", 0);
+    return;
+  }
+
+  const sourceId =
+    typeof d_hovered_orig.source === "object" && d_hovered_orig.source !== null
+      ? d_hovered_orig.source.id
+      : d_hovered_orig.source;
+  const targetId =
+    typeof d_hovered_orig.target === "object" && d_hovered_orig.target !== null
+      ? d_hovered_orig.target.id
+      : d_hovered_orig.target;
+
+  if (typeof sourceId === "undefined" || typeof targetId === "undefined") {
+    linkSelection.attr("stroke-opacity", 0.6).style("pointer-events", "auto");
+    d3.selectAll("circle.node")
+      .attr("fill", palette.node)
+      .attr("stroke", palette.stroke);
+    d3.selectAll("path.duplicate-link").remove();
+    d3.selectAll("path.duplicate-link-hover").remove();
+    tooltip.attr("opacity", 0);
+    return;
+  }
+
+  const key_unhovered = [sourceId, targetId].sort().join("--");
+
+  linkSelection.each(function (l_straight) {
+    if (
+      !l_straight ||
+      typeof l_straight.source === "undefined" ||
+      typeof l_straight.target === "undefined"
+    ) {
+      return;
+    }
+    const s_id =
+      typeof l_straight.source === "object" && l_straight.source !== null
+        ? l_straight.source.id
+        : l_straight.source;
+    const t_id =
+      typeof l_straight.target === "object" && l_straight.target !== null
+        ? l_straight.target.id
+        : l_straight.target;
+
+    if (typeof s_id === "undefined" || typeof t_id === "undefined") {
+      return;
+    }
+
+    const straightKey = [s_id, t_id].sort().join("--");
+
+    if (straightKey === key_unhovered) {
+      d3.select(this)
+        .attr("stroke", palette.link)
+        .attr("stroke-opacity", 0.6)
+        .style("pointer-events", "auto")
+        .attr("stroke-width", 2);
+    }
+  });
+
+  d3.selectAll("circle.node")
+    .filter((n) => n.id === sourceId || n.id === targetId)
+    .attr("fill", palette.node)
+    .attr("stroke", palette.stroke)
+    .attr("stroke-width", 2);
+
+  tooltip.attr("opacity", 0);
+
+  d3.selectAll("path.duplicate-link").remove();
+  d3.selectAll("path.duplicate-link-hover").remove();
+}
 
 function handleMouseOver(
   d_hovered_orig,
@@ -10,31 +96,39 @@ function handleMouseOver(
   filteredLinks,
   linkSelection,
   zoomLayer,
-  tooltip
+  tooltip,
+  palette
 ) {
   const sourceId =
-    typeof d_hovered_orig.source === "object"
+    typeof d_hovered_orig.source === "object" && d_hovered_orig.source !== null
       ? d_hovered_orig.source.id
       : d_hovered_orig.source;
   const targetId =
-    typeof d_hovered_orig.target === "object"
+    typeof d_hovered_orig.target === "object" && d_hovered_orig.target !== null
       ? d_hovered_orig.target.id
       : d_hovered_orig.target;
+
+  if (typeof sourceId === "undefined" || typeof targetId === "undefined") {
+    return;
+  }
+
   const key = [sourceId, targetId].sort().join("--");
-  // console.log(`[MouseOver] Link key: ${key}, ID: ${d_hovered_orig.id}`); // Optional debug
 
   linkSelection.each(function (l_straight) {
     const s =
-      typeof l_straight.source === "object"
+      typeof l_straight.source === "object" && l_straight.source !== null
         ? l_straight.source.id
         : l_straight.source;
     const t =
-      typeof l_straight.target === "object"
+      typeof l_straight.target === "object" && l_straight.target !== null
         ? l_straight.target.id
         : l_straight.target;
+
+    if (typeof s === "undefined" || typeof t === "undefined") {
+      return;
+    }
     const straightKey = [s, t].sort().join("--");
     if (straightKey === key) {
-      // console.log(`[MouseOver] Hiding straight link: ${l_straight.id} (key: ${straightKey})`); // Optional debug
       d3.select(this).attr("stroke-opacity", 0).style("pointer-events", "none");
     }
   });
@@ -49,25 +143,37 @@ function handleMouseOver(
   zoomLayer.selectAll("path.duplicate-link-hover").remove();
 
   const duplicates = filteredLinks.filter((l) => {
-    const s = typeof l.source === "object" ? l.source.id : l.source;
-    const t = typeof l.target === "object" ? l.target.id : l.target;
+    const s =
+      typeof l.source === "object" && l.source !== null
+        ? l.source.id
+        : l.source;
+    const t =
+      typeof l.target === "object" && l.target !== null
+        ? l.target.id
+        : l.target;
+    if (typeof s === "undefined" || typeof t === "undefined") return false;
     return [s, t].sort().join("--") === key;
   });
 
   const sourceNode = allNodes.find((n) => n.id === sourceId);
   const targetNode = allNodes.find((n) => n.id === targetId);
 
-  if (!sourceNode || !targetNode) return;
+  if (!sourceNode || !targetNode) {
+    return;
+  }
 
+  const nodeRadius = 60;
   const { x1, y1, x2, y2 } = linkPositionFromEdges(
     { source: sourceNode, target: targetNode },
-    60
+    nodeRadius
   );
 
   const dx = x2 - x1;
   const dy = y2 - y1;
   const length = Math.sqrt(dx * dx + dy * dy);
-  if (length === 0) return;
+  if (length === 0) {
+    return;
+  }
 
   const ux = dx / length;
   const uy = dy / length;
@@ -107,96 +213,113 @@ function handleMouseOver(
           .text(d_mousemove.id)
           .attr("opacity", 1);
       })
-      .on("mouseout", function () {
+      .on("mouseout", function (event, d_curved_mouseout) {
         tooltip.attr("opacity", 0);
+
+        const relatedTarget = event.relatedTarget;
+        let shouldCleanupFromCurved = true;
+
+        const currentCurvedSourceId =
+          typeof d_curved_mouseout.source === "object" &&
+          d_curved_mouseout.source !== null
+            ? d_curved_mouseout.source.id
+            : d_curved_mouseout.source;
+        const currentCurvedTargetId =
+          typeof d_curved_mouseout.target === "object" &&
+          d_curved_mouseout.target !== null
+            ? d_curved_mouseout.target.id
+            : d_curved_mouseout.target;
+
+        if (
+          typeof currentCurvedSourceId === "undefined" ||
+          typeof currentCurvedTargetId === "undefined"
+        ) {
+          // If IDs are missing, assume cleanup is needed
+        } else {
+          const currentCurvedKey = [
+            currentCurvedSourceId,
+            currentCurvedTargetId,
+          ]
+            .sort()
+            .join("--");
+
+          if (relatedTarget) {
+            const rtSelection = d3.select(relatedTarget);
+            const rtData = rtSelection.datum();
+
+            if (
+              rtSelection.classed("duplicate-link-hover") &&
+              rtData &&
+              typeof rtData.source !== "undefined" &&
+              typeof rtData.target !== "undefined"
+            ) {
+              const relatedCurvedSourceId =
+                typeof rtData.source === "object" && rtData.source !== null
+                  ? rtData.source.id
+                  : rtData.source;
+              const relatedCurvedTargetId =
+                typeof rtData.target === "object" && rtData.target !== null
+                  ? rtData.target.id
+                  : rtData.target;
+              if (
+                typeof relatedCurvedSourceId !== "undefined" &&
+                typeof relatedCurvedTargetId !== "undefined"
+              ) {
+                const relatedCurvedKey = [
+                  relatedCurvedSourceId,
+                  relatedCurvedTargetId,
+                ]
+                  .sort()
+                  .join("--");
+                if (currentCurvedKey === relatedCurvedKey) {
+                  shouldCleanupFromCurved = false;
+                }
+              }
+            } else if (
+              rtSelection.classed("link-hover") &&
+              rtData &&
+              typeof rtData.source !== "undefined" &&
+              typeof rtData.target !== "undefined"
+            ) {
+              const relatedStraightSourceId =
+                typeof rtData.source === "object" && rtData.source !== null
+                  ? rtData.source.id
+                  : rtData.source;
+              const relatedStraightTargetId =
+                typeof rtData.target === "object" && rtData.target !== null
+                  ? rtData.target.id
+                  : rtData.target;
+              if (
+                typeof relatedStraightSourceId !== "undefined" &&
+                typeof relatedStraightTargetId !== "undefined"
+              ) {
+                const relatedStraightKey = [
+                  relatedStraightSourceId,
+                  relatedStraightTargetId,
+                ]
+                  .sort()
+                  .join("--");
+                if (currentCurvedKey === relatedStraightKey) {
+                  shouldCleanupFromCurved = false;
+                }
+              }
+            }
+          }
+        }
+
+        if (shouldCleanupFromCurved) {
+          handleMouseOut(d_curved_mouseout, linkSelection, tooltip, palette);
+        }
       })
       .on("click", function (event, d_clicked_duplicate_link) {
         console.log(
+          // Retained as requested
           "[Link Click] Curved/Duplicate link ID:",
           d_clicked_duplicate_link.id
         );
         event.stopPropagation();
       });
   });
-}
-
-function handleMouseOut(
-  d_hovered_orig, // Data of the link whose hover state is ending (from linkHover)
-  linkSelection, // The D3 selection of visible straight gray links
-  tooltip,
-  palette
-) {
-  if (!d_hovered_orig || !d_hovered_orig.source || !d_hovered_orig.target) {
-    console.error("[MouseOut] Invalid d_hovered_orig data", d_hovered_orig);
-    // Attempt generic cleanup if data is bad, though less targeted
-    linkSelection
-      .attr("stroke", palette.link)
-      .attr("stroke-opacity", 0.6)
-      .style("pointer-events", "auto")
-      .attr("stroke-width", 2);
-    d3.selectAll("circle.node")
-      .attr("fill", palette.node)
-      .attr("stroke", palette.stroke)
-      .attr("stroke-width", 2);
-    return; // Exit if critical data is missing
-  }
-
-  const sourceId =
-    typeof d_hovered_orig.source === "object"
-      ? d_hovered_orig.source.id
-      : d_hovered_orig.source;
-  const targetId =
-    typeof d_hovered_orig.target === "object"
-      ? d_hovered_orig.target.id
-      : d_hovered_orig.target;
-  const key_unhovered = [sourceId, targetId].sort().join("--");
-
-  console.log(
-    `[MouseOut] Attempting to restore links for key_unhovered: '${key_unhovered}', from link ID: ${d_hovered_orig.id}`
-  );
-
-  linkSelection.each(function (l_straight) {
-    // l_straight is data of a visible gray line
-    if (!l_straight || !l_straight.source || !l_straight.target) {
-      console.warn("[MouseOut] Invalid l_straight data in loop", l_straight);
-      return; // Skip this iteration if data is malformed
-    }
-    const s_id =
-      typeof l_straight.source === "object"
-        ? l_straight.source.id
-        : l_straight.source;
-    const t_id =
-      typeof l_straight.target === "object"
-        ? l_straight.target.id
-        : l_straight.target;
-    const straightKey = [s_id, t_id].sort().join("--");
-
-    // DEBUG: Log comparison for every straight link
-    // console.log(`[MouseOut] Comparing: straightKey='${straightKey}' (id: ${l_straight.id}) vs key_unhovered='${key_unhovered}'`);
-
-    if (straightKey === key_unhovered) {
-      console.log(
-        `[MouseOut] MATCH FOUND! Restoring straight link: ${l_straight.id} (key: ${straightKey})`
-      );
-      d3.select(this) // 'this' is the DOM element of the visible gray line
-        .attr("stroke", palette.link)
-        .attr("stroke-opacity", 0.6)
-        .style("pointer-events", "auto")
-        .attr("stroke-width", 2);
-      // console.log(`[MouseOut] Opacity for ${l_straight.id} after restore:`, d3.select(this).attr("stroke-opacity")); // Verify attribute
-    }
-  });
-
-  d3.selectAll("circle.node")
-    .filter((n) => n.id === sourceId || n.id === targetId)
-    .attr("fill", palette.node)
-    .attr("stroke", palette.stroke)
-    .attr("stroke-width", 2);
-
-  tooltip.attr("opacity", 0);
-
-  d3.selectAll("path.duplicate-link").remove();
-  d3.selectAll("path.duplicate-link-hover").remove();
 }
 
 export function setupInteractions({
@@ -211,9 +334,16 @@ export function setupInteractions({
   if (!zoomLayer || !zoomLayer.node()) {
     console.error(
       "zoomLayer was not provided or is invalid in setupInteractions."
-    );
+    ); // Retain error log
     return;
   }
+  if (!linkHover || !linkHover.size()) {
+    console.error(
+      "`linkHover` selection (for .link-hover) is empty or invalid in setupInteractions. Hover will not work."
+    ); // Retain error log
+    return;
+  }
+
   const allNodes = node.data();
 
   linkHover
@@ -222,61 +352,85 @@ export function setupInteractions({
         d_hovered_linkhover,
         allNodes,
         filteredLinks,
-        link, // This is linkSelection
+        link,
         zoomLayer,
-        tooltip
+        tooltip,
+        palette
       );
     })
     .on("mouseout", function (event, d_hovered_linkhover) {
       const relatedTarget = event.relatedTarget;
       let shouldProceedWithMouseOut = true;
 
+      const currentOriginalSourceId =
+        typeof d_hovered_linkhover.source === "object" &&
+        d_hovered_linkhover.source !== null
+          ? d_hovered_linkhover.source.id
+          : d_hovered_linkhover.source;
+      const currentOriginalTargetId =
+        typeof d_hovered_linkhover.target === "object" &&
+        d_hovered_linkhover.target !== null
+          ? d_hovered_linkhover.target.id
+          : d_hovered_linkhover.target;
+
       if (
-        relatedTarget &&
-        d3.select(relatedTarget).classed("duplicate-link-hover")
+        typeof currentOriginalSourceId === "undefined" ||
+        typeof currentOriginalTargetId === "undefined"
       ) {
-        const currentLinkSourceId =
-          typeof d_hovered_linkhover.source === "object"
-            ? d_hovered_linkhover.source.id
-            : d_hovered_linkhover.source;
-        const currentLinkTargetId =
-          typeof d_hovered_linkhover.target === "object"
-            ? d_hovered_linkhover.target.id
-            : d_hovered_linkhover.target;
-        const currentKey = [currentLinkSourceId, currentLinkTargetId]
+        // If IDs are missing, assume cleanup is needed
+      } else {
+        const currentOriginalKey = [
+          currentOriginalSourceId,
+          currentOriginalTargetId,
+        ]
           .sort()
           .join("--");
 
-        const relatedData = d3.select(relatedTarget).datum();
-        if (
-          relatedData &&
-          typeof relatedData.source !== "undefined" &&
-          typeof relatedData.target !== "undefined"
-        ) {
-          const relatedSourceId =
-            typeof relatedData.source === "object"
-              ? relatedData.source.id
-              : relatedData.source;
-          const relatedTargetId =
-            typeof relatedData.target === "object"
-              ? relatedData.target.id
-              : relatedData.target;
-          const relatedKey = [relatedSourceId, relatedTargetId]
-            .sort()
-            .join("--");
+        if (relatedTarget) {
+          const rtSelection = d3.select(relatedTarget);
+          const rtData = rtSelection.datum();
 
-          if (currentKey === relatedKey) {
-            shouldProceedWithMouseOut = false;
+          if (
+            rtSelection.classed("duplicate-link-hover") &&
+            rtData &&
+            typeof rtData.source !== "undefined" &&
+            typeof rtData.target !== "undefined"
+          ) {
+            const relatedCurvedSourceId =
+              typeof rtData.source === "object" && rtData.source !== null
+                ? rtData.source.id
+                : rtData.source;
+            const relatedCurvedTargetId =
+              typeof rtData.target === "object" && rtData.target !== null
+                ? rtData.target.id
+                : rtData.target;
+            if (
+              typeof relatedCurvedSourceId !== "undefined" &&
+              typeof relatedCurvedTargetId !== "undefined"
+            ) {
+              const relatedCurvedKey = [
+                relatedCurvedSourceId,
+                relatedCurvedTargetId,
+              ]
+                .sort()
+                .join("--");
+              if (currentOriginalKey === relatedCurvedKey) {
+                shouldProceedWithMouseOut = false;
+              }
+            }
           }
         }
       }
 
       if (shouldProceedWithMouseOut) {
-        handleMouseOut(d_hovered_linkhover, link, tooltip, palette); // 'link' is linkSelection
+        handleMouseOut(d_hovered_linkhover, link, tooltip, palette);
       }
     })
     .on("click", function (event, d_clicked_linkhover) {
-      console.log("[Link Click] Straight link ID:", d_clicked_linkhover.id);
+      console.log(
+        "[Link Click] Straight link (.link-hover) ID:",
+        d_clicked_linkhover.id
+      ); // Retained as requested
       event.stopPropagation();
     });
 }
