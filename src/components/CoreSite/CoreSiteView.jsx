@@ -3,7 +3,7 @@ import React, { useRef } from "react";
 import CoreSiteCanvas from "./CoreSiteCanvas";
 import SitesBar from "./SitesBar";
 import SiteDetailPopup from "./SiteDetailPopup";
-import CoreSiteControls from "./CoreSiteControls"; // Import the new component
+import CoreSiteControls from "./CoreSiteControls";
 
 const BackArrowIcon = ({ className = "w-5 h-5" }) => (
   <svg
@@ -51,11 +51,17 @@ export default function CoreSiteView({
   const pageBgColor = theme === "dark" ? "bg-gray-800" : "bg-white";
   const loadingBgColor = theme === "dark" ? "bg-slate-800" : "bg-gray-100";
   const loadingTextColor = theme === "dark" ? "text-white" : "text-gray-700";
+
+  // Updated blue button styles
   const backButtonBg =
     theme === "dark"
-      ? "bg-transparent hover:bg-gray-700"
-      : "bg-transparent hover:bg-gray-100";
-  const backButtonText = theme === "dark" ? "text-white" : "text-gray-800";
+      ? "bg-blue-600 hover:bg-blue-700"
+      : "bg-blue-500 hover:bg-blue-600";
+  const backButtonText = "text-white"; // Always white for better contrast on blue
+  const backButtonFocusRing =
+    theme === "dark"
+      ? "focus:ring-blue-400 focus:ring-offset-gray-800"
+      : "focus:ring-blue-500 focus:ring-offset-white";
 
   if (dimensions.width === 0 || dimensions.height === 0) {
     return (
@@ -74,44 +80,53 @@ export default function CoreSiteView({
       : `Zone ${zoneId}`
     : "Central Zone";
 
+  const controlsAreaHalfWidth = 320 / 2;
+  // Adjust backButtonWidth based on new text "Back to Chart" + icon. Maybe around 140px.
+  const backButtonWidth = 140; // px
+  const gap = 16; // px
+
+  const backButtonLeftPos = `calc(50% - ${controlsAreaHalfWidth}px - ${backButtonWidth}px - ${gap}px)`;
+
   return (
     <div
       ref={containerRef}
       className={`relative w-full h-full ${pageBgColor} overflow-hidden`}
     >
-      {/* Header Area for Back Button */}
-      <div className="absolute top-0 left-0 right-0 h-16 flex items-center px-4 z-30 pointer-events-none">
+      {/* Back Button - Repositioned and Restyled */}
+      <div
+        className="absolute z-30 pointer-events-none"
+        style={{
+          top: "1rem",
+          left: backButtonLeftPos,
+          height: "2.25rem", // Match CoreSiteControls toggle height (h-9) for vertical alignment
+          display: "flex", // Added for vertical centering of the button itself
+          alignItems: "center", // Added for vertical centering
+        }}
+      >
         <div className="flex-none pointer-events-auto">
           <button
             onClick={onBackToChart}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium 
+            className={`px-4 py-2 rounded-md text-sm font-semibold shadow-sm
                         flex items-center gap-1.5
                         ${backButtonBg} ${backButtonText}
                         focus:outline-none focus:ring-2 focus:ring-offset-2 
-                        ${
-                          theme === "dark"
-                            ? "focus:ring-blue-500 focus:ring-offset-gray-800"
-                            : "focus:ring-blue-500 focus:ring-offset-white"
-                        }`}
+                        ${backButtonFocusRing}`} // Use the new focus ring style
             title="Back to chart view"
           >
-            <BackArrowIcon />
-            Back
+            <BackArrowIcon className="w-4 h-4" />{" "}
+            {/* Slightly smaller icon if needed */}
+            Back to Chart {/* Updated text */}
           </button>
         </div>
       </div>
 
-      {/* Use the new CoreSiteControls component */}
       <CoreSiteControls
         theme={theme}
-        centerX={centerX}
-        centerY={centerY}
         displayZoneId={displayZoneId}
         selectedNodeId={selectedNodeId}
-        onToggleSwitch={onMainToggleSwitch} // Use the new handler for the main toggle
-        // node4Text and node3Text are replaced by mainToggleNode1Text and mainToggleNode2Text
-        mainToggleOption1Text={mainToggleNode1Text} // Pass dynamic text
-        mainToggleOption2Text={mainToggleNode2Text} // Pass dynamic text
+        onToggleSwitch={onMainToggleSwitch}
+        mainToggleOption1Text={mainToggleNode1Text}
+        mainToggleOption2Text={mainToggleNode2Text}
         zoneId={zoneId}
         showExtendedNodes={showExtendedNodes}
         onToggleExtendedNodes={onToggleExtendedNodes}
