@@ -24,7 +24,7 @@ const BackArrowIcon = ({ className = "w-5 h-5" }) => (
 
 export default function CoreSiteView({
   theme,
-  zoneId, // Already available here
+  zoneId,
   containerRef,
   dimensions,
   nodes,
@@ -32,15 +32,17 @@ export default function CoreSiteView({
   centerX,
   centerY,
   selectedNodeId,
-  setSelectedNodeId,
+  onMainToggleSwitch,
   openPopups,
   onSiteClick,
   onLinkClick,
   onClosePopup,
   onBackToChart,
   getPopupPositioning,
-  showExtendedNodes, // Receive prop
+  showExtendedNodes,
   onToggleExtendedNodes,
+  mainToggleNode1Text,
+  mainToggleNode2Text,
 }) {
   const svgRef = useRef(null);
   const siteRefs = useRef([]);
@@ -55,13 +57,6 @@ export default function CoreSiteView({
       : "bg-transparent hover:bg-gray-100";
   const backButtonText = theme === "dark" ? "text-white" : "text-gray-800";
 
-  // This specific calculation might move into CoreSiteControls or be passed if needed
-  // const controlsGroupTop = centerY - 250;
-
-  const handleToggleSwitch = () => {
-    setSelectedNodeId(selectedNodeId === "Node 4" ? "Node 3" : "Node 4");
-  };
-
   if (dimensions.width === 0 || dimensions.height === 0) {
     return (
       <div
@@ -73,8 +68,6 @@ export default function CoreSiteView({
     );
   }
 
-  const node4Text = "Node 4 (80 Sites)";
-  const node3Text = "Node 3 (30 Sites)";
   const displayZoneId = zoneId
     ? zoneId.startsWith("Zone ")
       ? zoneId
@@ -115,12 +108,13 @@ export default function CoreSiteView({
         centerY={centerY}
         displayZoneId={displayZoneId}
         selectedNodeId={selectedNodeId}
-        onToggleSwitch={handleToggleSwitch} // For the N3/N4 toggle
-        node4Text={node4Text}
-        node3Text={node3Text}
-        zoneId={zoneId} // Still needed to decide if the new button *appears*
-        showExtendedNodes={showExtendedNodes} // Pass to controls
-        onToggleExtendedNodes={onToggleExtendedNodes} // Pass to controls
+        onToggleSwitch={onMainToggleSwitch} // Use the new handler for the main toggle
+        // node4Text and node3Text are replaced by mainToggleNode1Text and mainToggleNode2Text
+        mainToggleOption1Text={mainToggleNode1Text} // Pass dynamic text
+        mainToggleOption2Text={mainToggleNode2Text} // Pass dynamic text
+        zoneId={zoneId}
+        showExtendedNodes={showExtendedNodes}
+        onToggleExtendedNodes={onToggleExtendedNodes}
       />
 
       <svg ref={svgRef} className="absolute top-0 left-0 w-full h-full z-0" />

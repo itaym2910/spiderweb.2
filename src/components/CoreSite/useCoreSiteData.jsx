@@ -9,38 +9,41 @@ export function useCoreSiteData(popupAnchor) {
   const navigate = useNavigate();
   const containerRef = useRef(null);
 
-  // Log 5: Check zoneId from useParams
-  console.log("[useCoreSiteData] zoneId from useParams:", zoneId);
-
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [selectedNodeId, setSelectedNodeId] = useState("Node 4");
-  const [showExtendedNodes, setShowExtendedNodes] = useState(false); // NEW STATE
+  const [selectedNodeId, setSelectedNodeId] = useState("Node 4"); // Default for N3/N4 toggle
+  const [showExtendedNodes, setShowExtendedNodes] = useState(false);
   const [animateExtendedLayoutUp, setAnimateExtendedLayoutUp] = useState(false);
+  const [previousSelectedNodeId, setPreviousSelectedNodeId] =
+    useState("Node 4"); // Store N3/N4 selection
+
+  // Texts for the main toggle switch
+  const [mainToggleNode1Text, setMainToggleNode1Text] =
+    useState("Node 4 (80 Sites)"); // Corresponds to ID "Node 4"
+  const [mainToggleNode2Text, setMainToggleNode2Text] =
+    useState("Node 3 (30 Sites)"); // Corresponds to ID "Node 3"
 
   const { openPopups, addOrUpdatePopup, closePopup, getPopupPositioning } =
     usePopupManager(popupAnchor);
 
   useEffect(() => {
     if (showExtendedNodes) {
-      // Phase 1: Show N5, N6 lower down (animateExtendedLayoutUp is false)
-      setAnimateExtendedLayoutUp(false); // Ensure it's initially false for the lower position
-      const timer = setTimeout(() => {
-        // Phase 2: Trigger animation upwards
-        setAnimateExtendedLayoutUp(true);
-      }, 100); // Small delay before triggering the upward animation
+      setAnimateExtendedLayoutUp(false);
+      const timer = setTimeout(() => setAnimateExtendedLayoutUp(true), 100);
       return () => clearTimeout(timer);
     } else {
-      // When hiding extended nodes, reset the animation state
       setAnimateExtendedLayoutUp(false);
     }
   }, [showExtendedNodes]);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
+    // When navigating away from Z5/Z6, reset everything to base state
     if (zoneId !== "Zone 5" && zoneId !== "Zone 6") {
-      setShowExtendedNodes(false); // Reset if navigating away from Z5/Z6
+      setShowExtendedNodes(false);
+      setSelectedNodeId(previousSelectedNodeId || "Node 4"); // Restore or default
+      setMainToggleNode1Text("Node 4 (80 Sites)");
+      setMainToggleNode2Text("Node 3 (30 Sites)");
     }
-    // setShowExtendedNodes(false); // Original reset, might conflict if we want to keep state within Z5/Z6
-  }, [zoneId]);
+  }, [zoneId, previousSelectedNodeId]); // Added previousSelectedNodeId to deps
 
   useLayoutEffect(() => {
     setShowExtendedNodes(false);
@@ -69,14 +72,35 @@ export function useCoreSiteData(popupAnchor) {
     animateExtendedLayoutUp
   );
 
-  // Log 6: Check nodes and links received from useNodeLayout
-  console.log(
-    "[useCoreSiteData] Nodes from useNodeLayout:",
-    nodes ? nodes.map((n) => n.id).join(", ") : "undefined",
-    "Links count:",
-    links ? links.length : "undefined"
-  );
-  console.log("[useCoreSiteData] showExtendedNodes:", showExtendedNodes);
+  const handleToggleExtendedNodes = () => {
+    setShowExtendedNodes((prevShowExtended) => {
+      const nextShowExtended = !prevShowExtended;
+      if (nextShowExtended) {
+        // Switching TO N5/N6 view
+        setPreviousSelectedNodeId(selectedNodeId); // Save current N3/N4 selection
+        setSelectedNodeId("Node 5"); // Set focus to Node 5
+        setMainToggleNode1Text("Node 5 (80 Sites)"); // Text for Node 5 option
+        setMainToggleNode2Text("Node 6 (30 Sites)"); // Text for Node 6 option
+      } else {
+        // Switching BACK TO N1/N2/N3/N4 view
+        setSelectedNodeId(previousSelectedNodeId); // Restore previous N3/N4 selection
+        setMainToggleNode1Text("Node 4 (80 Sites)");
+        setMainToggleNode2Text("Node 3 (30 Sites)");
+      }
+      return nextShowExtended;
+    });
+  };
+
+  const handleMainToggleSwitch = () => {
+    // This handler now needs to know if it's controlling N3/N4 or N5/N6
+    if (showExtendedNodes) {
+      // We are in N5/N6 mode for the main toggle
+      setSelectedNodeId((prev) => (prev === "Node 5" ? "Node 6" : "Node 5"));
+    } else {
+      // We are in N3/N4 mode for the main toggle
+      setSelectedNodeId((prev) => (prev === "Node 4" ? "Node 3" : "Node 4"));
+    }
+  };
 
   const handleSiteClick = (siteIndex, siteName) => {
     const siteDetailPayload = {
@@ -120,12 +144,8 @@ export function useCoreSiteData(popupAnchor) {
 
   const handleBackToChart = () => navigate("..");
 
-  const handleToggleExtendedNodes = () => {
-    setShowExtendedNodes((prev) => !prev);
-  };
-
   return {
-    zoneId, // Still needed for CoreSiteControls to decide if the button appears
+    zoneId,
     containerRef,
     dimensions,
     nodes,
@@ -133,14 +153,18 @@ export function useCoreSiteData(popupAnchor) {
     centerX,
     centerY,
     selectedNodeId,
-    setSelectedNodeId,
-    showExtendedNodes, // Expose this state
-    handleToggleExtendedNodes, // Expose the handler
-    handleSiteClick,
-    handleLinkClick,
-    handleBackToChart,
-    openPopups,
-    closePopup,
-    getPopupPositioning,
+    handleMainToggleSwitch,
+    showExtendedNodes,
+    handleToggleExtendedNodes,
+    mainToggleNode1Text,
+    mainToggleNode2Text,
+    handleBackToChart, // Make sure this is also returned if used by CoreSiteView
+
+    // POPUP RELATED PROPS - Ensure these are all here
+    openPopups, // From usePopupManager
+    onSiteClick: handleSiteClick, // The actual handler function
+    onLinkClick: handleLinkClick, // The actual handler function
+    onClosePopup: closePopup, // From usePopupManager, passed as onClosePopup
+    getPopupPositioning, // From usePopupManager
   };
 }

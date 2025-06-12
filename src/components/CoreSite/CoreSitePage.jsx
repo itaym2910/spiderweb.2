@@ -8,6 +8,7 @@ export default function CoreSitePage({
   popupAnchor = { top: 20, right: 20 },
 }) {
   const {
+    // ... (other props like zoneId, nodes, selectedNodeId, etc.)
     zoneId,
     containerRef,
     dimensions,
@@ -16,19 +17,24 @@ export default function CoreSitePage({
     centerX,
     centerY,
     selectedNodeId,
-    setSelectedNodeId,
-    openPopups,
-    handleSiteClick,
-    handleLinkClick,
-    closePopup,
+    handleMainToggleSwitch,
+    showExtendedNodes,
+    handleToggleExtendedNodes,
+    mainToggleNode1Text,
+    mainToggleNode2Text,
     handleBackToChart,
-    getPopupPositioning,
-    showExtendedNodes, // Get from hook
-    handleToggleExtendedNodes, // Get from hook
+
+    // POPUP RELATED PROPS - Ensure they are destructured and passed
+    openPopups,
+    onSiteClick, // Destructure
+    onLinkClick, // Destructure
+    onClosePopup, // Destructure
+    getPopupPositioning, // Destructure
   } = useCoreSiteData(popupAnchor);
 
   return (
     <CoreSiteView
+      // ... (other props)
       theme={theme}
       zoneId={zoneId}
       containerRef={containerRef}
@@ -38,15 +44,18 @@ export default function CoreSitePage({
       centerX={centerX}
       centerY={centerY}
       selectedNodeId={selectedNodeId}
-      setSelectedNodeId={setSelectedNodeId}
-      openPopups={openPopups}
-      onSiteClick={handleSiteClick}
-      onLinkClick={handleLinkClick}
-      onClosePopup={closePopup}
+      onMainToggleSwitch={handleMainToggleSwitch}
+      showExtendedNodes={showExtendedNodes}
+      onToggleExtendedNodes={handleToggleExtendedNodes}
+      mainToggleNode1Text={mainToggleNode1Text}
+      mainToggleNode2Text={mainToggleNode2Text}
       onBackToChart={handleBackToChart}
-      getPopupPositioning={getPopupPositioning}
-      showExtendedNodes={showExtendedNodes} // Pass down
-      onToggleExtendedNodes={handleToggleExtendedNodes} // Pass down
+      // POPUP RELATED PROPS - Pass them down
+      openPopups={openPopups}
+      onSiteClick={onSiteClick} // Pass down
+      onLinkClick={onLinkClick} // Pass down
+      onClosePopup={onClosePopup} // Pass down
+      getPopupPositioning={getPopupPositioning} // Pass down
     />
   );
 }
