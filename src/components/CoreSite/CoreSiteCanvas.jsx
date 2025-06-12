@@ -1,8 +1,6 @@
-// components/CoreSiteCanvas.jsx
-import React, { useEffect, useMemo } from "react"; // Added useMemo
-// import * as d3 from "d3"; // d3 is now encapsulated in the renderer
-// import { linkPositionFromEdges } from "./drawHelpers"; // Also encapsulated
-import { drawCoreSiteChart } from "./d3CoreSiteRenderer"; // Import the new renderer
+// src/components/CoreSite/CoreSiteCanvas.jsx
+import React, { useEffect, useMemo } from "react";
+import { drawCoreSiteChart } from "./d3CoreSiteRenderer";
 
 export default function CoreSiteCanvas({
   svgRef,
@@ -17,7 +15,6 @@ export default function CoreSiteCanvas({
   theme = "dark",
   onLinkClick,
 }) {
-  // Memoize theme colors to prevent unnecessary re-renders if theme string doesn't change
   const themeColors = useMemo(() => {
     return {
       bgColor: theme === "dark" ? "#1f2937" : "#ffffff",
@@ -25,18 +22,20 @@ export default function CoreSiteCanvas({
       zoneCircleOpacity: theme === "dark" ? 0.12 : 0.4,
       linkStroke: theme === "dark" ? "#94a3b8" : "#cbd5e1",
       linkStrokeOpacity: 0.6,
-      linkHoverStroke: "#f59e0b",
-      nodeFill: theme === "dark" ? "#29c6e0" : "#67e8f9",
+      linkHoverStroke: "#f59e0b", // Used for link line itself on hover
+      nodeFill: theme === "dark" ? "#29c6e0" : "#67e8f9", // Original node blue
       nodeStroke: theme === "dark" ? "#60a5fa" : "#7dd3fc",
       nodeTextFill: theme === "dark" ? "#ffffff" : "#155e75",
-      nodeHoverFill: theme === "dark" ? "#fde68a" : "#fef08a",
-      nodeHoverStroke: "#f59e0b",
+      nodeHoverFill: theme === "dark" ? "#fde68a" : "#fef08a", // Yellowish, used when a LINK is hovered, for connected nodes
+      nodeHoverStroke: "#f59e0b", // Yellowish stroke, used when a LINK is hovered
       selectedNodePulseColor: theme === "dark" ? "#2563eb" : "#3b82f6",
+      // --- NEW COLOR FOR DIRECT NODE HOVER ---
+      nodeHighlightFill: theme === "dark" ? "#1d9bb4" : "#4cb9d8", // Darker blue for direct node hover
     };
   }, [theme]);
 
   useEffect(() => {
-    // Log 7: Check props received by CoreSiteCanvas useEffect
+    // ... (rest of the useEffect remains the same)
     console.log(
       "[CoreSiteCanvas useEffect] Nodes:",
       nodes ? nodes.map((n) => n.id).join(", ") : "undefined",
@@ -61,20 +60,18 @@ export default function CoreSiteCanvas({
 
     console.log("[CoreSiteCanvas useEffect] Calling drawCoreSiteChart.");
 
-    // Configure and call the D3 renderer
     drawCoreSiteChart(svgRef.current, {
       nodesData: nodes,
       linksData: links,
       focusedNodeId,
-      width, // Canvas width
-      height, // Canvas height
-      centerX, // Pass the canvas centerX
-      centerY, // Pass the centerY FOR THE D3 ZONE CIRCLE
-      themeColors,
+      width,
+      height,
+      centerX,
+      centerY,
+      themeColors, // This now includes nodeHighlightFill
       onLinkClickCallback: onLinkClick,
     });
 
-    // Update focusedNodeDataRef (this logic remains in the React component)
     if (focusedNodeDataRef && nodes && nodes.length > 0 && focusedNodeId) {
       const foundNode = nodes.find((n) => n.id === focusedNodeId);
       focusedNodeDataRef.current = foundNode || null;
@@ -88,19 +85,17 @@ export default function CoreSiteCanvas({
     }
   }, [
     svgRef,
-    nodes, // Add nodes to dependency array
-    links, // Add links to dependency array
+    nodes,
+    links,
     focusedNodeId,
     width,
     height,
     centerX,
     centerY,
-    themeColors, // Use memoized themeColors
+    themeColors, // Dependency on memoized themeColors
     onLinkClick,
     focusedNodeDataRef,
-    // currentZoneId, // Add if it's passed to drawCoreSiteChart and can change
   ]);
 
-  // The component now only returns null as SVG is managed by ref and D3
   return null;
 }

@@ -63,10 +63,9 @@ export default function SiteDetailPopup({
     width: `${popupWidthPx}px`,
     maxHeight: `${maxHeightPx}px`,
     zIndex: zIndex,
-    overflowY: "auto", // This enables the scrollbar on the popup itself
+    overflowY: "auto",
   };
 
-  // Conditionally set scrollbar classes
   const scrollbarClasses =
     currentTheme === "dark"
       ? "dark-scrollbar dark-scrollbar-firefox"
@@ -74,7 +73,8 @@ export default function SiteDetailPopup({
 
   const headerButtonText =
     detailData.type === "link"
-      ? `Link: ${detailData.sourceNode || "?"} ↔ ${
+      ? `Link: ${detailData.sourceNode || "?"} \u2194 ${
+          // Using unicode arrow
           detailData.targetNode || "?"
         }`
       : `${detailData.name || `Item ${detailData.id}`} Details`;
@@ -90,7 +90,7 @@ export default function SiteDetailPopup({
                      ? "translate-x-0 opacity-100"
                      : "translate-x-full opacity-0"
                  }
-                 ${scrollbarClasses} /* Apply scrollbar classes here */
+                 ${scrollbarClasses}
                 `}
       role="dialog"
       aria-modal="true"
@@ -118,11 +118,11 @@ export default function SiteDetailPopup({
         </button>
       </div>
 
-      {/* Content Area - This div itself is not scrolling, its parent is */}
+      {/* Content Area */}
       <div className={`flex-1 space-y-4 pr-1 min-h-0 relative pb-1`}>
-        {/* ... (rest of the DetailItem rendering remains the same) ... */}
         {detailData.type === "site" && (
           <>
+            {/* ... Site details ... */}
             <div className="flex space-x-4">
               <DetailItem
                 label="Physical Status"
@@ -165,6 +165,15 @@ export default function SiteDetailPopup({
 
         {detailData.type === "link" && (
           <>
+            {/* ****************************************************** */}
+            {/* <<< THIS IS THE ADDED PART TO DISPLAY THE LINK ID >>> */}
+            <DetailItem
+              label="Link ID"
+              value={detailData.linkId} /* Use the linkId from the payload */
+              labelColor={labelColor}
+              valueColor={valueColor}
+            />
+            {/* ****************************************************** */}
             <DetailItem
               label="Source Node"
               value={detailData.sourceNode}
@@ -213,6 +222,7 @@ export default function SiteDetailPopup({
         >
           {detailData.type === "site" && (
             <>
+              {/* ... additional site details ... */}
               <DetailItem
                 label="Description"
                 value={detailData.description}
@@ -283,6 +293,7 @@ export default function SiteDetailPopup({
           )}
           {detailData.type === "link" && (
             <>
+              {/* ... additional link details ... */}
               <DetailItem
                 label="Link Description"
                 value={detailData.linkDescription || detailData.name}

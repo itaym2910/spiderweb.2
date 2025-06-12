@@ -15,16 +15,23 @@ function createLinkPopupPayload(linkDataObject) {
       ? linkDataObject.target.id
       : linkDataObject.target;
 
+  // Ensure 'id' for the popup system is the actual link's ID if available,
+  // otherwise generate one. This 'id' is for the popup instance.
+  // The original link's ID will be stored in a separate property if needed, e.g., 'originalLinkId'
+  // For SiteDetailPopup, detailData.id is used for aria and keys.
+  const popupId =
+    linkDataObject.id ||
+    `${sourceId}-${targetId}-${Math.random().toString(16).slice(2)}`;
+
   return {
-    ...linkDataObject, // Spread existing link data
+    ...linkDataObject, // Spread existing link data to retain all original properties
     type: "link", // Explicitly set type for the popup
-    id:
-      linkDataObject.id ||
-      `${sourceId}-${targetId}-${Math.random().toString(16).slice(2)}`, // Ensure an ID for the popup state
+    id: popupId, // This ID is used by usePopupManager and SiteDetailPopup for its key and aria attributes
 
     // Fields expected by SiteDetailPopup for type: "link"
     // Adjust these based on the actual properties available in your linkDataObject
     // and what SiteDetailPopup expects.
+    linkId: linkDataObject.id, // <<< Explicitly including the original link ID
     sourceNode: sourceId,
     targetNode: targetId,
     name:
@@ -138,7 +145,7 @@ function handleMouseOver(
   zoomLayer,
   tooltip,
   palette,
-  onLinkClick // <<< Added onLinkClick parameter
+  onLinkClick
 ) {
   const sourceId =
     typeof d_hovered_orig.source === "object" && d_hovered_orig.source !== null
@@ -251,7 +258,7 @@ function handleMouseOver(
         tooltip
           .attr("x", event.offsetX + 10)
           .attr("y", event.offsetY - 10)
-          .text(d_mousemove.id)
+          .text(d_mousemove.id) // This shows the original link ID in tooltip
           .attr("opacity", 1);
       })
       .on("mouseout", function (event, d_curved_mouseout) {
@@ -354,16 +361,14 @@ function handleMouseOver(
       })
       .on("click", function (event, d_clicked_duplicate_link) {
         if (onLinkClick) {
-          // <<< USE onLinkClick passed to handleMouseOver
           const payload = createLinkPopupPayload(d_clicked_duplicate_link);
           if (payload) {
             onLinkClick(payload);
           }
         }
         console.log(
-          // Retained as requested
           "[Link Click] Curved/Duplicate link ID:",
-          d_clicked_duplicate_link.id
+          d_clicked_duplicate_link.id // This is the original link ID
         );
         event.stopPropagation();
       });
@@ -378,7 +383,7 @@ export function setupInteractions({
   tooltip,
   palette,
   zoomLayer,
-  onLinkClick, // <<< NEW PROP received by setupInteractions
+  onLinkClick,
 }) {
   if (!zoomLayer || !zoomLayer.node()) {
     console.error(
@@ -398,7 +403,6 @@ export function setupInteractions({
   linkHover
     .on("mouseover", function (event, d_hovered_linkhover) {
       handleMouseOver(
-        // <<< PASS onLinkClick to handleMouseOver
         d_hovered_linkhover,
         allNodes,
         filteredLinks,
@@ -406,7 +410,7 @@ export function setupInteractions({
         zoomLayer,
         tooltip,
         palette,
-        onLinkClick // Pass the onLinkClick from setupInteractions's scope
+        onLinkClick
       );
     })
     .on("mouseout", function (event, d_hovered_linkhover) {
@@ -479,7 +483,6 @@ export function setupInteractions({
     })
     .on("click", function (event, d_clicked_linkhover) {
       if (onLinkClick) {
-        // <<< USE onLinkClick received by setupInteractions
         const payload = createLinkPopupPayload(d_clicked_linkhover);
         if (payload) {
           onLinkClick(payload);
@@ -488,7 +491,7 @@ export function setupInteractions({
       console.log(
         "[Link Click] Straight link (.link-hover) ID:",
         d_clicked_linkhover.id
-      ); // Retained as requested
+      ); // This is the original link ID
       event.stopPropagation();
     });
 }

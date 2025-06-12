@@ -1,4 +1,4 @@
-// d3CoreSiteRenderer.js
+// src/components/CoreSite/d3CoreSiteRenderer.js
 import * as d3 from "d3";
 import { linkPositionFromEdges } from "./drawHelpers";
 
@@ -33,11 +33,11 @@ export function drawCoreSiteChart(
       .attr("fill", themeColors.zoneCircleFill)
       .attr("fill-opacity", themeColors.zoneCircleOpacity);
 
-    // Create groups for drawing order
+    // Create groups for drawing order - CORRECTED ORDER
     zoomLayer.append("g").attr("class", "links-group");
-    zoomLayer.append("g").attr("class", "pulse-group"); // Pulse group BEFORE nodes
+    zoomLayer.append("g").attr("class", "link-hover-group"); // MOVED UP
+    zoomLayer.append("g").attr("class", "pulse-group");
     zoomLayer.append("g").attr("class", "nodes-group");
-    zoomLayer.append("g").attr("class", "link-hover-group");
     zoomLayer.append("g").attr("class", "node-labels-group");
   }
 
@@ -48,74 +48,63 @@ export function drawCoreSiteChart(
   const nodeLabelsGroup = zoomLayer.select("g.node-labels-group");
 
   // --- Pulsing Circle for Selected Node ---
-  // Data for the pulse: an array containing the single selected node, or empty if none.
   const selectedNodeDataArray = focusedNodeId
     ? nodesData.filter((n) => n.id === focusedNodeId)
     : [];
 
   const pulseCircles = pulseGroup
     .selectAll("circle.node-pulse")
-    .data(selectedNodeDataArray, (d) => d.id); // Keyed by node ID
+    .data(selectedNodeDataArray, (d) => d.id);
 
-  // EXIT: Remove pulse if node is deselected or disappears
   pulseCircles
     .exit()
-    .interrupt(PULSE_ANIMATION_NAME) // Stop any ongoing pulse animation
+    .interrupt(PULSE_ANIMATION_NAME)
     .transition("pulseExit")
     .duration(ANIMATION_DURATION / 2)
     .attr("r", 0)
     .style("opacity", 0)
     .remove();
 
-  // ENTER: Create new pulse if a node becomes selected
   const pulseEnter = pulseCircles
     .enter()
     .append("circle")
     .attr("class", "node-pulse")
-    .attr("r", 0) // Start small for entry animation
-    .style("opacity", 0) // Start transparent
+    .attr("r", 0)
+    .style("opacity", 0)
     .attr("fill", themeColors.selectedNodePulseColor)
     .attr("stroke", themeColors.selectedNodePulseColor)
     .attr("stroke-width", 2);
-  // .lower(); // Ensure it's behind the actual node visual if nodes are in a different group
 
-  // UPDATE + ENTER: Animate pulse to position and start/restart pulsing effect
   pulseEnter
-    .merge(pulseCircles) // Apply to both new and existing pulse circles (though there should only be one)
-    .interrupt(PULSE_ANIMATION_NAME) // Stop previous pulse animation before starting new
-    .attr("cx", (d) => d.x) // Set initial CX for entering, update for existing (though it shouldn't change if keyed)
-    .attr("cy", (d) => d.y) // Set initial CY for entering
+    .merge(pulseCircles)
+    .interrupt(PULSE_ANIMATION_NAME)
+    .attr("cx", (d) => d.x)
+    .attr("cy", (d) => d.y)
     .transition("pulseMoveAppear")
     .duration(ANIMATION_DURATION)
-    .attr("cx", (d) => d.x) // Animate to final X
-    .attr("cy", (d) => d.y) // Animate to final Y
+    .attr("cx", (d) => d.x)
+    .attr("cy", (d) => d.y)
     .attr("r", 60)
     .style("opacity", 0.7)
     .on("end.startPulseEffect", function (d) {
-      // 'd' is the selectedNodeData
-      // Start the continuous pulse animation (radius and opacity oscillation)
       const circle = d3.select(this);
-
       function continuousPulse() {
-        // Check if this circle still exists and if the node is STILL the focusedNodeId
         if (circle.empty() || focusedNodeId !== d.id) {
-          // console.log("Stopping pulse for:", d.id, "Current focused:", focusedNodeId);
-          circle.interrupt(PULSE_ANIMATION_NAME); // Stop named transition
+          circle.interrupt(PULSE_ANIMATION_NAME);
           return;
         }
-        // console.log("Pulsing for:", d.id);
         circle
-          .transition(PULSE_ANIMATION_NAME) // Named transition
+          .transition(PULSE_ANIMATION_NAME)
           .duration(1000)
           .attr("r", 60 + 10)
           .style("opacity", 0.3)
-          .transition(PULSE_ANIMATION_NAME) // Chain with the same name
+          .transition(PULSE_ANIMATION_NAME)
           .duration(1000)
           .attr("r", 60)
           .style("opacity", 0.7)
-          .on("end.continuousPulse", continuousPulse); // Loop
+          .on("end.continuousPulse", continuousPulse);
       }
-      continuousPulse(); // Initiate
+      continuousPulse();
     });
 
   // ----- Links -----
@@ -134,26 +123,25 @@ export function drawCoreSiteChart(
     .enter()
     .append("line")
     .attr("class", "link")
-    // Set initial positions based on potentially OLD node positions if nodes are also moving
     .attr("x1", (d) =>
       d.source && nodesData.find((n) => n.id === d.source.id)
         ? linkPositionFromEdges(d, 60).x1
-        : 0
+        : (d.source && d.source.x) || 0
     )
     .attr("y1", (d) =>
       d.source && nodesData.find((n) => n.id === d.source.id)
         ? linkPositionFromEdges(d, 60).y1
-        : 0
+        : (d.source && d.source.y) || 0
     )
     .attr("x2", (d) =>
       d.target && nodesData.find((n) => n.id === d.target.id)
         ? linkPositionFromEdges(d, 60).x2
-        : 0
+        : (d.target && d.target.x) || 0
     )
     .attr("y2", (d) =>
       d.target && nodesData.find((n) => n.id === d.target.id)
         ? linkPositionFromEdges(d, 60).y2
-        : 0
+        : (d.target && d.target.y) || 0
     )
     .attr("stroke", themeColors.linkStroke)
     .style("opacity", 0)
@@ -188,6 +176,7 @@ export function drawCoreSiteChart(
     .attr("cy", (d) => d.y)
     .attr("r", 0)
     .style("opacity", 0)
+    // .style("cursor", "pointer") // Moved to re-selection for consistency
     .merge(nodeCircles)
     .transition("nodeUpdate")
     .duration(ANIMATION_DURATION)
@@ -198,10 +187,39 @@ export function drawCoreSiteChart(
     .attr("fill", themeColors.nodeFill)
     .attr("stroke", (d) =>
       d.id === focusedNodeId
-        ? themeColors.selectedNodePulseColor // Keep selected node distinct
+        ? themeColors.selectedNodePulseColor
         : themeColors.nodeStroke
     )
     .attr("stroke-width", (d) => (d.id === focusedNodeId ? 3 : 2));
+
+  // Add/Update Node Event Handlers
+  nodesGroup
+    .selectAll("circle.node") // Re-select to ensure handlers are bound/updated
+    .style("cursor", "pointer") // Set cursor for all nodes (new and updated)
+    .on("mouseover.nodehighlight", function () {
+      const currentNodeSelection = d3.select(this);
+      const currentFill = currentNodeSelection.attr("fill");
+      // Only apply direct node highlight if not already link-hover highlighted (yellowish)
+      if (currentFill !== themeColors.nodeHoverFill) {
+        currentNodeSelection.attr("fill", themeColors.nodeHighlightFill); // Darker blue
+      }
+    })
+    .on("mouseout.nodehighlight", function () {
+      const currentNodeSelection = d3.select(this);
+      const currentFill = currentNodeSelection.attr("fill");
+      // Only revert if it was the direct node highlight (darker blue)
+      // If it's yellowish (nodeHoverFill), the link mouseout will handle it.
+      if (currentFill === themeColors.nodeHighlightFill) {
+        currentNodeSelection.attr("fill", themeColors.nodeFill); // Default blue
+      }
+      // If a link hover IS active on this node, its mouseover handler for the link-hover
+      // element should re-apply the yellowish color. This simplified mouseout
+      // assumes that other active effects (like link hover) will manage their state.
+    })
+    .on("click.nodeaction", function (event, d_clicked_node) {
+      console.log("Node clicked:", d_clicked_node.id);
+      event.stopPropagation();
+    });
 
   // ----- Link Hover Areas -----
   const linkHovers = linkHoverGroup
@@ -223,35 +241,59 @@ export function drawCoreSiteChart(
     .attr("stroke", "transparent")
     .attr("stroke-width", 20)
     .on("mouseover", function (event, d_hovered_link) {
+      // Highlight the link itself
       linksGroup
-        .selectAll("line.link") // Re-select from the group
+        .selectAll("line.link")
         .filter((l) => l.id === d_hovered_link.id)
         .attr("stroke", themeColors.linkHoverStroke)
         .attr("stroke-width", 4);
+      // Highlight connected nodes with yellowish color
       nodesGroup
-        .selectAll("circle.node") // Re-select from the group
+        .selectAll("circle.node")
         .filter(
           (n) =>
             n.id === d_hovered_link.source.id ||
             n.id === d_hovered_link.target.id
         )
-        .attr("fill", themeColors.nodeHoverFill)
+        .attr("fill", themeColors.nodeHoverFill) // Yellowish for link-connected nodes
         .attr("stroke", themeColors.nodeHoverStroke);
     })
     .on("mouseout", function (event, d_hovered_link) {
+      // Reset the link itself
       linksGroup
         .selectAll("line.link")
         .filter((l) => l.id === d_hovered_link.id)
         .attr("stroke", themeColors.linkStroke)
         .style("opacity", themeColors.linkStrokeOpacity)
         .attr("stroke-width", 2);
+
+      // Reset connected nodes
       nodesGroup
         .selectAll("circle.node")
-        .attr("fill", themeColors.nodeFill)
-        .attr("stroke", (n) =>
-          n.id === focusedNodeId
-            ? themeColors.selectedNodePulseColor
-            : themeColors.nodeStroke
+        .filter(
+          (n) =>
+            n.id === d_hovered_link.source.id ||
+            n.id === d_hovered_link.target.id
+        )
+        .each(function () {
+          const nodeElement = d3.select(this);
+          // If the mouse is now directly over this node, the node's own mouseover
+          // will handle its highlight (darker blue). Otherwise, revert to default.
+          // A simple way is to check if relatedTarget is this node.
+          // For now, let's unconditionally revert from yellow. Node's own mouseover will take over if needed.
+          if (nodeElement.attr("fill") === themeColors.nodeHoverFill) {
+            // Only revert if it was yellow
+            nodeElement.attr("fill", themeColors.nodeFill); // Default blue
+          }
+        })
+        .attr(
+          "stroke",
+          (
+            n // Also reset stroke
+          ) =>
+            n.id === focusedNodeId
+              ? themeColors.selectedNodePulseColor
+              : themeColors.nodeStroke
         )
         .attr("stroke-width", (n) => (n.id === focusedNodeId ? 3 : 2));
     })
@@ -259,6 +301,7 @@ export function drawCoreSiteChart(
       if (onLinkClickCallback) {
         onLinkClickCallback(d_clicked_link);
       }
+      event.stopPropagation(); // Good practice for clickable items in a zoomable area
     });
 
   // ----- Node Labels (Text) -----
@@ -282,6 +325,7 @@ export function drawCoreSiteChart(
     .style("opacity", 0)
     .attr("text-anchor", "middle")
     .attr("dy", ".35em")
+    .style("pointer-events", "none") // Prevent labels from interfering
     .merge(nodeLabels)
     .transition("labelUpdate")
     .duration(ANIMATION_DURATION)
