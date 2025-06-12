@@ -26,7 +26,7 @@ export default function CoreSiteView({
   theme,
   zoneId,
   containerRef,
-  dimensions,
+  dimensions, // dimensions.height will be used
   nodes,
   links,
   centerX,
@@ -38,7 +38,7 @@ export default function CoreSiteView({
   onLinkClick,
   onClosePopup,
   onBackToChart,
-  getPopupPositioning,
+  getPopupPositioning, // This function is from usePopupManager
   showExtendedNodes,
   onToggleExtendedNodes,
   mainToggleNode1Text,
@@ -51,13 +51,11 @@ export default function CoreSiteView({
   const pageBgColor = theme === "dark" ? "bg-gray-800" : "bg-white";
   const loadingBgColor = theme === "dark" ? "bg-slate-800" : "bg-gray-100";
   const loadingTextColor = theme === "dark" ? "text-white" : "text-gray-700";
-
-  // Updated blue button styles
   const backButtonBg =
     theme === "dark"
       ? "bg-blue-600 hover:bg-blue-700"
       : "bg-blue-500 hover:bg-blue-600";
-  const backButtonText = "text-white"; // Always white for better contrast on blue
+  const backButtonText = "text-white";
   const backButtonFocusRing =
     theme === "dark"
       ? "focus:ring-blue-400 focus:ring-offset-gray-800"
@@ -81,10 +79,8 @@ export default function CoreSiteView({
     : "Central Zone";
 
   const controlsAreaHalfWidth = 320 / 2;
-  // Adjust backButtonWidth based on new text "Back to Chart" + icon. Maybe around 140px.
-  const backButtonWidth = 140; // px
-  const gap = 16; // px
-
+  const backButtonWidth = 140;
+  const gap = 16;
   const backButtonLeftPos = `calc(50% - ${controlsAreaHalfWidth}px - ${backButtonWidth}px - ${gap}px)`;
 
   return (
@@ -92,15 +88,14 @@ export default function CoreSiteView({
       ref={containerRef}
       className={`relative w-full h-full ${pageBgColor} overflow-hidden`}
     >
-      {/* Back Button - Repositioned and Restyled */}
       <div
         className="absolute z-30 pointer-events-none"
         style={{
           top: "1rem",
           left: backButtonLeftPos,
-          height: "2.25rem", // Match CoreSiteControls toggle height (h-9) for vertical alignment
-          display: "flex", // Added for vertical centering of the button itself
-          alignItems: "center", // Added for vertical centering
+          height: "2.25rem",
+          display: "flex",
+          alignItems: "center",
         }}
       >
         <div className="flex-none pointer-events-auto">
@@ -110,12 +105,11 @@ export default function CoreSiteView({
                         flex items-center gap-1.5
                         ${backButtonBg} ${backButtonText}
                         focus:outline-none focus:ring-2 focus:ring-offset-2 
-                        ${backButtonFocusRing}`} // Use the new focus ring style
+                        ${backButtonFocusRing}`}
             title="Back to chart view"
           >
-            <BackArrowIcon className="w-4 h-4" />{" "}
-            {/* Slightly smaller icon if needed */}
-            Back to Chart {/* Updated text */}
+            <BackArrowIcon className="w-4 h-4" />
+            Back to Chart
           </button>
         </div>
       </div>
@@ -158,14 +152,15 @@ export default function CoreSiteView({
 
       <div className="fixed right-0 top-0 h-full pointer-events-none z-20">
         {openPopups.map((popup, index) => {
+          // Pass dimensions.height to getPopupPositioning
           const {
             topPosition,
             popupRightOffsetPx,
             zIndex,
             isEffectivelyOpen,
-            maxWidthVh,
+            maxHeightPx, // Destructure maxHeightPx
             popupWidthPx,
-          } = getPopupPositioning(index, openPopups.length);
+          } = getPopupPositioning(index, openPopups.length, dimensions.height);
 
           return (
             <SiteDetailPopup
@@ -176,7 +171,7 @@ export default function CoreSiteView({
               topPosition={topPosition}
               popupRightOffsetPx={popupRightOffsetPx}
               zIndex={zIndex}
-              maxWidthVh={maxWidthVh}
+              maxHeightPx={maxHeightPx} // Pass maxHeightPx
               popupWidthPx={popupWidthPx}
             />
           );
