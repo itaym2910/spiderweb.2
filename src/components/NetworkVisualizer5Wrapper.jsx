@@ -1,19 +1,18 @@
-// src/NetworkVisualizerWrapper.jsx
+// src/NetworkVisualizer5Wrapper.jsx
 import React, { useCallback, useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import NetworkVisualizer5 from "./chart/NetworkVisualizer5";
-import { usePopupManager } from "./CoreSite/usePopupManager"; // <<< IMPORT
+import { usePopupManager } from "./CoreSite/usePopupManager";
 import SiteDetailPopup from "./CoreSite/SiteDetailPopup";
 
 const NetworkVisualizer5Wrapper = ({ data, theme }) => {
   const navigate = useNavigate();
-  const wrapperRef = useRef(null); // Ref for the main container to anchor popups
+  const wrapperRef = useRef(null);
   const [containerHeight, setContainerHeight] = useState(0);
 
   const popupAnchor = {
-    // Define how popups are anchored
-    top: 20, // Example: 20px from the top of wrapperRef
-    right: 20, // Example: 20px from the right of wrapperRef
+    top: 20,
+    right: 20,
   };
 
   const { openPopups, addOrUpdatePopup, closePopup, getPopupPositioning } =
@@ -34,16 +33,14 @@ const NetworkVisualizer5Wrapper = ({ data, theme }) => {
 
   const handleZoneClick = useCallback(
     (zoneId) => {
-      navigate(`l-zone/${zoneId}`);
+      // Corrected navigation path for P-chart zones
+      navigate(`p-zone/${zoneId}`); // <<< FIX HERE
     },
     [navigate]
   );
 
   const handleLinkClick = useCallback(
     (linkDetailPayload) => {
-      // Ensure the payload has a unique 'id' and 'type: "link"'
-      // The payload created in setupInteractions should already have type: "link"
-      // and an 'id' (which could be the link's original ID).
       addOrUpdatePopup(linkDetailPayload);
     },
     [addOrUpdatePopup]
@@ -51,18 +48,13 @@ const NetworkVisualizer5Wrapper = ({ data, theme }) => {
 
   return (
     <div ref={wrapperRef} className="relative w-full h-full">
-      {" "}
-      {/* Ensure this div takes up space */}
       <NetworkVisualizer5
         data={data}
         theme={theme}
         onZoneClick={handleZoneClick}
-        onLinkClick={handleLinkClick} // <<< PASS handleLinkClick
+        onLinkClick={handleLinkClick}
       />
-      {/* Render Popups */}
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-        {" "}
-        {/* Overlay for popups */}
         {openPopups.map((popup, index) => {
           const positioning = getPopupPositioning(
             index,
