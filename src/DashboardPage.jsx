@@ -126,6 +126,7 @@ export function DashboardPage({
           <TabsTrigger value="table">Main Lines</TabsTrigger>
           <TabsTrigger value="l_network">L-chart</TabsTrigger>
           <TabsTrigger value="p_network">P-chart</TabsTrigger>
+          <TabsTrigger value="site">Site</TabsTrigger>
         </TabsList>
 
         {/* Rest of the TabsContent remains the same */}
@@ -290,6 +291,33 @@ export function DashboardPage({
                     element={<NodeDetailView chartType="P" />}
                   />
                 </Routes>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="site" className="flex-1 flex flex-col min-h-0">
+          <Card
+            ref={activeTabValue === "site" ? tabContentCardRef : null} // Assign ref if this tab is active
+            className={`flex-1 flex flex-col min-h-0 ${
+              isAppFullscreen && activeTabValue === "site"
+                ? "border-0 rounded-none shadow-none"
+                : "border dark:border-gray-700"
+            }`}
+          >
+            <CardContent
+              className={`overflow-auto flex-1 ${
+                isAppFullscreen && activeTabValue === "site" ? "p-4" : "p-4"
+              } relative`}
+            >
+              <div className="p-6">
+                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
+                  Site Information
+                </h2>
+                <p className="text-gray-700 dark:text-gray-300">
+                  This tab will display detailed information about sites.
+                  Content for this tab is yet to be implemented.
+                </p>
+                {/* You can add more placeholder elements or components here later */}
               </div>
             </CardContent>
           </Card>
