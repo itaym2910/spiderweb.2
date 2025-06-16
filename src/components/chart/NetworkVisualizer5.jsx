@@ -5,7 +5,13 @@ import { linkPositionFromEdges, getNodeGroups } from "./drawHelpers";
 import { renderCoreDevices } from "./renderCoreDevices";
 import { setupInteractions } from "./handleInteractions";
 
-const NetworkVisualizer5 = ({ theme, data, onZoneClick, onLinkClick }) => {
+const NetworkVisualizer5 = ({
+  theme,
+  data,
+  onZoneClick,
+  onLinkClick,
+  onNodeClick,
+}) => {
   const svgRef = useRef();
   console.log(
     "[NetworkVisualizer5] Received onZoneClick prop. Type:",
@@ -80,7 +86,8 @@ const NetworkVisualizer5 = ({ theme, data, onZoneClick, onLinkClick }) => {
       links,
       NODE_GROUPS,
       palette,
-      onZoneClick
+      onZoneClick,
+      onNodeClick
     );
 
     link.attr("stroke", palette.link);
@@ -178,7 +185,7 @@ const NetworkVisualizer5 = ({ theme, data, onZoneClick, onLinkClick }) => {
         onLinkClick,
       })
     );
-  }, [onZoneClick, data, theme, onLinkClick]);
+  }, [onZoneClick, data, theme, onLinkClick, onNodeClick]);
 
   return (
     <svg

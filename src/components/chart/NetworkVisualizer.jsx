@@ -5,7 +5,13 @@ import { linkPositionFromEdges, getNodeGroups } from "./drawHelpers";
 import { renderCoreDevices } from "./renderCoreDevices";
 import { setupInteractions } from "./handleInteractions";
 
-const NetworkVisualizer = ({ theme, data, onZoneClick, onLinkClick }) => {
+const NetworkVisualizer = ({
+  theme,
+  data,
+  onZoneClick,
+  onLinkClick,
+  onNodeClick,
+}) => {
   console.log(
     "[NetworkVisualizer] Component rendering. Received onZoneClick prop. Type:",
     typeof onZoneClick
@@ -91,7 +97,8 @@ const NetworkVisualizer = ({ theme, data, onZoneClick, onLinkClick }) => {
       links,
       NODE_GROUPS,
       palette,
-      onZoneClick
+      onZoneClick,
+      onNodeClick
     );
 
     link.attr("stroke", palette.link);
@@ -201,7 +208,7 @@ const NetworkVisualizer = ({ theme, data, onZoneClick, onLinkClick }) => {
         onLinkClick,
       })
     );
-  }, [onZoneClick, data, theme, onLinkClick]);
+  }, [onZoneClick, data, theme, onLinkClick, onNodeClick]);
 
   return (
     <div>

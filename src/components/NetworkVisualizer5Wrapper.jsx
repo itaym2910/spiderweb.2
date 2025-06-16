@@ -46,6 +46,17 @@ const NetworkVisualizer5Wrapper = ({ data, theme }) => {
     [addOrUpdatePopup]
   );
 
+  const handleNodeClick = useCallback(
+    (nodeData) => {
+      if (nodeData && nodeData.id && nodeData.zone) {
+        navigate(`p-zone/${nodeData.zone}/node/${nodeData.id}`);
+      } else {
+        console.warn("Node data incomplete for navigation:", nodeData);
+      }
+    },
+    [navigate]
+  );
+
   return (
     <div ref={wrapperRef} className="relative w-full h-full">
       <NetworkVisualizer5
@@ -53,6 +64,7 @@ const NetworkVisualizer5Wrapper = ({ data, theme }) => {
         theme={theme}
         onZoneClick={handleZoneClick}
         onLinkClick={handleLinkClick}
+        onNodeClick={handleNodeClick}
       />
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
         {openPopups.map((popup, index) => {

@@ -1,6 +1,6 @@
 // src/DashboardPage.js
 import React from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useParams, useLocation } from "react-router-dom";
 import { Card, CardContent } from "./components/ui/card";
 import {
   Table,
@@ -15,9 +15,31 @@ import NetworkVisualizerWrapper from "./components/NetworkVisualizerWrapper";
 import NetworkVisualizer5Wrapper from "./components/NetworkVisualizer5Wrapper";
 import CoreSitePage from "./components/CoreSite/CoreSitePage";
 import { data } from "./dataMainLines";
-import { FullscreenIcon, ExitFullscreenIcon } from "./App"; // Adjust path if App.js is elsewhere
-
+import { FullscreenIcon, ExitFullscreenIcon } from "./App";
 import { useDashboardLogic } from "./useDashboardLogic";
+import LinkTable from "./components/CoreDevice/LinkTable";
+import { LINKS as L_CHART_LINKS } from "./components/chart/constants";
+import { LINKS5 as P_CHART_LINKS } from "./components/chart/constants5";
+
+function NodeDetailView({ chartType }) {
+  const { nodeId } = useParams();
+  const allLinks = chartType === "L" ? L_CHART_LINKS : P_CHART_LINKS;
+
+  // Filter links where the source or target ID matches the nodeId
+  const filteredLinks = allLinks.filter(
+    (link) =>
+      (link.source.id || link.source) === nodeId ||
+      (link.target.id || link.target) === nodeId
+  );
+
+  return (
+    <div className="p-1">
+      {" "}
+      {/* Optional: Add padding if LinkTable doesn't have enough */}
+      <LinkTable coreDeviceName={nodeId} linksData={filteredLinks} />
+    </div>
+  );
+}
 
 export function DashboardPage({
   isAppFullscreen,
@@ -38,9 +60,16 @@ export function DashboardPage({
     isAppFullscreen,
     isSidebarCollapsed,
   });
+  const location = useLocation();
 
   const renderFullscreenToggleButton = () => {
-    // ... (rest of the function remains the same)
+    const isBaseNetworkView =
+      !location.pathname.includes("/l-zone/") &&
+      !location.pathname.includes("/p-zone/");
+    if (!toggleAppFullscreen || !isBaseNetworkView) return null;
+    if (activeTabValue !== "l_network" && activeTabValue !== "p_network") {
+      return null;
+    }
     if (!toggleAppFullscreen) return null;
     if (activeTabValue !== "l_network" && activeTabValue !== "p_network") {
       return null;
@@ -208,6 +237,10 @@ export function DashboardPage({
                       />
                     }
                   />
+                  <Route
+                    path="l-zone/:zoneId/node/:nodeId"
+                    element={<NodeDetailView chartType="L" />}
+                  />
                 </Routes>
               </div>
             </CardContent>
@@ -251,6 +284,10 @@ export function DashboardPage({
                         popupAnchor={popupAnchorCoords}
                       />
                     }
+                  />
+                  <Route
+                    path="p-zone/:zoneId/node/:nodeId"
+                    element={<NodeDetailView chartType="P" />}
                   />
                 </Routes>
               </div>
