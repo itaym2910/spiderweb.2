@@ -15,6 +15,7 @@ export function drawCoreSiteChart(
     centerY, // Y center for the VISUAL ZONE CIRCLE
     themeColors,
     onLinkClickCallback,
+    onNodeClickCallback,
   }
 ) {
   const svg = d3.select(svgElement);
@@ -176,7 +177,6 @@ export function drawCoreSiteChart(
     .attr("cy", (d) => d.y)
     .attr("r", 0)
     .style("opacity", 0)
-    // .style("cursor", "pointer") // Moved to re-selection for consistency
     .merge(nodeCircles)
     .transition("nodeUpdate")
     .duration(ANIMATION_DURATION)
@@ -192,33 +192,29 @@ export function drawCoreSiteChart(
     )
     .attr("stroke-width", (d) => (d.id === focusedNodeId ? 3 : 2));
 
-  // Add/Update Node Event Handlers
   nodesGroup
-    .selectAll("circle.node") // Re-select to ensure handlers are bound/updated
-    .style("cursor", "pointer") // Set cursor for all nodes (new and updated)
+    .selectAll("circle.node")
+    .style("cursor", "pointer")
     .on("mouseover.nodehighlight", function () {
       const currentNodeSelection = d3.select(this);
       const currentFill = currentNodeSelection.attr("fill");
-      // Only apply direct node highlight if not already link-hover highlighted (yellowish)
       if (currentFill !== themeColors.nodeHoverFill) {
-        currentNodeSelection.attr("fill", themeColors.nodeHighlightFill); // Darker blue
+        currentNodeSelection.attr("fill", themeColors.nodeHighlightFill);
       }
     })
     .on("mouseout.nodehighlight", function () {
       const currentNodeSelection = d3.select(this);
       const currentFill = currentNodeSelection.attr("fill");
-      // Only revert if it was the direct node highlight (darker blue)
-      // If it's yellowish (nodeHoverFill), the link mouseout will handle it.
       if (currentFill === themeColors.nodeHighlightFill) {
-        currentNodeSelection.attr("fill", themeColors.nodeFill); // Default blue
+        currentNodeSelection.attr("fill", themeColors.nodeFill);
       }
-      // If a link hover IS active on this node, its mouseover handler for the link-hover
-      // element should re-apply the yellowish color. This simplified mouseout
-      // assumes that other active effects (like link hover) will manage their state.
     })
     .on("click.nodeaction", function (event, d_clicked_node) {
-      console.log("Node clicked:", d_clicked_node.id);
+      console.log("CoreSitePage - Node clicked in D3:", d_clicked_node.id);
       event.stopPropagation();
+      if (onNodeClickCallback) {
+        onNodeClickCallback(d_clicked_node);
+      }
     });
 
   // ----- Link Hover Areas -----

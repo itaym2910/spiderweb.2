@@ -26,7 +26,7 @@ export default function CoreSiteView({
   theme,
   zoneId,
   containerRef,
-  dimensions, // dimensions.height will be used
+  dimensions,
   nodes,
   links,
   centerX,
@@ -38,11 +38,12 @@ export default function CoreSiteView({
   onLinkClick,
   onClosePopup,
   onBackToChart,
-  getPopupPositioning, // This function is from usePopupManager
+  getPopupPositioning,
   showExtendedNodes,
   onToggleExtendedNodes,
   mainToggleNode1Text,
   mainToggleNode2Text,
+  onNodeClick,
 }) {
   const svgRef = useRef(null);
   const siteRefs = useRef([]);
@@ -140,6 +141,7 @@ export default function CoreSiteView({
         currentZoneId={zoneId}
         theme={theme}
         onLinkClick={onLinkClick}
+        onNodeClick={onNodeClick}
       />
       <SitesBar
         svgRef={svgRef}
@@ -152,13 +154,12 @@ export default function CoreSiteView({
 
       <div className="fixed right-0 top-0 h-full pointer-events-none z-20">
         {openPopups.map((popup, index) => {
-          // Pass dimensions.height to getPopupPositioning
           const {
             topPosition,
             popupRightOffsetPx,
             zIndex,
             isEffectivelyOpen,
-            maxHeightPx, // Destructure maxHeightPx
+            maxHeightPx,
             popupWidthPx,
           } = getPopupPositioning(index, openPopups.length, dimensions.height);
 
@@ -171,7 +172,7 @@ export default function CoreSiteView({
               topPosition={topPosition}
               popupRightOffsetPx={popupRightOffsetPx}
               zIndex={zIndex}
-              maxHeightPx={maxHeightPx} // Pass maxHeightPx
+              maxHeightPx={maxHeightPx}
               popupWidthPx={popupWidthPx}
             />
           );

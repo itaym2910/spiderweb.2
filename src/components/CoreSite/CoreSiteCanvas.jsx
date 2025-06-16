@@ -14,6 +14,7 @@ export default function CoreSiteCanvas({
   height,
   theme = "dark",
   onLinkClick,
+  onNodeClick,
 }) {
   const themeColors = useMemo(() => {
     return {
@@ -68,8 +69,9 @@ export default function CoreSiteCanvas({
       height,
       centerX,
       centerY,
-      themeColors, // This now includes nodeHighlightFill
+      themeColors,
       onLinkClickCallback: onLinkClick,
+      onNodeClickCallback: onNodeClick,
     });
 
     if (focusedNodeDataRef && nodes && nodes.length > 0 && focusedNodeId) {
@@ -92,9 +94,10 @@ export default function CoreSiteCanvas({
     height,
     centerX,
     centerY,
-    themeColors, // Dependency on memoized themeColors
+    themeColors,
     onLinkClick,
     focusedNodeDataRef,
+    onNodeClick,
   ]);
 
   return null;

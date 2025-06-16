@@ -5,7 +5,7 @@ import { useNodeLayout } from "./useNodeLayout";
 import { usePopupManager } from "./usePopupManager";
 
 export function useCoreSiteData(popupAnchor) {
-  const { zoneId } = useParams(); // zoneId is obtained here
+  const { zoneId } = useParams();
   const navigate = useNavigate();
   const containerRef = useRef(null);
 
@@ -102,6 +102,19 @@ export function useCoreSiteData(popupAnchor) {
     }
   };
 
+  const handleNodeClickInZone = (nodeData) => {
+    if (nodeData && nodeData.id) {
+      // Navigate to the node detail view, relative to the current zone path
+      // e.g., if current path is /l-zone/Zone1, this navigates to /l-zone/Zone1/node/NODE_ID
+      navigate(`node/${nodeData.id}`);
+    } else {
+      console.warn(
+        "CoreSitePage: Node data incomplete for navigation:",
+        nodeData
+      );
+    }
+  };
+
   const handleSiteClick = (siteIndex, siteName) => {
     const siteDetailPayload = {
       id: siteIndex,
@@ -158,13 +171,12 @@ export function useCoreSiteData(popupAnchor) {
     handleToggleExtendedNodes,
     mainToggleNode1Text,
     mainToggleNode2Text,
-    handleBackToChart, // Make sure this is also returned if used by CoreSiteView
-
-    // POPUP RELATED PROPS - Ensure these are all here
-    openPopups, // From usePopupManager
-    onSiteClick: handleSiteClick, // The actual handler function
-    onLinkClick: handleLinkClick, // The actual handler function
-    onClosePopup: closePopup, // From usePopupManager, passed as onClosePopup
-    getPopupPositioning, // From usePopupManager
+    handleBackToChart,
+    openPopups,
+    onSiteClick: handleSiteClick,
+    onLinkClick: handleLinkClick,
+    onClosePopup: closePopup,
+    getPopupPositioning,
+    onNodeClickInZone: handleNodeClickInZone,
   };
 }
