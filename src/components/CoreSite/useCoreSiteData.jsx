@@ -116,26 +116,45 @@ export function useCoreSiteData(popupAnchor) {
   };
 
   const handleSiteClick = (siteIndex, siteName) => {
+    // Create a navigation-friendly ID, e.g., "ZoneA-Site1"
+    // We need to ensure zoneId here is just the identifier part (e.g., "Zone1", not "Zone Zone1")
+    const cleanZoneId = zoneId ? zoneId.replace(/^Zone\s*/, "") : "UnknownZone";
+    const navigationId = `${cleanZoneId}-Site${siteIndex + 1}`;
+
     const siteDetailPayload = {
-      id: siteIndex,
-      name: siteName,
+      // id: siteIndex, // Keep this for internal popup management if needed, or use navId
+      id: navigationId, // <<< CHANGE: Use the navId as the primary ID for the popup data
+      navId: navigationId, // <<< NEW: Explicit navigation ID
+      name: siteName, // e.g., "Site 1 (via Node4)"
       type: "site",
+      zone: cleanZoneId, // <<< NEW: Add the actual zone ID
+      // ... (rest of the randomly generated site data) ...
       physicalStatus: Math.random() > 0.2 ? "Up" : "Down",
       protocolStatus: Math.random() > 0.2 ? "Active" : "Inactive",
-      ospfStatus: Math.random() > 0.5 ? "Enabled" : "Disabled",
-      mplsStatus: Math.random() > 0.6 ? "Active" : "Inactive",
-      bandwidth: `${Math.floor(Math.random() * 90) + 10} Mbps`,
-      description: `Details for site ${siteName}`,
-      mediaType: Math.random() > 0.3 ? "Fiber LC" : "Copper RJ45",
-      cdpNeighbors: `${Math.floor(Math.random() * 3) + 1} neighbors`,
-      containerName: `POD-${Math.floor(Math.random() * 10)}`,
-      mtu: Math.random() > 0.5 ? 1500 : 9000,
-      crcErrors: `${Math.floor(Math.random() * 5)}`,
-      inputDataRate: `${(Math.random() * 500).toFixed(2)} Mbps`,
-      outputDataRate: `${(Math.random() * 300).toFixed(2)} Mbps`,
-      txPower: `${(Math.random() * -5 - 1).toFixed(2)} dBm`,
-      rxPower: `${(Math.random() * -7 - 1).toFixed(2)} dBm`,
-      adminStatus: Math.random() > 0.2 ? "Up" : "Down (administratively)",
+      // Add a placeholder for connectedLinks if SiteDetailPage expects it
+      connectedLinks: [
+        // Example structure, populate with real or more detailed mock data if needed
+        {
+          id: `link-${navigationId}-1`,
+          name: `Link from ${navigationId} to CoreA`,
+          status: "up",
+          description: "Uplink",
+          bandwidth: "1G",
+          ospfStatus: "Full",
+          mplsStatus: "Active",
+        },
+        {
+          id: `link-${navigationId}-2`,
+          name: `Link from ${navigationId} to CoreB`,
+          status: "down",
+          description: "Redundant Uplink",
+          bandwidth: "1G",
+          ospfStatus: "Down",
+          mplsStatus: "Inactive",
+        },
+      ],
+      description: `This is a detailed description for ${siteName}. It includes information about its location within ${cleanZoneId}, its primary functions, and any notable operational characteristics. 
+      <br/><br/> <strong>Key Features:</strong><ul><li>High Availability</li><li>Redundant Power</li><li>Connection to multiple core nodes</li></ul>`, // Add example HTML description
     };
     addOrUpdatePopup(siteDetailPayload);
   };

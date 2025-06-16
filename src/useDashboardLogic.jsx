@@ -3,13 +3,32 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 export function useDashboardLogic({ isAppFullscreen, isSidebarCollapsed }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Function to determine active tab based on current path
+  const getTabFromPath = (pathname) => {
+    if (pathname.startsWith("/site/")) {
+      return "site";
+    }
+    if (pathname.includes("/l-zone/")) {
+      return "l_network";
+    }
+    if (pathname.includes("/p-zone/")) {
+      return "p_network";
+    }
+    // Add more conditions if other tabs have distinct URL patterns
+    // Default to 'table' if no other pattern matches or if at a base path
+    return "table";
+  };
+
   const [theme, setTheme] = useState(
     document.documentElement.classList.contains("dark") ? "dark" : "light"
   );
-  const [activeTabValue, setActiveTabValue] = useState("table");
-
-  const navigate = useNavigate();
-  const location = useLocation();
+  // Initialize activeTabValue based on the current path
+  const [activeTabValue, setActiveTabValue] = useState(() =>
+    getTabFromPath(location.pathname)
+  );
 
   const tabContentCardRef = useRef(null);
   const [popupAnchorCoords, setPopupAnchorCoords] = useState({
@@ -17,6 +36,7 @@ export function useDashboardLogic({ isAppFullscreen, isSidebarCollapsed }) {
     right: 20,
   });
 
+  // Theme mutation observer (remains the same)
   useEffect(() => {
     const observer = new MutationObserver(() => {
       const isDark = document.documentElement.classList.contains("dark");
@@ -29,6 +49,7 @@ export function useDashboardLogic({ isAppFullscreen, isSidebarCollapsed }) {
     return () => observer.disconnect();
   }, []);
 
+  // Popup anchor coordinates update (remains the same)
   useEffect(() => {
     const updateAnchor = () => {
       if (tabContentCardRef.current) {
@@ -48,43 +69,51 @@ export function useDashboardLogic({ isAppFullscreen, isSidebarCollapsed }) {
         });
       }
     };
-
     updateAnchor();
-
     window.addEventListener("resize", updateAnchor);
     return () => {
       window.removeEventListener("resize", updateAnchor);
     };
   }, [activeTabValue, isAppFullscreen, isSidebarCollapsed]);
 
-  const handleTabChangeForNavigation = (newTab) => {
-    setActiveTabValue(newTab);
+  // Sync activeTabValue with URL changes (This is the critical part)
+  useEffect(() => {
+    const newTabBasedOnUrl = getTabFromPath(location.pathname);
+    if (newTabBasedOnUrl !== activeTabValue) {
+      // console.log(`Path changed to: ${location.pathname}, switching tab from ${activeTabValue} to ${newTabBasedOnUrl}`);
+      setActiveTabValue(newTabBasedOnUrl);
+    }
+  }, [activeTabValue, location.pathname]); // Only re-run when the pathname changes
 
+  const handleTabChangeForNavigation = (newClickedTabValue) => {
     const currentPath = location.pathname;
-    const isOnLZoneDetail = currentPath.includes("/l-zone/");
-    const isOnPZoneDetail = currentPath.includes("/p-zone/");
+    const targetTabForCurrentPath = getTabFromPath(currentPath);
 
-    if (isOnLZoneDetail || isOnPZoneDetail) {
-      let calculatedBasePath = currentPath;
-      if (isOnLZoneDetail) {
-        calculatedBasePath = currentPath.split("/l-zone/")[0];
-      } else if (isOnPZoneDetail) {
-        calculatedBasePath = currentPath.split("/p-zone/")[0];
-      }
-      calculatedBasePath =
-        calculatedBasePath === "" || calculatedBasePath === undefined
-          ? "/"
-          : calculatedBasePath;
-      if (!calculatedBasePath.startsWith("/")) {
-        calculatedBasePath = "/" + calculatedBasePath;
-      }
-      if (calculatedBasePath !== currentPath) {
-        try {
-          navigate(calculatedBasePath);
-        } catch (e) {
-          console.error("Navigation error in handleTabChange:", e);
-        }
-      }
+    // If the user clicks a tab that is different from the one implied by the current URL's detail view,
+    // navigate to a base path.
+    if (
+      targetTabForCurrentPath !== newClickedTabValue &&
+      (currentPath.includes("/l-zone/") ||
+        currentPath.includes("/p-zone/") ||
+        currentPath.startsWith("/site/"))
+    ) {
+      // Navigating away from a detail view of one tab type by clicking a different tab.
+      // Go to the base of the application or the base of the new tab if it has one.
+      // For now, let's assume navigating to "/" clears any detail view.
+      // console.log(`Clearing detail view. Current: ${currentPath}, Target Tab: ${newClickedTabValue}`);
+      navigate("/"); // Or a more specific base path for the newClickedTabValue if applicable
+    } else {
+      // If clicking the same tab that the current detail view belongs to, or a base tab,
+      // or if the new tab doesn't have a specific base path different from "/",
+      // no navigation is needed here, just set the active tab.
+      // console.log(`No navigation needed, just setting active tab to: ${newClickedTabValue}`);
+    }
+
+    // Always update the activeTabValue to the one that was clicked.
+    // The useEffect above will catch any discrepancies if this navigation itself
+    // lands on a path that implies a different tab (though less likely with this logic).
+    if (activeTabValue !== newClickedTabValue) {
+      setActiveTabValue(newClickedTabValue);
     }
   };
 
@@ -93,6 +122,7 @@ export function useDashboardLogic({ isAppFullscreen, isSidebarCollapsed }) {
   return {
     theme,
     activeTabValue,
+    // setActiveTabValue, // Not typically needed to expose if logic is self-contained
     tabContentCardRef,
     popupAnchorCoords,
     handleTabChangeForNavigation,

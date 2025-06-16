@@ -14,6 +14,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import NetworkVisualizerWrapper from "./components/NetworkVisualizerWrapper";
 import NetworkVisualizer5Wrapper from "./components/NetworkVisualizer5Wrapper";
 import CoreSitePage from "./components/CoreSite/CoreSitePage";
+import SiteDetailPage from "./components/end-site/SiteDetailPage";
 import { data } from "./dataMainLines";
 import { FullscreenIcon, ExitFullscreenIcon } from "./App";
 import { useDashboardLogic } from "./useDashboardLogic";
@@ -297,7 +298,7 @@ export function DashboardPage({
         </TabsContent>
         <TabsContent value="site" className="flex-1 flex flex-col min-h-0">
           <Card
-            ref={activeTabValue === "site" ? tabContentCardRef : null} // Assign ref if this tab is active
+            ref={activeTabValue === "site" ? tabContentCardRef : null}
             className={`flex-1 flex flex-col min-h-0 ${
               isAppFullscreen && activeTabValue === "site"
                 ? "border-0 rounded-none shadow-none"
@@ -306,23 +307,68 @@ export function DashboardPage({
           >
             <CardContent
               className={`overflow-auto flex-1 ${
-                isAppFullscreen && activeTabValue === "site" ? "p-4" : "p-4"
+                isAppFullscreen && activeTabValue === "site" ? "p-0" : "p-0" // Changed to p-0 for full page component
               } relative`}
             >
-              <div className="p-6">
-                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
-                  Site Information
-                </h2>
-                <p className="text-gray-700 dark:text-gray-300">
-                  This tab will display detailed information about sites.
-                  Content for this tab is yet to be implemented.
-                </p>
-                {/* You can add more placeholder elements or components here later */}
-              </div>
+              {/* <<< ADD ROUTES FOR SITE TAB >>> */}
+              <Routes>
+                <Route
+                  index // Default view for the "Site" tab
+                  element={
+                    <div className="p-6">
+                      <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
+                        Site Information
+                      </h2>
+                      <p className="text-gray-700 dark:text-gray-300">
+                        Select a site to view details or use the search
+                        functionality.
+                      </p>
+                    </div>
+                  }
+                />
+                <Route
+                  path="site/:siteNavId" // Matches /site/ZoneA-Site1
+                  element={<SiteDetailPageRouteElement />} // Wrapper to get data from location state
+                />
+              </Routes>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+// Helper component to extract siteData from location state for SiteDetailPage
+function SiteDetailPageRouteElement() {
+  const location = useLocation();
+  const { siteNavId } = useParams(); // Get siteNavId from URL if needed for fetching
+  const siteDataFromState = location.state?.siteData;
+
+  // In a real app, if siteDataFromState is not available,
+  // you might fetch data using siteNavId here.
+  // For this example, we rely on it being passed via navigation state.
+
+  if (!siteDataFromState) {
+    return (
+      <div className="p-6">
+        <h2 className="text-xl font-semibold text-red-700 dark:text-red-300">
+          Error
+        </h2>
+        <p className="text-gray-700 dark:text-gray-300">
+          Site data not found for ID: {siteNavId}. Please navigate from a valid
+          source.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <SiteDetailPage
+      siteData={siteDataFromState}
+      initialTheme={
+        document.documentElement.classList.contains("dark") ? "dark" : "light"
+      }
+    />
   );
 }

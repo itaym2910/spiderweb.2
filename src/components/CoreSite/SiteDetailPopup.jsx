@@ -1,6 +1,7 @@
 // src/components/CoreSite/SiteDetailPopup.jsx
 import React, { useState, useEffect } from "react";
 import { MdClose } from "react-icons/md";
+import { useNavigate } from "react-router-dom";
 
 const DetailItem = ({
   label,
@@ -24,7 +25,10 @@ export default function SiteDetailPopup({
   maxHeightPx,
   popupWidthPx,
   popupRightOffsetPx,
+  // NEW: Callback to explicitly switch tabs
+  // onSwitchToSiteTab, // We'll try to handle this via URL first
 }) {
+  const navigate = useNavigate();
   const [currentTheme, setCurrentTheme] = useState(
     document.documentElement.classList.contains("dark") ? "dark" : "light"
   );
@@ -74,10 +78,20 @@ export default function SiteDetailPopup({
   const headerButtonText =
     detailData.type === "link"
       ? `Link: ${detailData.sourceNode || "?"} \u2194 ${
-          // Using unicode arrow
           detailData.targetNode || "?"
         }`
       : `${detailData.name || `Item ${detailData.id}`} Details`;
+
+  const handleHeaderButtonClick = () => {
+    if (detailData.type === "site" && detailData.navId) {
+      navigate(`/site/${detailData.navId}`, {
+        state: { siteData: detailData },
+      });
+      onClose();
+    } else if (detailData.type === "link") {
+      console.log("Link header clicked, no navigation defined yet.");
+    }
+  };
 
   return (
     <div
@@ -100,8 +114,10 @@ export default function SiteDetailPopup({
       <div className={`flex justify-between items-center mb-4 pb-4 shrink-0`}>
         <button
           id={`detail-popup-title-${detailData.id}`}
+          onClick={handleHeaderButtonClick}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 truncate"
           style={{ maxWidth: "calc(100% - 40px)" }}
+          disabled={detailData.type !== "site" || !detailData.navId}
         >
           {headerButtonText}
         </button>
