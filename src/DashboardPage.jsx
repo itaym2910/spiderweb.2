@@ -19,25 +19,34 @@ import { data } from "./dataMainLines";
 import { FullscreenIcon, ExitFullscreenIcon } from "./App";
 import { useDashboardLogic } from "./useDashboardLogic";
 import LinkTable from "./components/CoreDevice/LinkTable";
-import { LINKS as L_CHART_LINKS } from "./components/chart/constants";
-import { LINKS5 as P_CHART_LINKS } from "./components/chart/constants5";
+// import { LINKS as L_CHART_LINKS } from "./components/chart/constants"; // Still needed for visualizers
+// import { LINKS5 as P_CHART_LINKS } from "./components/chart/constants5"; // Still needed for visualizers
 
+import { sampleLinks } from "./components/CoreDevice/sampleLinkData"; // Adjust path if necessary
+
+// NodeDetailView will now use sampleLinks directly for its LinkTable
+// eslint-disable-next-line no-unused-vars
 function NodeDetailView({ chartType }) {
+  // chartType might be less relevant here now for data sourcing, but keep for consistency
   const { nodeId } = useParams();
-  const allLinks = chartType === "L" ? L_CHART_LINKS : P_CHART_LINKS;
+  // const allLinks = chartType === "L" ? L_CHART_LINKS : P_CHART_LINKS; // Original logic
 
   // Filter links where the source or target ID matches the nodeId
-  const filteredLinks = allLinks.filter(
-    (link) =>
-      (link.source.id || link.source) === nodeId ||
-      (link.target.id || link.target) === nodeId
-  );
+  // const filteredLinks = allLinks.filter( // Original filtering logic
+  //   (link) =>
+  //     (link.source.id || link.source) === nodeId ||
+  //     (link.target.id || link.target) === nodeId
+  // );
+
+  // --- MODIFICATION: Use sampleLinks directly ---
+  // The LinkTable will display all links from sampleLinks.
+  // The coreDeviceName prop is still used for the table's title.
+  const linksToDisplayInTable = sampleLinks;
 
   return (
     <div className="p-1">
-      {" "}
       {/* Optional: Add padding if LinkTable doesn't have enough */}
-      <LinkTable coreDeviceName={nodeId} linksData={filteredLinks} />
+      <LinkTable coreDeviceName={nodeId} linksData={linksToDisplayInTable} />
     </div>
   );
 }
@@ -71,10 +80,11 @@ export function DashboardPage({
     if (activeTabValue !== "l_network" && activeTabValue !== "p_network") {
       return null;
     }
-    if (!toggleAppFullscreen) return null;
-    if (activeTabValue !== "l_network" && activeTabValue !== "p_network") {
-      return null;
-    }
+    // Redundant checks removed for brevity, assuming the first set is sufficient
+    // if (!toggleAppFullscreen) return null;
+    // if (activeTabValue !== "l_network" && activeTabValue !== "p_network") {
+    //   return null;
+    // }
 
     const buttonPositionClasses = isAppFullscreen
       ? "top-2 left-2"
@@ -130,7 +140,7 @@ export function DashboardPage({
           <TabsTrigger value="site">Site</TabsTrigger>
         </TabsList>
 
-        {/* Rest of the TabsContent remains the same */}
+        {/* Table Tab Content */}
         <TabsContent value="table" className="flex-1 flex flex-col min-h-0">
           <Card
             ref={activeTabValue === "table" ? tabContentCardRef : null}
@@ -201,6 +211,7 @@ export function DashboardPage({
           </Card>
         </TabsContent>
 
+        {/* L-Network Tab Content */}
         <TabsContent value="l_network" className="flex-1 flex flex-col min-h-0">
           <Card
             ref={activeTabValue === "l_network" ? tabContentCardRef : null}
@@ -225,7 +236,7 @@ export function DashboardPage({
                     element={
                       <NetworkVisualizerWrapper
                         key={`l-visualizer-${chartKeySuffix}`}
-                        data={data}
+                        data={data} // This likely refers to node data, not link data. L_CHART_LINKS would be for the visualizer's links.
                         theme={theme}
                       />
                     }
@@ -241,7 +252,7 @@ export function DashboardPage({
                   />
                   <Route
                     path="l-zone/:zoneId/node/:nodeId"
-                    element={<NodeDetailView chartType="L" />}
+                    element={<NodeDetailView chartType="L" />} // NodeDetailView will now show all sampleLinks
                   />
                 </Routes>
               </div>
@@ -249,6 +260,7 @@ export function DashboardPage({
           </Card>
         </TabsContent>
 
+        {/* P-Network Tab Content */}
         <TabsContent value="p_network" className="flex-1 flex flex-col min-h-0">
           <Card
             ref={activeTabValue === "p_network" ? tabContentCardRef : null}
@@ -273,7 +285,7 @@ export function DashboardPage({
                     element={
                       <NetworkVisualizer5Wrapper
                         key={`p-visualizer-${chartKeySuffix}`}
-                        data={data}
+                        data={data} // This likely refers to node data, not link data. P_CHART_LINKS would be for the visualizer's links.
                         theme={theme}
                       />
                     }
@@ -289,13 +301,15 @@ export function DashboardPage({
                   />
                   <Route
                     path="p-zone/:zoneId/node/:nodeId"
-                    element={<NodeDetailView chartType="P" />}
+                    element={<NodeDetailView chartType="P" />} // NodeDetailView will now show all sampleLinks
                   />
                 </Routes>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Site Tab Content */}
         <TabsContent value="site" className="flex-1 flex flex-col min-h-0">
           <Card
             ref={activeTabValue === "site" ? tabContentCardRef : null}
@@ -307,13 +321,12 @@ export function DashboardPage({
           >
             <CardContent
               className={`overflow-auto flex-1 ${
-                isAppFullscreen && activeTabValue === "site" ? "p-0" : "p-0" // Changed to p-0 for full page component
+                isAppFullscreen && activeTabValue === "site" ? "p-0" : "p-0"
               } relative`}
             >
-              {/* <<< ADD ROUTES FOR SITE TAB >>> */}
               <Routes>
                 <Route
-                  index // Default view for the "Site" tab
+                  index
                   element={
                     <div className="p-6">
                       <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
@@ -327,8 +340,8 @@ export function DashboardPage({
                   }
                 />
                 <Route
-                  path="site/:siteNavId" // Matches /site/ZoneA-Site1
-                  element={<SiteDetailPageRouteElement />} // Wrapper to get data from location state
+                  path="site/:siteNavId"
+                  element={<SiteDetailPageRouteElement />}
                 />
               </Routes>
             </CardContent>
@@ -342,12 +355,8 @@ export function DashboardPage({
 // Helper component to extract siteData from location state for SiteDetailPage
 function SiteDetailPageRouteElement() {
   const location = useLocation();
-  const { siteNavId } = useParams(); // Get siteNavId from URL if needed for fetching
+  const { siteNavId } = useParams();
   const siteDataFromState = location.state?.siteData;
-
-  // In a real app, if siteDataFromState is not available,
-  // you might fetch data using siteNavId here.
-  // For this example, we rely on it being passed via navigation state.
 
   if (!siteDataFromState) {
     return (
