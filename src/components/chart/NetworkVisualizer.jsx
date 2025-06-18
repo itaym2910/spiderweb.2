@@ -66,9 +66,16 @@ const NetworkVisualizer = ({
       bg: isDark ? "#1f2937" : "#ffffff",
       link: isDark ? "#94a3b8" : "#6b7280",
       node: isDark ? "#29c6e0" : "#29c6e0",
-      nodeHoverDirect: isDark ? "#1d9bb4" : "#22b8d4",
+      nodeHoverDirect: isDark ? "#1d9bb4" : "#22b8d4", // For direct node hover
       stroke: isDark ? "#60a5fa" : "#1d4ed8",
       label: isDark ? "#ffffff" : "#1f2937",
+      zone: {
+        // NEW: Zone specific colors
+        fill: isDark ? "#38bdf8" : "#7dd3fc", // Example: sky-400 dark, sky-300 light
+        opacity: isDark ? 0.12 : 0.25,
+        hoverFill: isDark ? "#7dd3fc" : "#bae6fd", // Lighter version for hover (sky-300 dark, sky-200 light)
+        hoverOpacity: isDark ? 0.25 : 0.4, // More opaque on hover
+      },
     };
 
     const svg = d3
@@ -78,8 +85,9 @@ const NetworkVisualizer = ({
       .style("background-color", palette.bg);
 
     svg.selectAll("*").remove();
-    const tooltipLayer = svg.append("g");
+    // const tooltipLayer = svg.append("g"); // MOVED
     const zoomLayer = svg.append("g").attr("class", "main-zoom-layer");
+    const tooltipLayer = svg.append("g").attr("class", "tooltip-layer-group"); // APPENDED AFTER zoomLayer
 
     // 1. Define and store the zoom behavior
     const zoomBehavior = d3
@@ -105,14 +113,14 @@ const NetworkVisualizer = ({
     node.attr("fill", palette.node).attr("stroke", palette.stroke);
     label.attr("fill", palette.label);
 
-    const tooltip = tooltipLayer
+    const tooltip = tooltipLayer // Tooltip text is added to tooltipLayer
       .append("text")
       .attr("class", "svg-tooltip")
-      .attr("x", 0)
+      .attr("x", 0) // Positioned relative to screen/SVG, not zoomLayer
       .attr("y", 0)
       .attr("text-anchor", "start")
       .attr("font-size", 14)
-      .attr("fill", palette.label) // Use palette for tooltip color
+      .attr("fill", palette.label)
       .attr("opacity", 0)
       .style("pointer-events", "none")
       .style("user-select", "none");
