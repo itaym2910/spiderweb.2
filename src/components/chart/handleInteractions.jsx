@@ -375,6 +375,146 @@ function handleMouseOver(
   });
 }
 
+// ===================================================================
+// NEW: Function to remove all dynamically drawn parallel links
+// ===================================================================
+export function removeAllParallelLinks(zoomLayer) {
+  if (zoomLayer) {
+    zoomLayer
+      .selectAll("path.duplicate-link, path.duplicate-link-hover")
+      .remove();
+  }
+}
+
+// ===================================================================
+// NEW: Function to draw all parallel links across the entire graph
+// ===================================================================
+export function drawAllParallelLinks({
+  zoomLayer,
+  allNodes,
+  filteredLinks,
+  tooltip,
+  palette,
+  onLinkClick,
+}) {
+  if (!zoomLayer) return;
+
+  // 1. Group all links by the pair of nodes they connect
+  const linkGroups = new Map();
+  filteredLinks.forEach((link) => {
+    const sourceId =
+      typeof link.source === "object" ? link.source.id : link.source;
+    const targetId =
+      typeof link.target === "object" ? link.target.id : link.target;
+    const key = [sourceId, targetId].sort().join("--");
+
+    if (!linkGroups.has(key)) {
+      linkGroups.set(key, []);
+    }
+    linkGroups.get(key).push(link);
+  });
+
+  // 2. Iterate over each group and draw the parallel links
+  linkGroups.forEach((duplicates) => {
+    if (duplicates.length < 1) return; // Or < 2 if you only want to fan out actual duplicates
+
+    const firstLink = duplicates[0];
+    const sourceId =
+      typeof firstLink.source === "object"
+        ? firstLink.source.id
+        : firstLink.source;
+    const targetId =
+      typeof firstLink.target === "object"
+        ? firstLink.target.id
+        : firstLink.target;
+
+    const sourceNode = allNodes.find((n) => n.id === sourceId);
+    const targetNode = allNodes.find((n) => n.id === targetId);
+
+    if (!sourceNode || !targetNode) return;
+
+    // --- This entire drawing block is adapted from handleMouseOver ---
+    const nodeRadius = 60;
+    const { x1, y1, x2, y2 } = linkPositionFromEdges(
+      { source: sourceNode, target: targetNode },
+      nodeRadius
+    );
+
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    if (length === 0) return;
+
+    const ux = dx / length;
+    const uy = dy / length;
+    const perpX = -uy;
+    const perpY = ux;
+
+    duplicates.forEach((linkData, index) => {
+      const offset = 10 * (index - (duplicates.length - 1) / 2);
+      const startX = x1 + perpX * offset;
+      const startY = y1 + perpY * offset;
+      const endX = x2 + perpX * offset;
+      const endY = y2 + perpY * offset;
+
+      zoomLayer
+        .append("path")
+        .datum(linkData)
+        .attr("class", "duplicate-link")
+        .attr("d", `M${startX},${startY} L${endX},${endY}`)
+        .attr("fill", "none")
+        .attr("stroke", palette.linkHoverActive) // Use palette color
+        .attr("stroke-width", 3)
+        .style("pointer-events", "none");
+
+      zoomLayer
+        .append("path")
+        .datum(linkData)
+        .attr("class", "duplicate-link-hover")
+        .attr("d", `M${startX},${startY} L${endX},${endY}`)
+        .attr("fill", "none")
+        .attr("stroke", "transparent")
+        .attr("stroke-width", 12)
+        .style("cursor", "pointer")
+        // NEW: Highlight connected nodes on mouseover
+        .on("mouseover", function (event, d_mouseover) {
+          const s_id = d_mouseover.source.id;
+          const t_id = d_mouseover.target.id;
+          d3.selectAll("circle.node")
+            .filter((n) => n.id === s_id || n.id === t_id)
+            .attr("fill", palette.nodeHoverLink)
+            .attr("stroke", palette.nodeHoverLinkStroke)
+            .attr("stroke-width", 4);
+        })
+        .on("mousemove", function (event, d_mousemove) {
+          tooltip
+            .attr("x", event.offsetX + 10)
+            .attr("y", event.offsetY - 10)
+            .text(d_mousemove.id)
+            .attr("opacity", 1);
+        })
+        // MODIFIED: Un-highlight nodes on mouseout
+        .on("mouseout", function (event, d_mouseout) {
+          tooltip.attr("opacity", 0);
+          const s_id = d_mouseout.source.id;
+          const t_id = d_mouseout.target.id;
+          d3.selectAll("circle.node")
+            .filter((n) => n.id === s_id || n.id === t_id)
+            .attr("fill", palette.node)
+            .attr("stroke", palette.stroke)
+            .attr("stroke-width", 2);
+        })
+        .on("click", function (event, d_clicked_duplicate_link) {
+          if (onLinkClick) {
+            const payload = createLinkPopupPayload(d_clicked_duplicate_link);
+            if (payload) onLinkClick(payload);
+          }
+          event.stopPropagation();
+        });
+    });
+  });
+}
+
 export function setupInteractions({
   link,
   linkHover,

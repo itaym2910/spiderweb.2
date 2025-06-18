@@ -3,7 +3,11 @@ import * as d3 from "d3";
 import { NODES5, LINKS5 } from "./constants5";
 import { linkPositionFromEdges, getNodeGroups } from "./drawHelpers";
 import { renderCoreDevices } from "./renderCoreDevices";
-import { setupInteractions } from "./handleInteractions";
+import {
+  setupInteractions,
+  drawAllParallelLinks,
+  removeAllParallelLinks,
+} from "./handleInteractions";
 
 const NetworkVisualizer5 = ({
   theme,
@@ -56,16 +60,19 @@ const NetworkVisualizer5 = ({
       bg: isDark ? "#1f2937" : "#ffffff",
       link: isDark ? "#94a3b8" : "#6b7280",
       node: isDark ? "#29c6e0" : "#29c6e0",
-      nodeHoverDirect: isDark ? "#1d9bb4" : "#22b8d4", // For direct node hover
+      nodeHoverDirect: isDark ? "#1d9bb4" : "#22b8d4",
       stroke: isDark ? "#60a5fa" : "#1d4ed8",
       label: isDark ? "#ffffff" : "#1f2937",
       zone: {
-        // NEW: Zone specific colors
-        fill: isDark ? "#38bdf8" : "#7dd3fc", // Example: sky-400 dark, sky-300 light
+        fill: isDark ? "#38bdf8" : "#7dd3fc",
         opacity: isDark ? 0.12 : 0.25,
-        hoverFill: isDark ? "#7dd3fc" : "#bae6fd", // Lighter version for hover (sky-300 dark, sky-200 light)
-        hoverOpacity: isDark ? 0.25 : 0.4, // More opaque on hover
+        hoverFill: isDark ? "#7dd3fc" : "#bae6fd",
+        hoverOpacity: isDark ? 0.25 : 0.4,
       },
+      // --- NEW COLORS ---
+      linkHoverActive: isDark ? "#facc15" : "#f59e0b", // yellow-500, amber-500
+      nodeHoverLink: isDark ? "#fde68a" : "#fef08a", // yellow-200, yellow-300
+      nodeHoverLinkStroke: isDark ? "#facc15" : "#f59e0b", // yellow-500, amber-500
     };
 
     const svg = d3
@@ -79,11 +86,45 @@ const NetworkVisualizer5 = ({
     const zoomLayer = svg.append("g").attr("class", "main-zoom-layer");
     const tooltipLayer = svg.append("g").attr("class", "tooltip-layer-group"); // APPENDED AFTER zoomLayer
 
+    // ===================================================================
+    // MODIFIED: Zoom Behavior
+    // ===================================================================
+    const ZOOM_THRESHOLD = 2.0; // The scale at which detailed links appear
+    let parallelLinksAreVisible = false; // State tracker
+
     const zoomBehavior = d3
       .zoom()
-      .scaleExtent([0.05, 8]) // Allow even more zoom out if needed
-      .on("zoom", ({ transform }) => {
+      .scaleExtent([0.05, 8])
+      .on("zoom", (event) => {
+        const { transform } = event;
         zoomLayer.attr("transform", transform);
+
+        // Check if we need to change the link display state
+        if (transform.k >= ZOOM_THRESHOLD && !parallelLinksAreVisible) {
+          // --- ZOOMING IN past the threshold ---
+          parallelLinksAreVisible = true;
+          // Hide the summary links
+          link.style("display", "none");
+          linkHover.style("display", "none");
+          // Draw all detailed links
+          drawAllParallelLinks({
+            zoomLayer,
+            allNodes: node.data(),
+            filteredLinks,
+            tooltip,
+            palette,
+            onLinkClick,
+            linkSelection: link,
+          });
+        } else if (transform.k < ZOOM_THRESHOLD && parallelLinksAreVisible) {
+          // --- ZOOMING OUT past the threshold ---
+          parallelLinksAreVisible = false;
+          // Remove all detailed links
+          removeAllParallelLinks(zoomLayer);
+          // Show the summary links again
+          link.style("display", null); // 'null' removes the inline style
+          linkHover.style("display", null);
+        }
       });
 
     svg.call(zoomBehavior);
@@ -92,6 +133,7 @@ const NetworkVisualizer5 = ({
       zoomLayer,
       nodes,
       links,
+      // ... same arguments
       NODE_GROUPS,
       palette,
       onZoneClick,
@@ -181,6 +223,13 @@ const NetworkVisualizer5 = ({
 
       const initialTransform = d3.zoomIdentity.translate(tx, ty).scale(k);
       svg.call(zoomBehavior.transform, initialTransform);
+
+      // NEW: Check initial state after transform is applied
+      if (k >= ZOOM_THRESHOLD) {
+        // If we start zoomed in, trigger the logic immediately
+        const event = { transform: initialTransform };
+        zoomBehavior.on("zoom")(event); // Manually fire the zoom handler
+      }
     } else {
       svg.call(zoomBehavior.transform, d3.zoomIdentity);
     }
