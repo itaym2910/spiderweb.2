@@ -9,43 +9,24 @@ export function useDashboardLogic({ isAppFullscreen, isSidebarCollapsed }) {
   const getBasePathForTab = (tabValue) => {
     switch (tabValue) {
       case "table":
-        return "/";
+        return "/mainlines";
       case "l_network":
-        return "/"; // Base L-chart is at /, shown when tab is active
+        return "/l-chart";
       case "p_network":
-        return "/"; // Base P-chart is at /, shown when tab is active
+        return "/p-chart";
       case "site":
-        return "/site"; // Base Site is at /site path
+        return "/sites";
       default:
-        return "/";
+        return "/mainlines";
     }
   };
 
   const getTabFromPath = (pathname) => {
-    // console.log(`DEBUG: getTabFromPath called with: ${pathname}`);
-    if (pathname.startsWith("/site/") && pathname !== "/site") {
-      // Detail: /site/foo
-      // console.log("DEBUG: getTabFromPath -> site (detail)");
-      return "site";
-    }
-    if (pathname === "/site") {
-      // Base: /site
-      // console.log("DEBUG: getTabFromPath -> site (base)");
-      return "site";
-    }
-    if (pathname.includes("/l-zone/")) {
-      // Detail: /l-zone/foo
-      // console.log("DEBUG: getTabFromPath -> l_network (detail)");
-      return "l_network";
-    }
-    if (pathname.includes("/p-zone/")) {
-      // Detail: /p-zone/foo
-      // console.log("DEBUG: getTabFromPath -> p_network (detail)");
-      return "p_network";
-    }
-    // If path is "/" or any other unhandled path, it defaults to "table".
-    // This means L-chart and P-chart base views (at "/") rely on activeTabValue.
-    // console.log("DEBUG: getTabFromPath -> table (default or root)");
+    if (pathname.startsWith("/sites")) return "site";
+    if (pathname.startsWith("/l-chart")) return "l_network";
+    if (pathname.startsWith("/p-chart")) return "p_network";
+    if (pathname === "/mainlines") return "table";
+    // Default for "/" (before redirect) or any other unhandled path
     return "table";
   };
 
@@ -53,13 +34,13 @@ export function useDashboardLogic({ isAppFullscreen, isSidebarCollapsed }) {
     document.documentElement.classList.contains("dark") ? "dark" : "light"
   );
 
+  // Initialize activeTabValue directly from the current URL path.
+  // The useEffect below will keep it in sync.
   const [activeTabValue, setActiveTabValue] = useState(() => {
-    const initialTab = getTabFromPath(location.pathname);
-    // console.log(`DEBUG: Initial activeTabValue set to: ${initialTab} from path: ${location.pathname}`);
-    return initialTab;
+    return getTabFromPath(location.pathname);
   });
 
-  const tabContentCardRef = useRef(null);
+  const tabContentCardRef = useRef(null); // Still potentially useful for popupAnchor
   const [popupAnchorCoords, setPopupAnchorCoords] = useState({
     top: 20,
     right: 20,
@@ -67,8 +48,9 @@ export function useDashboardLogic({ isAppFullscreen, isSidebarCollapsed }) {
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
-      const isDark = document.documentElement.classList.contains("dark");
-      setTheme(isDark ? "dark" : "light");
+      setTheme(
+        document.documentElement.classList.contains("dark") ? "dark" : "light"
+      );
     });
     observer.observe(document.documentElement, {
       attributes: true,
@@ -79,102 +61,67 @@ export function useDashboardLogic({ isAppFullscreen, isSidebarCollapsed }) {
 
   useEffect(() => {
     const updateAnchor = () => {
-      if (tabContentCardRef.current) {
+      // Logic for popupAnchorCoords remains the same
+      // It might need adjustment if tabContentCardRef is no longer reliable due to Cards being in Routes
+      // For now, assuming the fallback or existing logic is acceptable.
+      if (
+        tabContentCardRef.current &&
+        activeTabValue !== "l_network" &&
+        activeTabValue !== "p_network" &&
+        activeTabValue !== "site"
+      ) {
+        // Example condition if ref is specific
         const rect = tabContentCardRef.current.getBoundingClientRect();
         setPopupAnchorCoords({
           top: rect.top,
           right: window.innerWidth - rect.right,
         });
       } else {
-        const appHeader = document.querySelector("header");
-        const mainPadding = 24;
+        // Fallback for charts or if ref is not specific to current view
+        const appHeader = document.querySelector("header"); // This might be null in fullscreen
+        const mainPadding = isAppFullscreen ? 0 : 24;
+        let topOffset = mainPadding;
+        if (appHeader) {
+          topOffset = appHeader.getBoundingClientRect().bottom + mainPadding;
+        } else if (!isAppFullscreen) {
+          // If no header but not fullscreen, assume some top padding
+          topOffset = 20; // Default dashboard padding
+        } else {
+          topOffset = 20; // Default for fullscreen charts
+        }
         setPopupAnchorCoords({
-          top:
-            (appHeader ? appHeader.getBoundingClientRect().bottom : 0) +
-            mainPadding,
-          right: mainPadding,
+          top: topOffset,
+          right: mainPadding + 20, // Add some offset from edge
         });
       }
     };
     updateAnchor();
     window.addEventListener("resize", updateAnchor);
-    return () => {
-      window.removeEventListener("resize", updateAnchor);
-    };
-  }, [activeTabValue, isAppFullscreen, isSidebarCollapsed]);
+    return () => window.removeEventListener("resize", updateAnchor);
+  }, [activeTabValue, isAppFullscreen, isSidebarCollapsed]); // Re-calculate if these change
 
-  // Sync activeTabValue WITH URL changes.
-  // This effect runs ONLY when location.pathname changes.
+  // Sync activeTabValue WITH URL changes. This is the primary mechanism.
   useEffect(() => {
     const newTabBasedOnUrl = getTabFromPath(location.pathname);
-    // console.log(`DEBUG: URL SYNC EFFECT START - Path: ${location.pathname}, TabFromURL: ${newTabBasedOnUrl}, CurrentActiveTab: ${activeTabValue}`);
-
     if (newTabBasedOnUrl !== activeTabValue) {
-      // This condition is crucial: if the URL is "/", which getTabFromPath maps to "table",
-      // but the user *intended* to be on "l_network" or "p_network" (whose base views are also at "/"),
-      // we should NOT override their intent based on getTabFromPath's default for "/".
-      if (
-        location.pathname === "/" &&
-        newTabBasedOnUrl === "table" &&
-        (activeTabValue === "l_network" || activeTabValue === "p_network")
-      ) {
-        // console.log(`DEBUG: URL SYNC EFFECT - Path is / (implies 'table'), but activeTab is '${activeTabValue}'. SKIPPING tab change.`);
-      } else {
-        // console.log(`DEBUG: URL SYNC EFFECT - Path implies '${newTabBasedOnUrl}', different from active '${activeTabValue}'. SETTING tab to '${newTabBasedOnUrl}'.`);
-        setActiveTabValue(newTabBasedOnUrl);
-      }
-    } else {
-      // console.log(`DEBUG: URL SYNC EFFECT - Path implies '${newTabBasedOnUrl}', SAME as active '${activeTabValue}'. No change needed.`);
+      setActiveTabValue(newTabBasedOnUrl);
     }
-  }, [activeTabValue, location.pathname]); // CRITICAL: Only depend on location.pathname
+  }, [activeTabValue, location.pathname]); // IMPORTANT: Only location.pathname. activeTabValue derived from it.
 
   const handleTabChangeForNavigation = (newClickedTabValue) => {
-    // console.log(`DEBUG: TAB CLICK HANDLER START - Clicked: ${newClickedTabValue}, CurrentActiveTab: ${activeTabValue}, Path: ${location.pathname}`);
-    const currentPath = location.pathname;
-    const currentTabFromPath = getTabFromPath(currentPath); // Tab implied by the current URL *before* navigation
+    const targetPath = getBasePathForTab(newClickedTabValue);
 
-    // 1. Optimistically set the active tab for immediate UI feedback.
-    if (activeTabValue !== newClickedTabValue) {
-      // console.log(`DEBUG: TAB CLICK HANDLER - Optimistically setting active tab state from '${activeTabValue}' to '${newClickedTabValue}'.`);
-      setActiveTabValue(newClickedTabValue);
-    }
-
-    const targetBasePath = getBasePathForTab(newClickedTabValue);
-    const isDetailView =
-      currentPath.includes("/l-zone/") ||
-      currentPath.includes("/p-zone/") ||
-      (currentPath.startsWith("/site/") && currentPath !== "/site");
-
-    // console.log(`DEBUG: TAB CLICK HANDLER - currentPath: ${currentPath}, currentTabFromPath: ${currentTabFromPath}, newClickedTabValue: ${newClickedTabValue}, targetBasePath: ${targetBasePath}, isDetailView: ${isDetailView}`);
-
-    // Scenario 1: We are in a detail view.
-    if (isDetailView) {
-      // If the clicked tab is DIFFERENT from the tab of the current detail view,
-      // OR if we click the same tab to go to its base view.
-      if (
-        newClickedTabValue !== currentTabFromPath ||
-        currentPath !== targetBasePath
-      ) {
-        // console.log(`DEBUG: TAB CLICK HANDLER (Detail View) - Navigating to target base: ${targetBasePath}.`);
-        if (currentPath !== targetBasePath) {
-          // Avoid redundant navigation
-          navigate(targetBasePath);
-        }
-      } else {
-        // console.log(`DEBUG: TAB CLICK HANDLER (Detail View) - Clicked same tab, already at its base. No navigation.`);
+    // Only navigate. The useEffect above will sync activeTabValue from the URL.
+    if (location.pathname !== targetPath) {
+      navigate(targetPath);
+    } else {
+      // If already on the target path, but the tab click was for the same logical tab,
+      // ensure activeTabValue is correctly set (e.g., if initial state was slightly off).
+      // This is a defensive measure.
+      if (activeTabValue !== newClickedTabValue) {
+        setActiveTabValue(newClickedTabValue);
       }
     }
-    // Scenario 2: We are NOT in a detail view (i.e., we are on a base path for some tab).
-    else {
-      // If the current path is not the target base path for the clicked tab, navigate.
-      if (currentPath !== targetBasePath) {
-        // console.log(`DEBUG: TAB CLICK HANDLER (Base View) - Current path ${currentPath} is not target base ${targetBasePath}. Navigating.`);
-        navigate(targetBasePath);
-      } else {
-        // console.log(`DEBUG: TAB CLICK HANDLER (Base View) - Already at target base path ${targetBasePath}. No navigation.`);
-      }
-    }
-    // console.log("DEBUG: TAB CLICK HANDLER END");
   };
 
   const chartKeySuffix = `${isAppFullscreen}-${isSidebarCollapsed}`;
@@ -182,7 +129,7 @@ export function useDashboardLogic({ isAppFullscreen, isSidebarCollapsed }) {
   return {
     theme,
     activeTabValue,
-    tabContentCardRef,
+    tabContentCardRef, // Pass it, DashboardPage might assign it to the correct Card conditionally
     popupAnchorCoords,
     handleTabChangeForNavigation,
     chartKeySuffix,

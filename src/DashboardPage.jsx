@@ -1,6 +1,12 @@
 // src/DashboardPage.js
 import React from "react";
-import { Routes, Route, useParams, useLocation } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  useParams,
+  useLocation,
+  Navigate,
+} from "react-router-dom";
 import { Card, CardContent } from "./components/ui/card";
 import {
   Table,
@@ -10,42 +16,24 @@ import {
   TableRow,
   TableCell,
 } from "./components/ui/table";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "./components/ui/tabs";
 import NetworkVisualizerWrapper from "./components/NetworkVisualizerWrapper";
 import NetworkVisualizer5Wrapper from "./components/NetworkVisualizer5Wrapper";
 import CoreSitePage from "./components/CoreSite/CoreSitePage";
 import SiteDetailPage from "./components/end-site/SiteDetailPage";
-import { data } from "./dataMainLines";
+import { data as mainLinesTableData } from "./dataMainLines";
 import { FullscreenIcon, ExitFullscreenIcon } from "./App";
 import { useDashboardLogic } from "./useDashboardLogic";
 import LinkTable from "./components/CoreDevice/LinkTable";
-// import { LINKS as L_CHART_LINKS } from "./components/chart/constants"; // Still needed for visualizers
-// import { LINKS5 as P_CHART_LINKS } from "./components/chart/constants5"; // Still needed for visualizers
+import { sampleLinks } from "./components/CoreDevice/sampleLinkData";
 
-import { sampleLinks } from "./components/CoreDevice/sampleLinkData"; // Adjust path if necessary
-
-// NodeDetailView will now use sampleLinks directly for its LinkTable
+// NodeDetailView remains the same
 // eslint-disable-next-line no-unused-vars
 function NodeDetailView({ chartType }) {
-  // chartType might be less relevant here now for data sourcing, but keep for consistency
   const { nodeId } = useParams();
-  // const allLinks = chartType === "L" ? L_CHART_LINKS : P_CHART_LINKS; // Original logic
-
-  // Filter links where the source or target ID matches the nodeId
-  // const filteredLinks = allLinks.filter( // Original filtering logic
-  //   (link) =>
-  //     (link.source.id || link.source) === nodeId ||
-  //     (link.target.id || link.target) === nodeId
-  // );
-
-  // --- MODIFICATION: Use sampleLinks directly ---
-  // The LinkTable will display all links from sampleLinks.
-  // The coreDeviceName prop is still used for the table's title.
   const linksToDisplayInTable = sampleLinks;
-
   return (
     <div className="p-1">
-      {/* Optional: Add padding if LinkTable doesn't have enough */}
       <LinkTable coreDeviceName={nodeId} linksData={linksToDisplayInTable} />
     </div>
   );
@@ -62,7 +50,7 @@ export function DashboardPage({
   const {
     theme,
     activeTabValue,
-    tabContentCardRef,
+    // tabContentCardRef, // May not be needed if Cards are directly in Route elements
     popupAnchorCoords,
     handleTabChangeForNavigation,
     chartKeySuffix,
@@ -73,18 +61,12 @@ export function DashboardPage({
   const location = useLocation();
 
   const renderFullscreenToggleButton = () => {
-    const isBaseNetworkView =
-      !location.pathname.includes("/l-zone/") &&
-      !location.pathname.includes("/p-zone/");
+    // ... (logic remains the same)
+    const isLChartBase = location.pathname === "/l-chart";
+    const isPChartBase = location.pathname === "/p-chart";
+    const isBaseNetworkView = isLChartBase || isPChartBase;
+
     if (!toggleAppFullscreen || !isBaseNetworkView) return null;
-    if (activeTabValue !== "l_network" && activeTabValue !== "p_network") {
-      return null;
-    }
-    // Redundant checks removed for brevity, assuming the first set is sufficient
-    // if (!toggleAppFullscreen) return null;
-    // if (activeTabValue !== "l_network" && activeTabValue !== "p_network") {
-    //   return null;
-    // }
 
     const buttonPositionClasses = isAppFullscreen
       ? "top-2 left-2"
@@ -115,21 +97,44 @@ export function DashboardPage({
     }
   };
 
+  const getCardClassName = (
+    tabKey // Using tabKey to be more generic if needed
+  ) =>
+    `flex-1 flex flex-col min-h-0 ${
+      // Ensure Card itself can grow and has min-height
+      isAppFullscreen && activeTabValue === tabKey // Compare with activeTabValue from hook
+        ? "border-0 rounded-none shadow-none"
+        : "border dark:border-gray-700"
+    }`;
+
+  const getCardContentClassName = (tabKey) =>
+    `flex-1 overflow-auto ${
+      // Ensure CardContent can grow and scroll
+      isAppFullscreen && activeTabValue === tabKey
+        ? tabKey === "l_network" || tabKey === "p_network" || tabKey === "site"
+          ? "p-0"
+          : "p-4"
+        : tabKey === "l_network" || tabKey === "p_network" || tabKey === "site"
+        ? "p-0"
+        : "p-4"
+    } relative`;
+
   return (
     <div
       className={`flex flex-col h-full ${
+        // Main container is flex-col and takes full height
         isAppFullscreen
           ? "bg-white dark:bg-gray-800"
           : "bg-white dark:bg-gray-800 rounded-lg shadow-md"
       } ${isAppFullscreen ? "p-0" : ""}`}
     >
-      <Tabs
-        value={activeTabValue} // Controlled by this state
-        defaultValue="table" // Add this back for robust initial rendering
-        className="w-full flex flex-col flex-1"
+      <Tabs // The <Tabs> component itself is NOT a flex item that grows here
+        value={activeTabValue}
+        defaultValue="table"
+        className="w-full flex flex-col flex-1" // <<< MAKE SURE TABS ITSELF IS FLEX AND CAN GROW
         onValueChange={handleTabChangeForNavigation}
       >
-        <TabsList
+        <TabsList // TabsList is just a direct child, its size is content-based
           className={`bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-4 ${
             isAppFullscreen ? "mx-0 mt-0 rounded-none sticky top-0 z-40" : ""
           }`}
@@ -140,219 +145,207 @@ export function DashboardPage({
           <TabsTrigger value="site">Site</TabsTrigger>
         </TabsList>
 
-        {/* Table Tab Content */}
-        <TabsContent value="table" className="flex-1 flex flex-col min-h-0">
-          <Card
-            ref={activeTabValue === "table" ? tabContentCardRef : null}
-            className={`flex-1 flex flex-col min-h-0 ${
-              isAppFullscreen && activeTabValue === "table"
-                ? "border-0 rounded-none shadow-none"
-                : "border dark:border-gray-700"
-            }`}
-          >
-            <CardContent
-              className={`overflow-auto flex-1 ${
-                isAppFullscreen && activeTabValue === "table" ? "p-4" : "p-4"
-              } relative`}
-            >
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-b dark:border-gray-700">
-                    <TableHead className="text-gray-600 dark:text-gray-300">
-                      Phrase + [synonyms]
-                    </TableHead>
-                    <TableHead className="text-gray-600 dark:text-gray-300">
-                      Frequency
-                    </TableHead>
-                    <TableHead className="text-gray-600 dark:text-gray-300">
-                      Net sentiment
-                    </TableHead>
-                    <TableHead className="text-gray-600 dark:text-gray-300">
-                      Total impact
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.map((item, i) => (
-                    <TableRow
-                      key={i}
-                      className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750"
-                    >
-                      <TableCell className="font-medium text-gray-900 dark:text-gray-100">
-                        {item.phrase}{" "}
-                        {item.synonyms ? `[${item.synonyms}]` : ""}
-                      </TableCell>
-                      <TableCell className="text-gray-700 dark:text-gray-300">
-                        {item.frequency}
-                      </TableCell>
-                      <TableCell
-                        className={`text-gray-700 dark:text-gray-300 ${
-                          item.sentiment < 0
-                            ? "text-red-600 dark:text-red-400"
-                            : "text-green-600 dark:text-green-400"
-                        }`}
-                      >
-                        {item.sentiment.toFixed(2)}
-                      </TableCell>
-                      <TableCell
-                        className={`text-gray-700 dark:text-gray-300 font-semibold ${
-                          item.impact < 0
-                            ? "text-red-600 dark:text-red-400"
-                            : "text-green-600 dark:text-green-400"
-                        }`}
-                      >
-                        {item.impact.toFixed(2)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {/* This div will contain the routed content and MUST grow to fill space */}
+        <div className="flex-1 flex flex-col min-h-0">
+          {" "}
+          {/* <<< KEY CHANGE HERE */}
+          <Routes>
+            <Route
+              path="/mainlines"
+              element={
+                // Card and CardContent should also be set up to fill their parent if needed
+                <Card className={getCardClassName("table")}>
+                  <CardContent className={getCardContentClassName("table")}>
+                    <Table>
+                      {/* ... Table content ... */}
+                      <TableHeader>
+                        <TableRow className="border-b dark:border-gray-700">
+                          <TableHead className="text-gray-600 dark:text-gray-300">
+                            Phrase + [synonyms]
+                          </TableHead>
+                          <TableHead className="text-gray-600 dark:text-gray-300">
+                            Frequency
+                          </TableHead>
+                          <TableHead className="text-gray-600 dark:text-gray-300">
+                            Net sentiment
+                          </TableHead>
+                          <TableHead className="text-gray-600 dark:text-gray-300">
+                            Total impact
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {mainLinesTableData.map((item, i) => (
+                          <TableRow
+                            key={i}
+                            className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750"
+                          >
+                            <TableCell className="font-medium text-gray-900 dark:text-gray-100">
+                              {item.phrase}{" "}
+                              {item.synonyms ? `[${item.synonyms}]` : ""}
+                            </TableCell>
+                            <TableCell className="text-gray-700 dark:text-gray-300">
+                              {item.frequency}
+                            </TableCell>
+                            <TableCell
+                              className={`text-gray-700 dark:text-gray-300 ${
+                                item.sentiment < 0
+                                  ? "text-red-600 dark:text-red-400"
+                                  : "text-green-600 dark:text-green-400"
+                              }`}
+                            >
+                              {item.sentiment.toFixed(2)}
+                            </TableCell>
+                            <TableCell
+                              className={`text-gray-700 dark:text-gray-300 font-semibold ${
+                                item.impact < 0
+                                  ? "text-red-600 dark:text-red-400"
+                                  : "text-green-600 dark:text-green-400"
+                              }`}
+                            >
+                              {item.impact.toFixed(2)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              }
+            />
 
-        {/* L-Network Tab Content */}
-        <TabsContent value="l_network" className="flex-1 flex flex-col min-h-0">
-          <Card
-            ref={activeTabValue === "l_network" ? tabContentCardRef : null}
-            className={`flex-1 flex flex-col min-h-0 ${
-              isAppFullscreen && activeTabValue === "l_network"
-                ? "border-0 rounded-none shadow-none"
-                : "border dark:border-gray-700"
-            }`}
-          >
-            <CardContent
-              className={`flex-1 flex flex-col min-h-0 ${
-                isAppFullscreen && activeTabValue === "l_network"
-                  ? "p-0"
-                  : "p-4"
-              } relative`}
-            >
-              {activeTabValue === "l_network" && renderFullscreenToggleButton()}
-              <div className="relative w-full flex-1 min-h-0">
-                <Routes>
-                  <Route
-                    index
-                    element={
-                      <NetworkVisualizerWrapper
-                        key={`l-visualizer-${chartKeySuffix}`}
-                        data={data} // This likely refers to node data, not link data. L_CHART_LINKS would be for the visualizer's links.
-                        theme={theme}
-                      />
-                    }
-                  />
-                  <Route
-                    path="l-zone/:zoneId"
-                    element={
-                      <CoreSitePage
-                        theme={theme}
-                        popupAnchor={popupAnchorCoords}
-                      />
-                    }
-                  />
-                  <Route
-                    path="l-zone/:zoneId/node/:nodeId"
-                    element={<NodeDetailView chartType="L" />} // NodeDetailView will now show all sampleLinks
-                  />
-                </Routes>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* P-Network Tab Content */}
-        <TabsContent value="p_network" className="flex-1 flex flex-col min-h-0">
-          <Card
-            ref={activeTabValue === "p_network" ? tabContentCardRef : null}
-            className={`flex-1 flex flex-col min-h-0 ${
-              isAppFullscreen && activeTabValue === "p_network"
-                ? "border-0 rounded-none shadow-none"
-                : "border dark:border-gray-700"
-            }`}
-          >
-            <CardContent
-              className={`flex-1 flex flex-col min-h-0 ${
-                isAppFullscreen && activeTabValue === "p_network"
-                  ? "p-0"
-                  : "p-4"
-              } relative`}
-            >
-              {activeTabValue === "p_network" && renderFullscreenToggleButton()}
-              <div className="relative w-full flex-1 min-h-0">
-                <Routes>
-                  <Route
-                    index
-                    element={
-                      <NetworkVisualizer5Wrapper
-                        key={`p-visualizer-${chartKeySuffix}`}
-                        data={data} // This likely refers to node data, not link data. P_CHART_LINKS would be for the visualizer's links.
-                        theme={theme}
-                      />
-                    }
-                  />
-                  <Route
-                    path="p-zone/:zoneId"
-                    element={
-                      <CoreSitePage
-                        theme={theme}
-                        popupAnchor={popupAnchorCoords}
-                      />
-                    }
-                  />
-                  <Route
-                    path="p-zone/:zoneId/node/:nodeId"
-                    element={<NodeDetailView chartType="P" />} // NodeDetailView will now show all sampleLinks
-                  />
-                </Routes>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Site Tab Content */}
-        <TabsContent value="site" className="flex-1 flex flex-col min-h-0">
-          <Card
-            ref={activeTabValue === "site" ? tabContentCardRef : null}
-            className={`flex-1 flex flex-col min-h-0 ${
-              isAppFullscreen && activeTabValue === "site"
-                ? "border-0 rounded-none shadow-none"
-                : "border dark:border-gray-700"
-            }`}
-          >
-            <CardContent
-              className={`overflow-auto flex-1 ${
-                isAppFullscreen && activeTabValue === "site" ? "p-0" : "p-0"
-              } relative`}
-            >
-              <Routes>
-                <Route
-                  index
-                  element={
-                    <div className="p-6">
-                      <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
-                        Site Information
-                      </h2>
-                      <p className="text-gray-700 dark:text-gray-300">
-                        Select a site to view details or use the search
-                        functionality.
-                      </p>
+            <Route
+              path="/l-chart/*"
+              element={
+                <Card className={getCardClassName("l_network")}>
+                  <CardContent className={getCardContentClassName("l_network")}>
+                    {location.pathname === "/l-chart" &&
+                      renderFullscreenToggleButton()}
+                    {/* This inner div needs to ensure the visualizer takes full space of CardContent */}
+                    <div className="relative w-full h-full">
+                      {" "}
+                      {/* <<< ENSURE THIS IS FULL HEIGHT/WIDTH */}
+                      <Routes>
+                        <Route
+                          index
+                          element={
+                            <NetworkVisualizerWrapper
+                              key={`l-visualizer-${chartKeySuffix}`}
+                              data={mainLinesTableData}
+                              theme={theme}
+                            />
+                          }
+                        />
+                        <Route
+                          path="zone/:zoneId"
+                          element={
+                            <CoreSitePage
+                              theme={theme}
+                              popupAnchor={popupAnchorCoords}
+                              chartType="L"
+                            />
+                          }
+                        />
+                        <Route
+                          path="zone/:zoneId/node/:nodeId"
+                          element={<NodeDetailView chartType="L" />}
+                        />
+                      </Routes>
                     </div>
-                  }
-                />
-                <Route
-                  path="site/:siteNavId"
-                  element={<SiteDetailPageRouteElement />}
-                />
-              </Routes>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                  </CardContent>
+                </Card>
+              }
+            />
+
+            <Route
+              path="/p-chart/*"
+              element={
+                <Card className={getCardClassName("p_network")}>
+                  <CardContent className={getCardContentClassName("p_network")}>
+                    {location.pathname === "/p-chart" &&
+                      renderFullscreenToggleButton()}
+                    {/* This inner div needs to ensure the visualizer takes full space of CardContent */}
+                    <div className="relative w-full h-full">
+                      {" "}
+                      {/* <<< ENSURE THIS IS FULL HEIGHT/WIDTH */}
+                      <Routes>
+                        <Route
+                          index
+                          element={
+                            <NetworkVisualizer5Wrapper
+                              key={`p-visualizer-${chartKeySuffix}`}
+                              data={mainLinesTableData}
+                              theme={theme}
+                            />
+                          }
+                        />
+                        <Route
+                          path="zone/:zoneId"
+                          element={
+                            <CoreSitePage
+                              theme={theme}
+                              popupAnchor={popupAnchorCoords}
+                              chartType="P"
+                            />
+                          }
+                        />
+                        <Route
+                          path="zone/:zoneId/node/:nodeId"
+                          element={<NodeDetailView chartType="P" />}
+                        />
+                      </Routes>
+                    </div>
+                  </CardContent>
+                </Card>
+              }
+            />
+
+            <Route
+              path="/sites/*"
+              element={
+                <Card className={getCardClassName("site")}>
+                  <CardContent className={getCardContentClassName("site")}>
+                    {/* This inner div needs to ensure the content takes full space of CardContent */}
+                    <div className="relative w-full h-full">
+                      {" "}
+                      {/* <<< ENSURE THIS IS FULL HEIGHT/WIDTH */}
+                      <Routes>
+                        <Route
+                          index
+                          element={
+                            <div className="p-6">
+                              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
+                                Site Information
+                              </h2>
+                              <p className="text-gray-700 dark:text-gray-300">
+                                Select a site to view details or use the search
+                                functionality.
+                              </p>
+                            </div>
+                          }
+                        />
+                        <Route
+                          path="site/:siteNavId"
+                          element={<SiteDetailPageRouteElement />}
+                        />
+                      </Routes>
+                    </div>
+                  </CardContent>
+                </Card>
+              }
+            />
+
+            <Route path="/" element={<Navigate to="/mainlines" replace />} />
+            <Route path="*" element={<Navigate to="/mainlines" replace />} />
+          </Routes>
+        </div>
+      </Tabs>{" "}
+      {/* Moved the closing tag for Tabs here to wrap the content div */}
     </div>
   );
 }
 
-// Helper component to extract siteData from location state for SiteDetailPage
+// SiteDetailPageRouteElement helper component remains the same
 function SiteDetailPageRouteElement() {
   const location = useLocation();
   const { siteNavId } = useParams();
@@ -366,7 +359,7 @@ function SiteDetailPageRouteElement() {
         </h2>
         <p className="text-gray-700 dark:text-gray-300">
           Site data not found for ID: {siteNavId}. Please navigate from a valid
-          source.
+          source or implement direct loading.
         </p>
       </div>
     );

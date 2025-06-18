@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { MdClose } from "react-icons/md";
 import { useNavigate } from "react-router-dom";
 
+// ... (DetailItem component remains the same) ...
 const DetailItem = ({
   label,
   value,
@@ -25,10 +26,9 @@ export default function SiteDetailPopup({
   maxHeightPx,
   popupWidthPx,
   popupRightOffsetPx,
-  // NEW: Callback to explicitly switch tabs
-  // onSwitchToSiteTab, // We'll try to handle this via URL first
 }) {
   const navigate = useNavigate();
+  // ... (theme state and useEffect for theme sync remain the same) ...
   const [currentTheme, setCurrentTheme] = useState(
     document.documentElement.classList.contains("dark") ? "dark" : "light"
   );
@@ -48,6 +48,7 @@ export default function SiteDetailPopup({
 
   if (!detailData) return null;
 
+  // ... (style constants remain the same) ...
   const popupBgClass = currentTheme === "dark" ? "bg-gray-800" : "bg-white";
   const popupBorderColorClass =
     currentTheme === "dark" ? "border-gray-700" : "border-gray-300";
@@ -60,7 +61,6 @@ export default function SiteDetailPopup({
       : "text-gray-800 font-medium";
   const closeButtonHoverBg =
     currentTheme === "dark" ? "hover:bg-gray-700" : "hover:bg-gray-200";
-
   const dynamicStyles = {
     top: `${topPosition}px`,
     right: `${popupRightOffsetPx}px`,
@@ -69,7 +69,6 @@ export default function SiteDetailPopup({
     zIndex: zIndex,
     overflowY: "auto",
   };
-
   const scrollbarClasses =
     currentTheme === "dark"
       ? "dark-scrollbar dark-scrollbar-firefox"
@@ -84,12 +83,16 @@ export default function SiteDetailPopup({
 
   const handleHeaderButtonClick = () => {
     if (detailData.type === "site" && detailData.navId) {
-      navigate(`/site/${detailData.navId}`, {
+      // Navigate to the specific site detail page
+      navigate(`/sites/site/${detailData.navId}`, {
+        // Updated path
         state: { siteData: detailData },
       });
-      onClose();
+      onClose(); // Close the popup after navigation
     } else if (detailData.type === "link") {
-      console.log("Link header clicked, no navigation defined yet.");
+      console.log(
+        "Link header clicked, no navigation defined for link headers."
+      );
     }
   };
 
@@ -104,20 +107,19 @@ export default function SiteDetailPopup({
                      ? "translate-x-0 opacity-100"
                      : "translate-x-full opacity-0"
                  }
-                 ${scrollbarClasses}
-                `}
+                 ${scrollbarClasses}`}
       role="dialog"
       aria-modal="true"
       aria-labelledby={`detail-popup-title-${detailData.id}`}
     >
       {/* Header */}
-      <div className={`flex justify-between items-center mb-4 pb-4 shrink-0`}>
+      <div className="flex justify-between items-center mb-4 pb-4 shrink-0">
         <button
           id={`detail-popup-title-${detailData.id}`}
           onClick={handleHeaderButtonClick}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 truncate"
           style={{ maxWidth: "calc(100% - 40px)" }}
-          disabled={detailData.type !== "site" || !detailData.navId}
+          disabled={detailData.type !== "site" || !detailData.navId} // Only enable for sites with navId
         >
           {headerButtonText}
         </button>
@@ -134,11 +136,11 @@ export default function SiteDetailPopup({
         </button>
       </div>
 
-      {/* Content Area */}
+      {/* Content Area (remains the same) */}
       <div className={`flex-1 space-y-4 pr-1 min-h-0 relative pb-1`}>
+        {/* ... existing content based on detailData.type ... */}
         {detailData.type === "site" && (
           <>
-            {/* ... Site details ... */}
             <div className="flex space-x-4">
               <DetailItem
                 label="Physical Status"
@@ -176,20 +178,46 @@ export default function SiteDetailPopup({
                 className="flex-1"
               />
             </div>
+            <div
+              id={`additional-details-section-${detailData.id}`}
+              className="space-y-4 pt-2"
+            >
+              <DetailItem
+                label="Description"
+                value={detailData.description}
+                labelColor={labelColor}
+                valueColor={valueColor}
+              />
+              <DetailItem
+                label="Media Type"
+                value={detailData.mediaType}
+                labelColor={labelColor}
+                valueColor={valueColor}
+              />
+              <DetailItem
+                label="CDP Neighbors"
+                value={detailData.cdpNeighbors}
+                labelColor={labelColor}
+                valueColor={valueColor}
+              />
+              <DetailItem
+                label="Container Name"
+                value={detailData.containerName}
+                labelColor={labelColor}
+                valueColor={valueColor}
+              />
+            </div>
           </>
         )}
 
         {detailData.type === "link" && (
           <>
-            {/* ****************************************************** */}
-            {/* <<< THIS IS THE ADDED PART TO DISPLAY THE LINK ID >>> */}
             <DetailItem
               label="Link ID"
-              value={detailData.linkId} /* Use the linkId from the payload */
+              value={detailData.linkId}
               labelColor={labelColor}
               valueColor={valueColor}
             />
-            {/* ****************************************************** */}
             <DetailItem
               label="Source Node"
               value={detailData.sourceNode}
@@ -229,87 +257,10 @@ export default function SiteDetailPopup({
               labelColor={labelColor}
               valueColor={valueColor}
             />
-          </>
-        )}
-
-        <div
-          id={`additional-details-section-${detailData.id}`}
-          className="space-y-4 pt-2"
-        >
-          {detailData.type === "site" && (
-            <>
-              {/* ... additional site details ... */}
-              <DetailItem
-                label="Description"
-                value={detailData.description}
-                labelColor={labelColor}
-                valueColor={valueColor}
-              />
-              <DetailItem
-                label="Media Type"
-                value={detailData.mediaType}
-                labelColor={labelColor}
-                valueColor={valueColor}
-              />
-              <DetailItem
-                label="CDP Neighbors"
-                value={detailData.cdpNeighbors}
-                labelColor={labelColor}
-                valueColor={valueColor}
-              />
-              <DetailItem
-                label="Container Name"
-                value={detailData.containerName}
-                labelColor={labelColor}
-                valueColor={valueColor}
-              />
-              <DetailItem
-                label="MTU"
-                value={detailData.mtu}
-                labelColor={labelColor}
-                valueColor={valueColor}
-              />
-              <DetailItem
-                label="CRC Errors"
-                value={detailData.crcErrors}
-                labelColor={labelColor}
-                valueColor={valueColor}
-              />
-              <DetailItem
-                label="Input Data Rate"
-                value={detailData.inputDataRate}
-                labelColor={labelColor}
-                valueColor={valueColor}
-              />
-              <DetailItem
-                label="Output Data Rate"
-                value={detailData.outputDataRate}
-                labelColor={labelColor}
-                valueColor={valueColor}
-              />
-              <DetailItem
-                label="TX Power"
-                value={detailData.txPower}
-                labelColor={labelColor}
-                valueColor={valueColor}
-              />
-              <DetailItem
-                label="RX Power"
-                value={detailData.rxPower}
-                labelColor={labelColor}
-                valueColor={valueColor}
-              />
-              <DetailItem
-                label="Admin Status"
-                value={detailData.adminStatus}
-                labelColor={labelColor}
-                valueColor={valueColor}
-              />
-            </>
-          )}
-          {detailData.type === "link" && (
-            <>
-              {/* ... additional link details ... */}
+            <div
+              id={`additional-details-section-${detailData.id}`}
+              className="space-y-4 pt-2"
+            >
               <DetailItem
                 label="Link Description"
                 value={detailData.linkDescription || detailData.name}
@@ -328,21 +279,9 @@ export default function SiteDetailPopup({
                 labelColor={labelColor}
                 valueColor={valueColor}
               />
-              <DetailItem
-                label="Encapsulation"
-                value={detailData.encapsulation || "N/A"}
-                labelColor={labelColor}
-                valueColor={valueColor}
-              />
-              <DetailItem
-                label="Last Flap"
-                value={detailData.lastFlap || "N/A"}
-                labelColor={labelColor}
-                valueColor={valueColor}
-              />
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

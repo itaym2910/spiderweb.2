@@ -2,24 +2,20 @@
 import React, { useCallback, useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import NetworkVisualizer from "./chart/NetworkVisualizer";
-import { usePopupManager } from "./CoreSite/usePopupManager"; // <<< IMPORT
-import SiteDetailPopup from "./CoreSite/SiteDetailPopup"; // <<< IMPORT
+import { usePopupManager } from "./CoreSite/usePopupManager";
+import SiteDetailPopup from "./CoreSite/SiteDetailPopup";
 
 const NetworkVisualizerWrapper = ({ data, theme }) => {
   const navigate = useNavigate();
-  const wrapperRef = useRef(null); // Ref for the main container to anchor popups
+  const wrapperRef = useRef(null);
   const [containerHeight, setContainerHeight] = useState(0);
 
-  const popupAnchor = {
-    // Define how popups are anchored
-    top: 20, // Example: 20px from the top of wrapperRef
-    right: 20, // Example: 20px from the right of wrapperRef
-  };
-
+  const popupAnchor = { top: 20, right: 20 };
   const { openPopups, addOrUpdatePopup, closePopup, getPopupPositioning } =
     usePopupManager(popupAnchor);
 
   useEffect(() => {
+    // ... (ResizeObserver logic remains the same)
     if (wrapperRef.current) {
       setContainerHeight(wrapperRef.current.offsetHeight);
       const resizeObserver = new ResizeObserver((entries) => {
@@ -34,16 +30,14 @@ const NetworkVisualizerWrapper = ({ data, theme }) => {
 
   const handleZoneClick = useCallback(
     (zoneId) => {
-      navigate(`l-zone/${zoneId}`);
+      // Navigate relative to the current base path (e.g., /l-chart)
+      navigate(`zone/${zoneId}`);
     },
     [navigate]
   );
 
   const handleLinkClick = useCallback(
     (linkDetailPayload) => {
-      // Ensure the payload has a unique 'id' and 'type: "link"'
-      // The payload created in setupInteractions should already have type: "link"
-      // and an 'id' (which could be the link's original ID).
       addOrUpdatePopup(linkDetailPayload);
     },
     [addOrUpdatePopup]
@@ -51,9 +45,9 @@ const NetworkVisualizerWrapper = ({ data, theme }) => {
 
   const handleNodeClick = useCallback(
     (nodeData) => {
-      // Assuming nodeData has 'id' (nodeId) and 'zone' (zoneId)
       if (nodeData && nodeData.id && nodeData.zone) {
-        navigate(`l-zone/${nodeData.zone}/node/${nodeData.id}`);
+        // Navigate relative to the current base path
+        navigate(`zone/${nodeData.zone}/node/${nodeData.id}`);
       } else {
         console.warn("Node data incomplete for navigation:", nodeData);
       }
@@ -63,8 +57,6 @@ const NetworkVisualizerWrapper = ({ data, theme }) => {
 
   return (
     <div ref={wrapperRef} className="relative w-full h-full">
-      {" "}
-      {/* Ensure this div takes up space */}
       <NetworkVisualizer
         data={data}
         theme={theme}
@@ -72,10 +64,7 @@ const NetworkVisualizerWrapper = ({ data, theme }) => {
         onLinkClick={handleLinkClick}
         onNodeClick={handleNodeClick}
       />
-      {/* Render Popups */}
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-        {" "}
-        {/* Overlay for popups */}
         {openPopups.map((popup, index) => {
           const positioning = getPopupPositioning(
             index,

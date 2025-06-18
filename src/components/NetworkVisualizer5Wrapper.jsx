@@ -10,15 +10,12 @@ const NetworkVisualizer5Wrapper = ({ data, theme }) => {
   const wrapperRef = useRef(null);
   const [containerHeight, setContainerHeight] = useState(0);
 
-  const popupAnchor = {
-    top: 20,
-    right: 20,
-  };
-
+  const popupAnchor = { top: 20, right: 20 };
   const { openPopups, addOrUpdatePopup, closePopup, getPopupPositioning } =
     usePopupManager(popupAnchor);
 
   useEffect(() => {
+    // ... (ResizeObserver logic remains the same)
     if (wrapperRef.current) {
       setContainerHeight(wrapperRef.current.offsetHeight);
       const resizeObserver = new ResizeObserver((entries) => {
@@ -33,8 +30,8 @@ const NetworkVisualizer5Wrapper = ({ data, theme }) => {
 
   const handleZoneClick = useCallback(
     (zoneId) => {
-      // Corrected navigation path for P-chart zones
-      navigate(`p-zone/${zoneId}`); // <<< FIX HERE
+      // Navigate relative to the current base path (e.g., /p-chart)
+      navigate(`zone/${zoneId}`);
     },
     [navigate]
   );
@@ -49,7 +46,8 @@ const NetworkVisualizer5Wrapper = ({ data, theme }) => {
   const handleNodeClick = useCallback(
     (nodeData) => {
       if (nodeData && nodeData.id && nodeData.zone) {
-        navigate(`p-zone/${nodeData.zone}/node/${nodeData.id}`);
+        // Navigate relative to the current base path
+        navigate(`zone/${nodeData.zone}/node/${nodeData.id}`);
       } else {
         console.warn("Node data incomplete for navigation:", nodeData);
       }
