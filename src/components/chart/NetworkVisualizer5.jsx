@@ -96,7 +96,7 @@ const NetworkVisualizer5 = ({
     // ===================================================================
     // MODIFIED: Zoom Behavior
     // ===================================================================
-    const ZOOM_THRESHOLD = 2.0; // The scale at which detailed links appear
+    const ZOOM_THRESHOLD = 1.5; // The scale at which detailed links appear
     let parallelLinksAreVisible = false; // State tracker
 
     const zoomBehavior = d3
