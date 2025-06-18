@@ -52,6 +52,16 @@ function createLinkPopupPayload(linkDataObject) {
   };
 }
 
+// ===================================================================
+// NEW: Helper function to get the correct color by category
+// ===================================================================
+function getLinkColorByCategory(linkData, palette) {
+  // Default to 'issue' if category is missing, for robustness
+  const category = linkData.category || "issue";
+  // Return the color from the palette, or the issue color as a fallback
+  return palette.status[category] || palette.status.issue;
+}
+
 function handleMouseOut(d_hovered_orig, linkSelection, tooltip, palette) {
   if (
     !d_hovered_orig ||
@@ -241,7 +251,8 @@ function handleMouseOver(
       .attr("class", "duplicate-link")
       .attr("d", `M${startX},${startY} L${endX},${endY}`)
       .attr("fill", "none")
-      .attr("stroke", "#facc15")
+      // USE THE NEW COLOR HELPER
+      .attr("stroke", getLinkColorByCategory(linkData, palette))
       .attr("stroke-width", 3)
       .style("pointer-events", "none");
 
@@ -463,7 +474,8 @@ export function drawAllParallelLinks({
         .attr("class", "duplicate-link")
         .attr("d", `M${startX},${startY} L${endX},${endY}`)
         .attr("fill", "none")
-        .attr("stroke", palette.linkHoverActive) // Use palette color
+        // USE THE NEW COLOR HELPER
+        .attr("stroke", getLinkColorByCategory(linkData, palette))
         .attr("stroke-width", 3)
         .style("pointer-events", "none");
 

@@ -66,6 +66,9 @@ const NetworkVisualizer = ({
     });
 
     const isDark = theme === "dark";
+    // ===================================================================
+    // MODIFIED: Palette object with new status colors
+    // ===================================================================
     const palette = {
       bg: isDark ? "#1f2937" : "#ffffff",
       link: isDark ? "#94a3b8" : "#6b7280",
@@ -79,10 +82,14 @@ const NetworkVisualizer = ({
         hoverFill: isDark ? "#7dd3fc" : "#bae6fd",
         hoverOpacity: isDark ? 0.25 : 0.4,
       },
-      // --- NEW COLORS ---
-      linkHoverActive: isDark ? "#facc15" : "#f59e0b", // yellow-500, amber-500
-      nodeHoverLink: isDark ? "#fde68a" : "#fef08a", // yellow-200, yellow-300
-      nodeHoverLinkStroke: isDark ? "#facc15" : "#f59e0b", // yellow-500, amber-500
+      nodeHoverLink: isDark ? "#fde68a" : "#fef08a",
+      nodeHoverLinkStroke: isDark ? "#facc15" : "#f59e0b",
+      // --- NEW STATUS COLORS ---
+      status: {
+        up: isDark ? "#4ade80" : "#22c55e", // Tailwind green-400 / green-500
+        down: isDark ? "#f87171" : "#ef4444", // Tailwind red-400 / red-500
+        issue: isDark ? "#facc15" : "#f59e0b", // Tailwind yellow-400 / amber-500
+      },
     };
 
     const svg = d3
