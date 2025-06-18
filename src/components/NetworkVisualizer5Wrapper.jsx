@@ -1,52 +1,28 @@
 // src/NetworkVisualizer5Wrapper.jsx
-import React, { useCallback, useRef, useState, useEffect } from "react";
+import React, { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import NetworkVisualizer5 from "./chart/NetworkVisualizer5";
-import { usePopupManager } from "./CoreSite/usePopupManager";
-import SiteDetailPopup from "./CoreSite/SiteDetailPopup";
+// REMOVED: usePopupManager and SiteDetailPopup
+import LinkDetailTabs from "./LinkDetailTabs"; // IMPORT the new component
 
 const NetworkVisualizer5Wrapper = ({ data, theme }) => {
   const navigate = useNavigate();
-  const wrapperRef = useRef(null);
-  const [containerHeight, setContainerHeight] = useState(0);
 
-  const popupAnchor = { top: 20, right: 20 };
-  const { openPopups, addOrUpdatePopup, closePopup, getPopupPositioning } =
-    usePopupManager(popupAnchor);
+  // --- NEW STATE MANAGEMENT FOR TABS ---
+  const [openLinkTabs, setOpenLinkTabs] = useState([]);
+  const [activeLinkTabId, setActiveLinkTabId] = useState(null);
 
-  useEffect(() => {
-    // ... (ResizeObserver logic remains the same)
-    if (wrapperRef.current) {
-      setContainerHeight(wrapperRef.current.offsetHeight);
-      const resizeObserver = new ResizeObserver((entries) => {
-        for (let entry of entries) {
-          setContainerHeight(entry.contentRect.height);
-        }
-      });
-      resizeObserver.observe(wrapperRef.current);
-      return () => resizeObserver.disconnect();
-    }
-  }, []);
-
+  // The handleZoneClick and handleNodeClick functions remain the same
   const handleZoneClick = useCallback(
     (zoneId) => {
-      // Navigate relative to the current base path (e.g., /p-chart)
       navigate(`zone/${zoneId}`);
     },
     [navigate]
   );
 
-  const handleLinkClick = useCallback(
-    (linkDetailPayload) => {
-      addOrUpdatePopup(linkDetailPayload);
-    },
-    [addOrUpdatePopup]
-  );
-
   const handleNodeClick = useCallback(
     (nodeData) => {
       if (nodeData && nodeData.id && nodeData.zone) {
-        // Navigate relative to the current base path
         navigate(`zone/${nodeData.zone}/node/${nodeData.id}`);
       } else {
         console.warn("Node data incomplete for navigation:", nodeData);
@@ -55,36 +31,74 @@ const NetworkVisualizer5Wrapper = ({ data, theme }) => {
     [navigate]
   );
 
+  // --- MODIFIED handleLinkClick ---
+  const handleLinkClick = useCallback(
+    (linkDetailPayload) => {
+      const { id, sourceNode, targetNode } = linkDetailPayload;
+      const tabExists = openLinkTabs.some((tab) => tab.id === id);
+
+      if (!tabExists) {
+        const newTab = {
+          id: id,
+          title: `${sourceNode} - ${targetNode}`,
+          data: linkDetailPayload,
+        };
+        setOpenLinkTabs((prevTabs) => [...prevTabs, newTab]);
+      }
+      setActiveLinkTabId(id);
+    },
+    [openLinkTabs]
+  );
+
+  // --- NEW handler to close a tab ---
+  const handleCloseTab = useCallback(
+    (tabIdToClose) => {
+      setOpenLinkTabs((prevTabs) => {
+        const remainingTabs = prevTabs.filter((tab) => tab.id !== tabIdToClose);
+        if (activeLinkTabId === tabIdToClose) {
+          if (remainingTabs.length > 0) {
+            setActiveLinkTabId(remainingTabs[remainingTabs.length - 1].id);
+          } else {
+            setActiveLinkTabId(null);
+          }
+        }
+        return remainingTabs;
+      });
+    },
+    [activeLinkTabId]
+  );
+
   return (
-    <div ref={wrapperRef} className="relative w-full h-full">
-      <NetworkVisualizer5
-        data={data}
-        theme={theme}
-        onZoneClick={handleZoneClick}
-        onLinkClick={handleLinkClick}
-        onNodeClick={handleNodeClick}
-      />
-      <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-        {openPopups.map((popup, index) => {
-          const positioning = getPopupPositioning(
-            index,
-            openPopups.length,
-            containerHeight
-          );
-          return (
-            <SiteDetailPopup
-              key={popup.instanceId}
-              isOpen={popup.isOpen}
-              onClose={() => closePopup(popup.instanceId)}
-              detailData={popup.detailData}
-              topPosition={positioning.topPosition}
-              popupRightOffsetPx={positioning.popupRightOffsetPx}
-              zIndex={positioning.zIndex}
-              maxHeightPx={positioning.maxHeightPx}
-              popupWidthPx={positioning.popupWidthPx}
-            />
-          );
-        })}
+    // --- LAYOUT CHANGE IS HERE ---
+    // Use flexbox to structure the layout vertically.
+    // The container takes up the full height.
+    <div className="w-full h-full flex flex-col">
+      {/* 1. Link Detail Tabs (rendered at the top if there are any) */}
+      {openLinkTabs.length > 0 && (
+        <div className="flex-shrink-0">
+          {" "}
+          {/* This div prevents the tabs from shrinking */}
+          <LinkDetailTabs
+            tabs={openLinkTabs}
+            activeTabId={activeLinkTabId}
+            onSetActiveTab={setActiveLinkTabId}
+            onCloseTab={handleCloseTab}
+            theme={theme}
+          />
+        </div>
+      )}
+
+      {/* 2. Network Visualizer (takes up the remaining space) */}
+      <div className="flex-grow relative">
+        {" "}
+        {/* This div grows to fill the rest of the height */}
+        <NetworkVisualizer5
+          data={data}
+          theme={theme}
+          onZoneClick={handleZoneClick}
+          onLinkClick={handleLinkClick}
+          onNodeClick={handleNodeClick}
+        />
       </div>
     </div>
   );
