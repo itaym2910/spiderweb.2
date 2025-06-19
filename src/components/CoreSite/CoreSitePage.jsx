@@ -3,11 +3,7 @@ import React from "react";
 import { useCoreSiteData } from "./useCoreSiteData";
 import CoreSiteView from "./CoreSiteView";
 
-export default function CoreSitePage({
-  theme = "dark",
-  popupAnchor = { top: 20, right: 20 },
-  chartType, // Expect chartType prop
-}) {
+export default function CoreSitePage({ theme = "dark", chartType }) {
   const {
     zoneId,
     containerRef,
@@ -23,18 +19,21 @@ export default function CoreSitePage({
     mainToggleNode1Text,
     mainToggleNode2Text,
     handleBackToChart,
-    openPopups,
     onSiteClick,
     onLinkClick,
-    onClosePopup,
-    getPopupPositioning,
     onNodeClickInZone,
-  } = useCoreSiteData(popupAnchor, chartType); // Pass chartType to the hook
+    // --- NEW TAB STATE FROM HOOK ---
+    openDetailTabs,
+    activeDetailTabId,
+    setActiveDetailTabId,
+    handleCloseTab,
+    handleNavigateToSite,
+  } = useCoreSiteData(chartType);
 
   return (
     <CoreSiteView
       theme={theme}
-      zoneId={zoneId} // This is the actual zone name from URL params e.g. "WSD"
+      zoneId={zoneId}
       containerRef={containerRef}
       dimensions={dimensions}
       nodes={nodes}
@@ -48,13 +47,15 @@ export default function CoreSitePage({
       mainToggleNode1Text={mainToggleNode1Text}
       mainToggleNode2Text={mainToggleNode2Text}
       onBackToChart={handleBackToChart}
-      openPopups={openPopups}
       onSiteClick={onSiteClick}
       onLinkClick={onLinkClick}
-      onClosePopup={onClosePopup}
-      getPopupPositioning={getPopupPositioning}
       onNodeClick={onNodeClickInZone}
-      // chartType={chartType} // Pass to CoreSiteView if it needs it directly
+      // --- PASS TAB PROPS TO VIEW ---
+      openDetailTabs={openDetailTabs}
+      activeDetailTabId={activeDetailTabId}
+      onSetActiveTab={setActiveDetailTabId}
+      onCloseTab={handleCloseTab}
+      onNavigateToSite={handleNavigateToSite}
     />
   );
 }

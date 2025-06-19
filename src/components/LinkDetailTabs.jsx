@@ -1,8 +1,8 @@
 // src/components/LinkDetailTabs.jsx
 import React, { useState, useEffect } from "react";
-import { MdClose } from "react-icons/md";
+import { MdClose, MdArrowForward } from "react-icons/md"; // Import new icon
 
-// Re-usable components for consistency with your other UI
+// ... (StatusBulb and DetailItem helper components remain the same) ...
 const StatusBulb = ({ status }) => {
   let bgColor = "bg-gray-400 dark:bg-gray-500";
   if (status === "up") bgColor = "bg-green-500 dark:bg-green-400";
@@ -28,38 +28,43 @@ const DetailItem = ({ label, value, isDark }) => (
   </div>
 );
 
+// --- Main Component ---
 const LinkDetailTabs = ({
   tabs,
   activeTabId,
   onSetActiveTab,
   onCloseTab,
+  onNavigateToSite, // NEW PROP for site navigation
   theme,
 }) => {
   const [isDetailExpanded, setIsDetailExpanded] = useState(false);
 
-  // Find the data for the currently active tab
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
 
-  // When the user switches tabs, collapse the detail view
   useEffect(() => {
     setIsDetailExpanded(false);
   }, [activeTabId]);
 
   if (!activeTab) {
-    return null; // Don't render anything if there's no active tab
+    return null;
   }
 
   const handleClose = (e, tabId) => {
-    e.stopPropagation(); // Prevent the tab from being selected when closing
+    e.stopPropagation();
     onCloseTab(tabId);
   };
 
+  const handleNavigate = () => {
+    if (onNavigateToSite && activeTab.type === "site") {
+      onNavigateToSite(activeTab.data);
+    }
+  };
+
   const isDark = theme === "dark";
-  const linkData = activeTab.data; // The full data payload for the link
+  const itemData = activeTab.data;
+  const itemType = activeTab.type;
 
   return (
-    // CHANGE IS HERE: Replaced 'absolute bottom-0' with 'relative' and added z-index.
-    // The parent will now control the layout.
     <div className="relative bg-white dark:bg-gray-800 border-b-2 border-gray-200 dark:border-gray-700 shadow-md z-20">
       {/* 1. Tab Bar */}
       <div className="flex items-center border-b border-gray-200 dark:border-gray-700 px-2">
@@ -85,56 +90,114 @@ const LinkDetailTabs = ({
         ))}
       </div>
 
-      {/* 2. Content for the Active Tab (no changes needed here) */}
+      {/* 2. Content for the Active Tab */}
       <div className="p-4">
-        {/* Clickable Summary Row */}
-        <div
-          className={`flex items-center space-x-6 p-3 rounded-md cursor-pointer transition-colors ${
-            isDark ? "hover:bg-gray-700" : "hover:bg-gray-100"
-          } ${
-            isDetailExpanded ? (isDark ? "bg-gray-700" : "bg-gray-100") : ""
-          }`}
-          onClick={() => setIsDetailExpanded(!isDetailExpanded)}
-        >
-          <StatusBulb status={linkData.status} />
-          <div className="flex-1 font-medium text-gray-800 dark:text-gray-100">
-            {linkData.name || "Unnamed Link"}
-          </div>
-          <div className="text-sm text-gray-600 dark:text-gray-300">
-            {linkData.linkBandwidth}
-          </div>
-          <div className="text-sm text-gray-600 dark:text-gray-300">
-            Latency: {linkData.latency}
-          </div>
-          <div className="text-sm text-gray-600 dark:text-gray-300">
-            Utilization: {linkData.utilization}
-          </div>
-        </div>
+        {/* --- A. LINK TYPE CONTENT --- */}
+        {itemType === "link" && (
+          <>
+            {/* Clickable Summary Row for Links */}
+            <div
+              className={`flex items-center space-x-6 p-3 rounded-md cursor-pointer transition-colors ${
+                isDark ? "hover:bg-gray-700" : "hover:bg-gray-100"
+              } ${
+                isDetailExpanded ? (isDark ? "bg-gray-700" : "bg-gray-100") : ""
+              }`}
+              onClick={() => setIsDetailExpanded(!isDetailExpanded)}
+            >
+              <StatusBulb status={itemData.status} />
+              <div className="flex-1 font-medium text-gray-800 dark:text-gray-100">
+                {itemData.name || "Unnamed Link"}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                {itemData.linkBandwidth}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                Latency: {itemData.latency}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                Utilization: {itemData.utilization}
+              </div>
+            </div>
+            {/* Hidden/Revealed Detail Row for Links */}
+            {isDetailExpanded && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4 p-4 mt-2 border-t border-gray-200 dark:border-gray-600">
+                <DetailItem
+                  label="Link ID"
+                  value={itemData.linkId}
+                  isDark={isDark}
+                />
+                <DetailItem
+                  label="Description"
+                  value={itemData.linkDescription}
+                  isDark={isDark}
+                />
+                <DetailItem
+                  label="Source Interface"
+                  value={itemData.sourceInterface}
+                  isDark={isDark}
+                />
+                <DetailItem
+                  label="Target Interface"
+                  value={itemData.targetInterface}
+                  isDark={isDark}
+                />
+              </div>
+            )}
+          </>
+        )}
 
-        {/* Hidden/Revealed Detail Row */}
-        {isDetailExpanded && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4 p-4 mt-2 border-t border-gray-200 dark:border-gray-600">
-            <DetailItem
-              label="Link ID"
-              value={linkData.linkId}
-              isDark={isDark}
-            />
-            <DetailItem
-              label="Description"
-              value={linkData.linkDescription}
-              isDark={isDark}
-            />
-            <DetailItem
-              label="Source Interface"
-              value={linkData.sourceInterface}
-              isDark={isDark}
-            />
-            <DetailItem
-              label="Target Interface"
-              value={linkData.targetInterface}
-              isDark={isDark}
-            />
-          </div>
+        {/* --- B. SITE TYPE CONTENT --- */}
+        {itemType === "site" && (
+          <>
+            {/* Summary Row for Sites */}
+            <div className="flex items-center justify-between p-3 rounded-md">
+              <div className="flex items-center space-x-4">
+                <StatusBulb
+                  status={itemData.protocolStatus === "Up" ? "up" : "down"}
+                />
+                <div className="flex-1 font-medium text-gray-800 dark:text-gray-100">
+                  {itemData.name || "Unnamed Site"}
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-300">
+                  OSPF: {itemData.ospfStatus}
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-300">
+                  MPLS: {itemData.mplsStatus}
+                </div>
+              </div>
+              {/* Special Navigation Button */}
+              <button
+                onClick={handleNavigate}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75"
+              >
+                Go to Site Details
+                <MdArrowForward />
+              </button>
+            </div>
+            {/* Detail section for Sites (always visible) */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4 p-4 mt-2 border-t border-gray-200 dark:border-gray-600">
+              <DetailItem
+                label="Description"
+                value={itemData.description}
+                isDark={isDark}
+              />
+              <DetailItem
+                label="Media Type"
+                value={itemData.mediaType}
+                isDark={isDark}
+              />
+              <DetailItem
+                label="CDP Neighbors"
+                value={itemData.cdpNeighbors}
+                isDark={isDark}
+              />
+              <DetailItem
+                label="Container Name"
+                value={itemData.containerName}
+                isDark={isDark}
+              />
+            </div>
+          </>
         )}
       </div>
     </div>

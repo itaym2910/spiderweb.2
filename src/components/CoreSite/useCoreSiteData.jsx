@@ -1,16 +1,21 @@
 // src/components/CoreSite/useCoreSiteData.js
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+} from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useNodeLayout } from "./useNodeLayout";
-import { usePopupManager } from "./usePopupManager";
+// REMOVED: import { usePopupManager } from "./usePopupManager";
 
 // Add chartType as a parameter to the hook
-export function useCoreSiteData(popupAnchor, chartType) {
-  const { zoneId } = useParams(); // zoneId will be "WSD", "WRR" etc.
+export function useCoreSiteData(chartType) {
+  const { zoneId, nodeId: nodeIdFromUrl } = useParams(); // Get nodeId from URL
   const navigate = useNavigate();
   const containerRef = useRef(null);
 
-  // ... (dimensions, selectedNodeId, showExtendedNodes, etc. states remain the same) ...
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [selectedNodeId, setSelectedNodeId] = useState("Node 4");
   const [showExtendedNodes, setShowExtendedNodes] = useState(false);
@@ -22,10 +27,15 @@ export function useCoreSiteData(popupAnchor, chartType) {
   const [mainToggleNode2Text, setMainToggleNode2Text] =
     useState("Node 3 (30 Sites)");
 
-  const { openPopups, addOrUpdatePopup, closePopup, getPopupPositioning } =
-    usePopupManager(popupAnchor);
+  // --- REPLACED POPUP MANAGER WITH TAB STATE ---
+  const [openDetailTabs, setOpenDetailTabs] = useState([]);
+  const [activeDetailTabId, setActiveDetailTabId] = useState(null);
 
-  // ... (useEffect for animation, zone change, layout effects remain the same) ...
+  // useEffects for layout, animation, and zone changes remain the same
+  useEffect(() => {
+    setSelectedNodeId(nodeIdFromUrl || "Node 4");
+  }, [nodeIdFromUrl]);
+
   useEffect(() => {
     if (showExtendedNodes) {
       setAnimateExtendedLayoutUp(false);
@@ -73,7 +83,6 @@ export function useCoreSiteData(popupAnchor, chartType) {
   );
 
   const handleToggleExtendedNodes = () => {
-    // ... (logic for extended nodes remains the same)
     setShowExtendedNodes((prevShowExtended) => {
       const nextShowExtended = !prevShowExtended;
       if (nextShowExtended) {
@@ -91,7 +100,6 @@ export function useCoreSiteData(popupAnchor, chartType) {
   };
 
   const handleMainToggleSwitch = () => {
-    // ... (logic for main toggle remains the same)
     if (showExtendedNodes) {
       setSelectedNodeId((prev) => (prev === "Node 5" ? "Node 6" : "Node 5"));
     } else {
@@ -99,9 +107,8 @@ export function useCoreSiteData(popupAnchor, chartType) {
     }
   };
 
-  const handleNodeClickInZone = (nodeData) => {
+  const onNodeClickInZone = (nodeData) => {
     if (nodeData && nodeData.id) {
-      // Navigate relative to the current zone path (e.g., /l-chart/zone/WSD -> /l-chart/zone/WSD/node/R6)
       navigate(`node/${nodeData.id}`);
     } else {
       console.warn(
@@ -111,72 +118,99 @@ export function useCoreSiteData(popupAnchor, chartType) {
     }
   };
 
-  const handleSiteClick = (siteIndex, siteName) => {
-    // If siteNavId needs to be "600P", then siteName or a derivative should be used.
-    // For now, keeping the existing logic which uses zoneId and siteIndex.
-    // The actual zoneId from URL (e.g., "WSD") is used here.
-    const navigationId = `${zoneId}-Site${siteIndex + 1}`; // e.g. WSD-Site1
+  // --- NEW HANDLERS FOR THE TAB UI ---
+  const addOrActivateTab = useCallback((payload) => {
+    const { id, type } = payload;
+    const tabId = `${type}-${id}`;
 
+    setOpenDetailTabs((prevTabs) => {
+      const tabExists = prevTabs.some((tab) => tab.id === tabId);
+      if (tabExists) {
+        return prevTabs;
+      }
+      let title = "Details";
+      if (type === "link") {
+        title = `${payload.sourceNode} - ${payload.targetNode}`;
+      } else if (type === "site") {
+        title = payload.name;
+      }
+      return [...prevTabs, { id: tabId, type, title, data: payload }];
+    });
+    setActiveDetailTabId(tabId);
+  }, []);
+
+  const handleCloseTab = useCallback(
+    (tabIdToClose) => {
+      setOpenDetailTabs((prevTabs) => {
+        const remainingTabs = prevTabs.filter((tab) => tab.id !== tabIdToClose);
+        if (activeDetailTabId === tabIdToClose) {
+          setActiveDetailTabId(
+            remainingTabs.length > 0
+              ? remainingTabs[remainingTabs.length - 1].id
+              : null
+          );
+        }
+        return remainingTabs;
+      });
+    },
+    [activeDetailTabId]
+  );
+
+  const handleNavigateToSite = useCallback(
+    (siteData) => {
+      if (siteData.navId) {
+        // --- THIS IS THE FIX ---
+        // Add a second argument to navigate() to pass state.
+        navigate(`/sites/site/${siteData.navId}`, {
+          state: { siteData: siteData }, // Pass the data payload here
+        });
+      }
+    },
+    [navigate]
+  );
+
+  // --- MODIFIED CLICK HANDLERS ---
+  const handleSiteClick = (siteIndex, siteName) => {
+    const navigationId = `${zoneId}-Site${siteIndex + 1}`;
     const siteDetailPayload = {
       id: navigationId,
-      navId: navigationId, // This will be used in /sites/site/:siteNavId
+      navId: navigationId,
       name: siteName,
       type: "site",
       zone: zoneId,
-      // ... (rest of the randomly generated site data from original code) ...
+      // ... same data as before
       physicalStatus: Math.random() > 0.2 ? "Up" : "Down",
-      protocolStatus: Math.random() > 0.2 ? "Active" : "Inactive",
-      connectedLinks: [
-        {
-          id: `link-${navigationId}-1`,
-          name: `Link from ${navigationId} to CoreA`,
-          status: "up",
-          description: "Uplink",
-          bandwidth: "1G",
-          ospfStatus: "Full",
-          mplsStatus: "Active",
-        },
-        {
-          id: `link-${navigationId}-2`,
-          name: `Link from ${navigationId} to CoreB`,
-          status: "down",
-          description: "Redundant Uplink",
-          bandwidth: "1G",
-          ospfStatus: "Down",
-          mplsStatus: "Inactive",
-        },
-      ],
-      description: `This is a detailed description for ${siteName}. It includes information about its location within ${zoneId}, its primary functions, and any notable operational characteristics. <br/><br/> <strong>Key Features:</strong><ul><li>High Availability</li><li>Redundant Power</li><li>Connection to multiple core nodes</li></ul>`,
+      protocolStatus: Math.random() > 0.2 ? "Up" : "Down", // Changed to match StatusBulb
+      ospfStatus: "Full",
+      mplsStatus: "Active",
+      description: `Detailed description for ${siteName} in ${zoneId}.`,
+      mediaType: "Fiber",
+      cdpNeighbors: "Core-Router-A",
+      containerName: "Rack 4, Unit 8",
     };
-    addOrUpdatePopup(siteDetailPayload);
+    addOrActivateTab(siteDetailPayload);
   };
 
   const handleLinkClick = (linkData) => {
-    // ... (link click logic for popups remains the same) ...
-    const newLinkPopupData = {
+    const newLinkPayload = {
       id: linkData.id || `link-${linkData.source.id}-${linkData.target.id}`,
-      name: `Link: ${linkData.source.id} ↔ ${linkData.target.id}`,
       type: "link",
       sourceNode: linkData.source.id,
       targetNode: linkData.target.id,
+      name: `Link: ${linkData.source.id} ↔ ${linkData.target.id}`,
       linkBandwidth: `${Math.floor(Math.random() * 1000) + 100} Gbps`,
       latency: `${Math.floor(Math.random() * 50) + 1} ms`,
       utilization: `${Math.floor(Math.random() * 100)}%`,
-      status: Math.random() > 0.15 ? "Up" : "Down",
+      status: Math.random() > 0.15 ? "up" : "down", // Changed to match StatusBulb
+      linkId: linkData.id,
+      linkDescription: "Core fiber optic interconnect.",
     };
-    addOrUpdatePopup(newLinkPopupData);
+    addOrActivateTab(newLinkPayload);
   };
 
   const handleBackToChart = () => {
-    // Navigate to the base path of the current chart type
-    if (chartType === "L") {
-      navigate("/l-chart");
-    } else if (chartType === "P") {
-      navigate("/p-chart");
-    } else {
-      // Fallback, though chartType should always be provided
-      navigate("/mainlines");
-    }
+    const basePath = chartType === "p-chart" ? "/p-chart" : "/l-chart";
+    navigate(basePath);
   };
 
   return {
@@ -194,11 +228,14 @@ export function useCoreSiteData(popupAnchor, chartType) {
     mainToggleNode1Text,
     mainToggleNode2Text,
     handleBackToChart,
-    openPopups,
     onSiteClick: handleSiteClick,
     onLinkClick: handleLinkClick,
-    onClosePopup: closePopup,
-    getPopupPositioning,
-    onNodeClickInZone: handleNodeClickInZone,
+    onNodeClickInZone: onNodeClickInZone,
+    // --- EXPORT NEW TAB STATE AND HANDLERS ---
+    openDetailTabs,
+    activeDetailTabId,
+    setActiveDetailTabId, // Pass the setter directly
+    handleCloseTab,
+    handleNavigateToSite,
   };
 }
