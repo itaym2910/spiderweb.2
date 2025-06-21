@@ -16,7 +16,7 @@ const StatusBulb = ({ status }) => {
   );
 };
 
-// NOTE: This helper component is no longer used but is kept in case of future need.
+// This helper component is kept for potential future use.
 const DetailItem = ({ label, value, isDark }) => (
   <div>
     <p
@@ -33,8 +33,8 @@ const DetailItem = ({ label, value, isDark }) => (
 );
 
 /**
- * A tabbed interface to display details for network links and sites.
- * It supports multiple tabs, closing tabs, and different layouts for each item type.
+ * A tabbed interface with a bigger, bolder, modern style.
+ * All functionality remains the same.
  */
 const LinkDetailTabs = ({
   tabs,
@@ -73,34 +73,36 @@ const LinkDetailTabs = ({
   const itemType = activeTab.type;
 
   return (
-    <div className="relative bg-white dark:bg-gray-800 border-b-2 border-gray-200 dark:border-gray-700 shadow-md z-20">
-      {/* 1. Tab Bar (Unchanged) */}
-      <div className="flex items-center border-b border-gray-200 dark:border-gray-700 px-2">
+    <div className="relative bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm z-20">
+      {/* 1. Tab Bar - Updated with new styling */}
+      <div className="flex items-end space-x-1 px-2 pt-2">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => onSetActiveTab(tab.id)}
-            className={`flex items-center py-2 px-4 text-sm font-medium border-b-2 -mb-px
+            // START: STYLE CHANGE
+            className={`flex items-center py-3 px-4 text-base font-bold border-b-4 rounded-t-lg transition-all duration-200
               ${
                 activeTabId === tab.id
-                  ? "border-blue-500 text-blue-600 dark:text-blue-400"
-                  : "border-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  ? "bg-blue-100 dark:bg-gray-700 border-blue-500 text-blue-700 dark:text-blue-300"
+                  : "border-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-200/60 dark:hover:bg-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600"
               }`}
+            // END: STYLE CHANGE
           >
             <span>{tab.title}</span>
             <span
               onClick={(e) => handleClose(e, tab.id)}
-              className="ml-3 p-0.5 rounded-full hover:bg-red-200 dark:hover:bg-red-800 cursor-pointer"
+              className="ml-4 p-1 rounded-full text-gray-400 hover:bg-gray-300/80 hover:text-gray-700 dark:hover:bg-gray-600 dark:hover:text-gray-200"
             >
-              <MdClose size={16} />
+              <MdClose size={18} />
             </span>
           </button>
         ))}
       </div>
 
-      {/* 2. Content for the Active Tab */}
+      {/* 2. Content for the Active Tab (All internal logic and layout remains the same) */}
       <div className="p-4">
-        {/* --- A. LINK TYPE CONTENT (Unchanged) --- */}
+        {/* --- A. LINK TYPE CONTENT --- */}
         {itemType === "link" && itemData && (
           <>
             <div
@@ -252,8 +254,6 @@ const LinkDetailTabs = ({
                 <MdArrowForward />
               </button>
             </div>
-
-            {/* START: MODIFIED Detail section for Sites */}
             {isDetailExpanded && (
               <div className="flex flex-row flex-wrap justify-between items-center gap-y-2 p-4 mt-2 border-t border-gray-200 dark:border-gray-600">
                 <div>
@@ -298,7 +298,6 @@ const LinkDetailTabs = ({
                 </div>
               </div>
             )}
-            {/* END: MODIFIED Detail section */}
           </>
         )}
       </div>
