@@ -1,18 +1,15 @@
-// src/NetworkVisualizerWrapper.jsx
 import React, { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import NetworkVisualizer from "./chart/NetworkVisualizer";
-// REMOVED: usePopupManager and SiteDetailPopup
-import LinkDetailTabs from "./LinkDetailTabs"; // IMPORT the new component
+import LinkDetailTabs from "./LinkDetailTabs";
 
 const NetworkVisualizerWrapper = ({ data, theme }) => {
   const navigate = useNavigate();
 
-  // --- NEW STATE MANAGEMENT FOR TABS ---
-  const [openLinkTabs, setOpenLinkTabs] = useState([]);
-  const [activeLinkTabId, setActiveLinkTabId] = useState(null);
+  // --- RENAMED STATE to handle both links and sites ---
+  const [openTabs, setOpenTabs] = useState([]);
+  const [activeTabId, setActiveTabId] = useState(null);
 
-  // The handleZoneClick and handleNodeClick functions remain the same
   const handleZoneClick = useCallback(
     (zoneId) => {
       navigate(`zone/${zoneId}`);
@@ -20,87 +17,97 @@ const NetworkVisualizerWrapper = ({ data, theme }) => {
     [navigate]
   );
 
+  // --- MODIFIED handleNodeClick to open a tab ---
   const handleNodeClick = useCallback(
     (nodeData) => {
-      if (nodeData && nodeData.id && nodeData.zone) {
-        navigate(`zone/${nodeData.zone}/node/${nodeData.id}`);
-      } else {
-        console.warn("Node data incomplete for navigation:", nodeData);
+      if (!nodeData || !nodeData.id) {
+        console.warn("Node data incomplete for tab creation:", nodeData);
+        return;
       }
+
+      const tabExists = openTabs.some((tab) => tab.id === nodeData.id);
+
+      if (!tabExists) {
+        const newTab = {
+          id: nodeData.id,
+          title: nodeData.name || "Unnamed Site",
+          type: "site", // <-- Explicitly set the type to 'site'
+          data: nodeData,
+        };
+        setOpenTabs((prevTabs) => [...prevTabs, newTab]);
+      }
+      setActiveTabId(nodeData.id);
     },
-    [navigate]
+    [openTabs]
   );
 
-  // --- MODIFIED handleLinkClick ---
+  // --- MODIFIED handleLinkClick to use new state ---
   const handleLinkClick = useCallback(
     (linkDetailPayload) => {
       const { id, sourceNode, targetNode } = linkDetailPayload;
-
-      // Check if a tab for this link already exists
-      const tabExists = openLinkTabs.some((tab) => tab.id === id);
+      const tabExists = openTabs.some((tab) => tab.id === id);
 
       if (!tabExists) {
-        // If not, add a new tab
         const newTab = {
           id: id,
           title: `${sourceNode} - ${targetNode}`,
+          type: "link", // <-- Explicitly set the type to 'link'
           data: linkDetailPayload,
         };
-        setOpenLinkTabs((prevTabs) => [...prevTabs, newTab]);
+        setOpenTabs((prevTabs) => [...prevTabs, newTab]);
       }
-
-      // Set the clicked link's tab as active
-      setActiveLinkTabId(id);
+      setActiveTabId(id);
     },
-    [openLinkTabs] // Dependency on openLinkTabs to check for existence
+    [openTabs]
   );
 
-  // --- NEW handler to close a tab ---
+  // --- MODIFIED handler to close a tab ---
   const handleCloseTab = useCallback(
     (tabIdToClose) => {
-      setOpenLinkTabs((prevTabs) => {
+      setOpenTabs((prevTabs) => {
         const remainingTabs = prevTabs.filter((tab) => tab.id !== tabIdToClose);
 
-        // If the closed tab was the active one, update the active tab
-        if (activeLinkTabId === tabIdToClose) {
+        if (activeTabId === tabIdToClose) {
           if (remainingTabs.length > 0) {
-            // Make the last tab in the list the new active one
-            setActiveLinkTabId(remainingTabs[remainingTabs.length - 1].id);
+            setActiveTabId(remainingTabs[remainingTabs.length - 1].id);
           } else {
-            // No tabs left, so no active tab
-            setActiveLinkTabId(null);
+            setActiveTabId(null);
           }
         }
         return remainingTabs;
       });
     },
-    [activeLinkTabId]
+    [activeTabId]
+  );
+
+  // NEW: Handler for the "Go to Site Details" button
+  const handleNavigateToSite = useCallback(
+    (siteData) => {
+      if (siteData && siteData.id && siteData.zone) {
+        navigate(`zone/${siteData.zone}/node/${siteData.id}`);
+      }
+    },
+    [navigate]
   );
 
   return (
-    // --- LAYOUT CHANGE IS HERE ---
-    // Use flexbox to structure the layout vertically.
-    // The container takes up the full height.
     <div className="w-full h-full flex flex-col">
-      {/* 1. Link Detail Tabs (rendered at the top if there are any) */}
-      {openLinkTabs.length > 0 && (
+      {/* 1. Link Detail Tabs (now using unified state) */}
+      {openTabs.length > 0 && (
         <div className="flex-shrink-0">
-          {" "}
-          {/* This div prevents the tabs from shrinking */}
           <LinkDetailTabs
-            tabs={openLinkTabs}
-            activeTabId={activeLinkTabId}
-            onSetActiveTab={setActiveLinkTabId}
+            tabs={openTabs}
+            activeTabId={activeTabId}
+            onSetActiveTab={setActiveTabId}
             onCloseTab={handleCloseTab}
+            onNavigateToSite={handleNavigateToSite} // Pass the navigation handler
             theme={theme}
           />
         </div>
       )}
 
-      {/* 2. Network Visualizer (takes up the remaining space) */}
+      {/* 2. Network Visualizer */}
       <div className="flex-grow relative">
-        {" "}
-        {/* This div grows to fill the rest of the height */}
         <NetworkVisualizer
           data={data}
           theme={theme}
