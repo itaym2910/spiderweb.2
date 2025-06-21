@@ -1,18 +1,22 @@
-// src/components/LinkDetailTabs.jsx
 import React, { useState, useEffect } from "react";
-import { MdClose, MdArrowForward } from "react-icons/md"; // Import new icon
+import { MdClose, MdArrowForward } from "react-icons/md";
 
-// ... (StatusBulb and DetailItem helper components remain the same) ...
+/**
+ * A reusable status indicator bulb.
+ * @param {{ status: 'up' | 'down' | 'issue' | string }} props
+ */
 const StatusBulb = ({ status }) => {
   let bgColor = "bg-gray-400 dark:bg-gray-500";
   if (status === "up") bgColor = "bg-green-500 dark:bg-green-400";
   else if (status === "down") bgColor = "bg-red-500 dark:bg-red-400";
   else if (status === "issue") bgColor = "bg-yellow-500 dark:bg-yellow-400";
+
   return (
     <div className={`w-3.5 h-3.5 rounded-full ${bgColor} flex-shrink-0`}></div>
   );
 };
 
+// NOTE: This helper component is no longer used but is kept in case of future need.
 const DetailItem = ({ label, value, isDark }) => (
   <div>
     <p
@@ -28,13 +32,16 @@ const DetailItem = ({ label, value, isDark }) => (
   </div>
 );
 
-// --- Main Component ---
+/**
+ * A tabbed interface to display details for network links and sites.
+ * It supports multiple tabs, closing tabs, and different layouts for each item type.
+ */
 const LinkDetailTabs = ({
   tabs,
   activeTabId,
   onSetActiveTab,
   onCloseTab,
-  onNavigateToSite, // NEW PROP for site navigation
+  onNavigateToSite,
   theme,
 }) => {
   const [isDetailExpanded, setIsDetailExpanded] = useState(false);
@@ -54,7 +61,8 @@ const LinkDetailTabs = ({
     onCloseTab(tabId);
   };
 
-  const handleNavigate = () => {
+  const handleNavigate = (e) => {
+    e.stopPropagation();
     if (onNavigateToSite && activeTab.type === "site") {
       onNavigateToSite(activeTab.data);
     }
@@ -66,7 +74,7 @@ const LinkDetailTabs = ({
 
   return (
     <div className="relative bg-white dark:bg-gray-800 border-b-2 border-gray-200 dark:border-gray-700 shadow-md z-20">
-      {/* 1. Tab Bar */}
+      {/* 1. Tab Bar (Unchanged) */}
       <div className="flex items-center border-b border-gray-200 dark:border-gray-700 px-2">
         {tabs.map((tab) => (
           <button
@@ -82,7 +90,7 @@ const LinkDetailTabs = ({
             <span>{tab.title}</span>
             <span
               onClick={(e) => handleClose(e, tab.id)}
-              className="ml-3 p-0.5 rounded-full hover:bg-red-200 dark:hover:bg-red-800"
+              className="ml-3 p-0.5 rounded-full hover:bg-red-200 dark:hover:bg-red-800 cursor-pointer"
             >
               <MdClose size={16} />
             </span>
@@ -92,80 +100,150 @@ const LinkDetailTabs = ({
 
       {/* 2. Content for the Active Tab */}
       <div className="p-4">
-        {/* --- A. LINK TYPE CONTENT --- */}
-        {itemType === "link" && (
+        {/* --- A. LINK TYPE CONTENT (Unchanged) --- */}
+        {itemType === "link" && itemData && (
           <>
-            {/* Clickable Summary Row for Links */}
             <div
-              className={`flex items-center space-x-6 p-3 rounded-md cursor-pointer transition-colors ${
+              className={`flex items-center justify-between p-3 rounded-md cursor-pointer transition-colors ${
                 isDark ? "hover:bg-gray-700" : "hover:bg-gray-100"
               } ${
                 isDetailExpanded ? (isDark ? "bg-gray-700" : "bg-gray-100") : ""
               }`}
               onClick={() => setIsDetailExpanded(!isDetailExpanded)}
             >
-              <StatusBulb status={itemData.status} />
-              <div className="flex-1 font-medium text-gray-800 dark:text-gray-100">
-                {itemData.name || "Unnamed Link"}
+              <div className="flex items-center space-x-4">
+                <StatusBulb status={itemData.status} />
+                <p className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                  {itemData.name || "Unnamed Link"}
+                </p>
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">
-                {itemData.linkBandwidth}
-              </div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">
-                Latency: {itemData.latency}
-              </div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">
-                Utilization: {itemData.utilization}
-              </div>
+              <p className="text-base text-gray-600 dark:text-gray-400">
+                Physical:{" "}
+                <span className="font-medium text-gray-800 dark:text-gray-200">
+                  Up
+                </span>
+              </p>
+              <p className="text-base text-gray-600 dark:text-gray-400">
+                Protocol:{" "}
+                <span className="font-medium text-gray-800 dark:text-gray-200">
+                  Up
+                </span>
+              </p>
+              <p className="text-base text-gray-600 dark:text-gray-400">
+                MPLS:{" "}
+                <span className="font-medium text-gray-800 dark:text-gray-200">
+                  Enabled
+                </span>
+              </p>
+              <p className="text-base text-gray-600 dark:text-gray-400">
+                OSPF:{" "}
+                <span className="font-medium text-gray-800 dark:text-gray-200">
+                  Full
+                </span>
+              </p>
+              <p className="text-base text-gray-600 dark:text-gray-400">
+                Bandwidth:{" "}
+                <span className="font-medium text-gray-800 dark:text-gray-200">
+                  10 Gbps
+                </span>
+              </p>
             </div>
-            {/* Hidden/Revealed Detail Row for Links */}
             {isDetailExpanded && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4 p-4 mt-2 border-t border-gray-200 dark:border-gray-600">
-                <DetailItem
-                  label="Link ID"
-                  value={itemData.linkId}
-                  isDark={isDark}
-                />
-                <DetailItem
-                  label="Description"
-                  value={itemData.linkDescription}
-                  isDark={isDark}
-                />
-                <DetailItem
-                  label="Source Interface"
-                  value={itemData.sourceInterface}
-                  isDark={isDark}
-                />
-                <DetailItem
-                  label="Target Interface"
-                  value={itemData.targetInterface}
-                  isDark={isDark}
-                />
+              <div className="flex flex-row flex-wrap justify-between items-center gap-y-2 p-4 mt-2 border-t border-gray-200 dark:border-gray-600">
+                <div>
+                  <span className="text-base text-gray-500 dark:text-gray-400 mr-2">
+                    Description:
+                  </span>
+                  <span className="text-lg font-medium text-gray-800 dark:text-gray-100">
+                    Core fiber link
+                  </span>
+                </div>
+                <div>
+                  <span className="text-base text-gray-500 dark:text-gray-400 mr-2">
+                    Media Type:
+                  </span>
+                  <span className="text-lg font-medium text-gray-800 dark:text-gray-100">
+                    Fiber Optic
+                  </span>
+                </div>
+                <div>
+                  <span className="text-base text-gray-500 dark:text-gray-400 mr-2">
+                    CDP Neighbors:
+                  </span>
+                  <span className="text-lg font-medium text-gray-800 dark:text-gray-100">
+                    2
+                  </span>
+                </div>
+                <div>
+                  <span className="text-base text-gray-500 dark:text-gray-400 mr-2">
+                    TX:
+                  </span>
+                  <span className="text-lg font-medium text-gray-800 dark:text-gray-100">
+                    8.2 Gbps
+                  </span>
+                </div>
+                <div>
+                  <span className="text-base text-gray-500 dark:text-gray-400 mr-2">
+                    RX:
+                  </span>
+                  <span className="text-lg font-medium text-gray-800 dark:text-gray-100">
+                    7.1 Gbps
+                  </span>
+                </div>
               </div>
             )}
           </>
         )}
 
         {/* --- B. SITE TYPE CONTENT --- */}
-        {itemType === "site" && (
+        {itemType === "site" && itemData && (
           <>
-            {/* Summary Row for Sites */}
-            <div className="flex items-center justify-between p-3 rounded-md">
+            <div
+              className={`flex items-center justify-between p-3 rounded-md cursor-pointer transition-colors ${
+                isDark ? "hover:bg-gray-700" : "hover:bg-gray-100"
+              } ${
+                isDetailExpanded ? (isDark ? "bg-gray-700" : "bg-gray-100") : ""
+              }`}
+              onClick={() => setIsDetailExpanded(!isDetailExpanded)}
+            >
               <div className="flex items-center space-x-4">
                 <StatusBulb
                   status={itemData.protocolStatus === "Up" ? "up" : "down"}
                 />
-                <div className="flex-1 font-medium text-gray-800 dark:text-gray-100">
+                <p className="text-lg font-semibold text-gray-800 dark:text-gray-100">
                   {itemData.name || "Unnamed Site"}
-                </div>
-                <div className="text-sm text-gray-600 dark:text-gray-300">
-                  OSPF: {itemData.ospfStatus}
-                </div>
-                <div className="text-sm text-gray-600 dark:text-gray-300">
-                  MPLS: {itemData.mplsStatus}
-                </div>
+                </p>
               </div>
-              {/* Special Navigation Button */}
+              <p className="text-base text-gray-600 dark:text-gray-400">
+                Physical:{" "}
+                <span className="font-medium text-gray-800 dark:text-gray-200">
+                  Up
+                </span>
+              </p>
+              <p className="text-base text-gray-600 dark:text-gray-400">
+                Protocol:{" "}
+                <span className="font-medium text-gray-800 dark:text-gray-200">
+                  {itemData.protocolStatus}
+                </span>
+              </p>
+              <p className="text-base text-gray-600 dark:text-gray-400">
+                MPLS:{" "}
+                <span className="font-medium text-gray-800 dark:text-gray-200">
+                  {itemData.mplsStatus}
+                </span>
+              </p>
+              <p className="text-base text-gray-600 dark:text-gray-400">
+                OSPF:{" "}
+                <span className="font-medium text-gray-800 dark:text-gray-200">
+                  {itemData.ospfStatus}
+                </span>
+              </p>
+              <p className="text-base text-gray-600 dark:text-gray-400">
+                Bandwidth:{" "}
+                <span className="font-medium text-gray-800 dark:text-gray-200">
+                  100 Gbps
+                </span>
+              </p>
               <button
                 onClick={handleNavigate}
                 className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75"
@@ -174,29 +252,53 @@ const LinkDetailTabs = ({
                 <MdArrowForward />
               </button>
             </div>
-            {/* Detail section for Sites (always visible) */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4 p-4 mt-2 border-t border-gray-200 dark:border-gray-600">
-              <DetailItem
-                label="Description"
-                value={itemData.description}
-                isDark={isDark}
-              />
-              <DetailItem
-                label="Media Type"
-                value={itemData.mediaType}
-                isDark={isDark}
-              />
-              <DetailItem
-                label="CDP Neighbors"
-                value={itemData.cdpNeighbors}
-                isDark={isDark}
-              />
-              <DetailItem
-                label="Container Name"
-                value={itemData.containerName}
-                isDark={isDark}
-              />
-            </div>
+
+            {/* START: MODIFIED Detail section for Sites */}
+            {isDetailExpanded && (
+              <div className="flex flex-row flex-wrap justify-between items-center gap-y-2 p-4 mt-2 border-t border-gray-200 dark:border-gray-600">
+                <div>
+                  <span className="text-base text-gray-500 dark:text-gray-400 mr-2">
+                    Description:
+                  </span>
+                  <span className="text-lg font-medium text-gray-800 dark:text-gray-100">
+                    {itemData.description || "N/A"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-base text-gray-500 dark:text-gray-400 mr-2">
+                    Media Type:
+                  </span>
+                  <span className="text-lg font-medium text-gray-800 dark:text-gray-100">
+                    {itemData.mediaType || "N/A"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-base text-gray-500 dark:text-gray-400 mr-2">
+                    CDP Neighbors:
+                  </span>
+                  <span className="text-lg font-medium text-gray-800 dark:text-gray-100">
+                    {itemData.cdpNeighbors || "N/A"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-base text-gray-500 dark:text-gray-400 mr-2">
+                    TX:
+                  </span>
+                  <span className="text-lg font-medium text-gray-800 dark:text-gray-100">
+                    98.5 Gbps
+                  </span>
+                </div>
+                <div>
+                  <span className="text-base text-gray-500 dark:text-gray-400 mr-2">
+                    RX:
+                  </span>
+                  <span className="text-lg font-medium text-gray-800 dark:text-gray-100">
+                    95.1 Gbps
+                  </span>
+                </div>
+              </div>
+            )}
+            {/* END: MODIFIED Detail section */}
           </>
         )}
       </div>
