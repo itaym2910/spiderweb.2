@@ -1,5 +1,3 @@
-// src/DashboardPage.js
-
 import React from "react";
 import {
   Routes,
@@ -19,19 +17,42 @@ import {
   TableCell,
 } from "./components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "./components/ui/tabs";
+import { Star, ArrowUp, ArrowDown, XCircle } from "lucide-react";
+
 import NetworkVisualizerWrapper from "./components/NetworkVisualizerWrapper";
 import NetworkVisualizer5Wrapper from "./components/NetworkVisualizer5Wrapper";
 import CoreSitePage from "./components/CoreSite/CoreSitePage";
 import SiteDetailPage from "./components/end-site/SiteDetailPage";
-import { data as mainLinesTableData } from "./dataMainLines";
 import { FullscreenIcon, ExitFullscreenIcon } from "./App";
 import { useDashboardLogic } from "./useDashboardLogic";
 import LinkTable from "./components/CoreDevice/LinkTable";
 import { sampleLinks } from "./components/CoreDevice/sampleLinkData";
 
+// --- NEW: Import the custom hook ---
+import { useInterfaceData } from "./useInterfaceData";
+
+// This helper component is for the new "All Interfaces" and "Favorites" tabs
+function StatusIndicator({ status }) {
+  const statusConfig = {
+    Up: { color: "text-green-500", Icon: ArrowUp, label: "Up" },
+    Down: { color: "text-red-500", Icon: ArrowDown, label: "Down" },
+    "Admin Down": {
+      color: "text-gray-500",
+      Icon: XCircle,
+      label: "Admin Down",
+    },
+  };
+  const config = statusConfig[status] || statusConfig["Admin Down"];
+  return (
+    <div className={`flex items-center gap-2 font-medium ${config.color}`}>
+      <config.Icon className="h-4 w-4" />
+      <span>{config.label}</span>
+    </div>
+  );
+}
+
 // NodeDetailView remains the same
-// eslint-disable-next-line no-unused-vars
-function NodeDetailView({ chartType }) {
+function NodeDetailView() {
   const { nodeId } = useParams();
   const linksToDisplayInTable = sampleLinks;
   return (
@@ -52,7 +73,6 @@ export function DashboardPage({
   const {
     theme,
     activeTabValue,
-    // tabContentCardRef, // May not be needed if Cards are directly in Route elements
     popupAnchorCoords,
     handleTabChangeForNavigation,
     chartKeySuffix,
@@ -60,6 +80,11 @@ export function DashboardPage({
     isAppFullscreen,
     isSidebarCollapsed,
   });
+
+  // --- NEW: Use the custom hook to get interface data and logic ---
+  const { interfaces, handleToggleFavorite } = useInterfaceData();
+  const favoriteInterfaces = interfaces.filter((iface) => iface.isFavorite);
+
   const location = useLocation();
 
   const renderFullscreenToggleButton = () => {
@@ -99,19 +124,15 @@ export function DashboardPage({
     }
   };
 
-  const getCardClassName = (
-    tabKey // Using tabKey to be more generic if needed
-  ) =>
+  const getCardClassName = (tabKey) =>
     `flex-1 flex flex-col min-h-0 ${
-      // Ensure Card itself can grow and has min-height
-      isAppFullscreen && activeTabValue === tabKey // Compare with activeTabValue from hook
+      isAppFullscreen && activeTabValue === tabKey
         ? "border-0 rounded-none shadow-none"
         : "border dark:border-gray-700"
     }`;
 
   const getCardContentClassName = (tabKey) =>
     `flex-1 overflow-auto ${
-      // Ensure CardContent can grow and scroll
       isAppFullscreen && activeTabValue === tabKey
         ? tabKey === "l_network" || tabKey === "p_network" || tabKey === "site"
           ? "p-0"
@@ -121,29 +142,26 @@ export function DashboardPage({
         : "p-4"
     } relative`;
 
-
   return (
     <div
       className={`flex flex-col h-full ${
-        // Main container is flex-col and takes full height
         isAppFullscreen
           ? "bg-white dark:bg-gray-800"
           : "bg-white dark:bg-gray-800 rounded-lg shadow-md"
       } ${isAppFullscreen ? "p-0" : ""}`}
     >
-
-      <Tabs // The <Tabs> component itself is NOT a flex item that grows here
+      <Tabs
         value={activeTabValue}
-        defaultValue="table"
-        className="w-full flex flex-col flex-1" // <<< MAKE SURE TABS ITSELF IS FLEX AND CAN GROW
+        defaultValue="favorites"
+        className="w-full flex flex-col flex-1"
         onValueChange={handleTabChangeForNavigation}
-
       >
-        <TabsList // TabsList is just a direct child, its size is content-based
+        <TabsList
           className={`bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-4 ${
             isAppFullscreen ? "mx-0 mt-0 rounded-none sticky top-0 z-40" : ""
           }`}
         >
+          {/* --- REPLACED: "mainlines" tab with "favorites" --- */}
           <TabsTrigger value="favorites" className="flex items-center gap-1">
             <Star className="h-4 w-4 text-yellow-500" /> Favorites
           </TabsTrigger>
@@ -153,66 +171,121 @@ export function DashboardPage({
           <TabsTrigger value="site">Site</TabsTrigger>
         </TabsList>
 
-
-        {/* This div will contain the routed content and MUST grow to fill space */}
         <div className="flex-1 flex flex-col min-h-0">
-          {" "}
-          {/* <<< KEY CHANGE HERE */}
           <Routes>
+            {/* --- REPLACED: /mainlines route with /favorites route --- */}
             <Route
-              path="/mainlines"
+              path="/favorites"
               element={
-                // Card and CardContent should also be set up to fill their parent if needed
-                <Card className={getCardClassName("table")}>
-                  <CardContent className={getCardContentClassName("table")}>
+                <Card className={getCardClassName("favorites")}>
+                  <CardContent className={getCardContentClassName("favorites")}>
                     <Table>
-                      {/* ... Table content ... */}
                       <TableHeader>
-                        <TableRow className="border-b dark:border-gray-700">
-                          <TableHead className="text-gray-600 dark:text-gray-300">
-                            Phrase + [synonyms]
-                          </TableHead>
-                          <TableHead className="text-gray-600 dark:text-gray-300">
-                            Frequency
-                          </TableHead>
-                          <TableHead className="text-gray-600 dark:text-gray-300">
-                            Net sentiment
-                          </TableHead>
-                          <TableHead className="text-gray-600 dark:text-gray-300">
-                            Total impact
-                          </TableHead>
+                        <TableRow>
+                          <TableHead>Interface</TableHead>
+                          <TableHead>Device</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {mainLinesTableData.map((item, i) => (
-                          <TableRow
-                            key={i}
-                            className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750"
-                          >
-                            <TableCell className="font-medium text-gray-900 dark:text-gray-100">
-                              {item.phrase}{" "}
-                              {item.synonyms ? `[${item.synonyms}]` : ""}
+                        {favoriteInterfaces.length > 0 ? (
+                          favoriteInterfaces.map((iface) => (
+                            <TableRow key={iface.id}>
+                              <TableCell>
+                                <div className="font-medium">
+                                  {iface.interfaceName}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {iface.description}
+                                </div>
+                              </TableCell>
+                              <TableCell>{iface.deviceName}</TableCell>
+                              <TableCell>
+                                <StatusIndicator status={iface.status} />
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleToggleFavorite(iface.id)}
+                                >
+                                  <Star className="h-5 w-5 text-yellow-500 fill-yellow-400" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={4} className="h-24 text-center">
+                              No favorite interfaces selected.
                             </TableCell>
-                            <TableCell className="text-gray-700 dark:text-gray-300">
-                              {item.frequency}
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              }
+            />
+            {/* --- NEW: /all_interfaces route --- */}
+            <Route
+              path="/all_interfaces"
+              element={
+                <Card className={getCardClassName("all_interfaces")}>
+                  <CardContent
+                    className={getCardContentClassName("all_interfaces")}
+                  >
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Interface</TableHead>
+                          <TableHead>Device</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Traffic (In / Out)</TableHead>
+                          <TableHead>Errors (In / Out)</TableHead>
+                          <TableHead className="text-right">Favorite</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {interfaces.map((iface) => (
+                          <TableRow key={iface.id}>
+                            <TableCell>
+                              <div className="font-medium">
+                                {iface.interfaceName}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {iface.description}
+                              </div>
                             </TableCell>
+                            <TableCell>{iface.deviceName}</TableCell>
+                            <TableCell>
+                              <StatusIndicator status={iface.status} />
+                            </TableCell>
+                            <TableCell>{`${iface.trafficIn} / ${iface.trafficOut}`}</TableCell>
                             <TableCell
-                              className={`text-gray-700 dark:text-gray-300 ${
-                                item.sentiment < 0
-                                  ? "text-red-600 dark:text-red-400"
-                                  : "text-green-600 dark:text-green-400"
-                              }`}
+                              className={
+                                iface.errors.in > 0 || iface.errors.out > 0
+                                  ? "font-bold text-orange-600 dark:text-orange-400"
+                                  : ""
+                              }
                             >
-                              {item.sentiment.toFixed(2)}
+                              {`${iface.errors.in} / ${iface.errors.out}`}
                             </TableCell>
-                            <TableCell
-                              className={`text-gray-700 dark:text-gray-300 font-semibold ${
-                                item.impact < 0
-                                  ? "text-red-600 dark:text-red-400"
-                                  : "text-green-600 dark:text-green-400"
-                              }`}
-                            >
-                              {item.impact.toFixed(2)}
+                            <TableCell className="text-right">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleToggleFavorite(iface.id)}
+                              >
+                                <Star
+                                  className={`h-5 w-5 transition-colors ${
+                                    iface.isFavorite
+                                      ? "text-yellow-500 fill-yellow-400"
+                                      : "text-gray-400 hover:text-yellow-500"
+                                  }`}
+                                />
+                              </Button>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -230,17 +303,13 @@ export function DashboardPage({
                   <CardContent className={getCardContentClassName("l_network")}>
                     {location.pathname === "/l-chart" &&
                       renderFullscreenToggleButton()}
-                    {/* This inner div needs to ensure the visualizer takes full space of CardContent */}
                     <div className="relative w-full h-full">
-                      {" "}
-                      {/* <<< ENSURE THIS IS FULL HEIGHT/WIDTH */}
                       <Routes>
                         <Route
                           index
                           element={
                             <NetworkVisualizerWrapper
                               key={`l-visualizer-${chartKeySuffix}`}
-                              data={mainLinesTableData}
                               theme={theme}
                             />
                           }
@@ -273,17 +342,13 @@ export function DashboardPage({
                   <CardContent className={getCardContentClassName("p_network")}>
                     {location.pathname === "/p-chart" &&
                       renderFullscreenToggleButton()}
-                    {/* This inner div needs to ensure the visualizer takes full space of CardContent */}
                     <div className="relative w-full h-full">
-                      {" "}
-                      {/* <<< ENSURE THIS IS FULL HEIGHT/WIDTH */}
                       <Routes>
                         <Route
                           index
                           element={
                             <NetworkVisualizer5Wrapper
                               key={`p-visualizer-${chartKeySuffix}`}
-                              data={mainLinesTableData}
                               theme={theme}
                             />
                           }
@@ -314,10 +379,7 @@ export function DashboardPage({
               element={
                 <Card className={getCardClassName("site")}>
                   <CardContent className={getCardContentClassName("site")}>
-                    {/* This inner div needs to ensure the content takes full space of CardContent */}
                     <div className="relative w-full h-full">
-                      {" "}
-                      {/* <<< ENSURE THIS IS FULL HEIGHT/WIDTH */}
                       <Routes>
                         <Route
                           index
@@ -327,8 +389,7 @@ export function DashboardPage({
                                 Site Information
                               </h2>
                               <p className="text-gray-700 dark:text-gray-300">
-                                Select a site to view details or use the search
-                                functionality.
+                                Select a site to view details.
                               </p>
                             </div>
                           }
@@ -344,17 +405,15 @@ export function DashboardPage({
               }
             />
 
-            <Route path="/" element={<Navigate to="/mainlines" replace />} />
-            <Route path="*" element={<Navigate to="/mainlines" replace />} />
+            <Route path="/" element={<Navigate to="/favorites" replace />} />
+            <Route path="*" element={<Navigate to="/favorites" replace />} />
           </Routes>
         </div>
-      </Tabs>{" "}
-      {/* Moved the closing tag for Tabs here to wrap the content div */}
+      </Tabs>
     </div>
   );
 }
 
-// SiteDetailPageRouteElement helper component remains the same
 function SiteDetailPageRouteElement() {
   const location = useLocation();
   const { siteNavId } = useParams();
@@ -368,7 +427,7 @@ function SiteDetailPageRouteElement() {
         </h2>
         <p className="text-gray-700 dark:text-gray-300">
           Site data not found for ID: {siteNavId}. Please navigate from a valid
-          source or implement direct loading.
+          source.
         </p>
       </div>
     );
@@ -383,4 +442,3 @@ function SiteDetailPageRouteElement() {
     />
   );
 }
-
