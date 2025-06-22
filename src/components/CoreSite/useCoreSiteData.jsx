@@ -8,7 +8,6 @@ import {
 } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useNodeLayout } from "./useNodeLayout";
-// REMOVED: import { usePopupManager } from "./usePopupManager";
 
 // Add chartType as a parameter to the hook
 export function useCoreSiteData(chartType) {
