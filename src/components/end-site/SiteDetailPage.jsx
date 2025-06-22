@@ -1,6 +1,3 @@
-// src/components/end-site/SiteDetailPage.jsx
-// (Adjust path to LinkDetailRow and StatusBulb if necessary)
-
 import React, { useState, useEffect, useMemo } from "react";
 import LinkDetailRow from "./LineDetailExtend"; // Path to your LinkDetailRow component
 import StatusBulb from "./StatusBulb"; // Path to your StatusBulb component
@@ -30,9 +27,7 @@ const generateRandomPolygonPoints = (
   return points.join(" ");
 };
 
-// --- STATIC COMMON ADDITIONAL DETAILS TO BE FORCED ONTO EVERY LINK ---
-// This is for demonstration/testing purposes to ensure LinkDetailRow shows details.
-// In a real application, this data would come from your actual link data.
+// Static common additional details to be forced onto every link
 const commonAdditionalDetails = {
   mediaType: "Fiber Optic (Forced)",
   cdpNeighbors: "EdgeRouter-XYZ (Gi0/1) (Forced)",
@@ -45,14 +40,33 @@ const commonAdditionalDetails = {
   rxPower: "-1.8 dBm (Forced)",
 };
 
+// Dummy data for the connected links table
+const dummyConnectedLinks = [
+  {
+    id: "link-dummy-1",
+    name: "Core-RTR-01 <> Edge-SW-A",
+    description: "Primary 10G Fiber Uplink",
+    status: "up",
+    ospfStatus: "Full",
+    mplsStatus: "Enabled",
+    bandwidth: "10 Gbps",
+  },
+  {
+    id: "link-dummy-2",
+    name: "Backup-RTR <> ISP-B",
+    description: "Secondary 1G Copper Uplink",
+    status: "issue",
+    ospfStatus: "2-Way",
+    mplsStatus: "Disabled",
+    bandwidth: "1 Gbps",
+  },
+];
+
 const SiteDetailPage = ({ siteData, initialTheme = "light" }) => {
-  // --- STATE HOOKS ---
   const [theme, setTheme] = useState(initialTheme);
-  const [expandedLinkId, setExpandedLinkId] = useState(null); // Tracks which link's details are expanded
+  const [expandedLinkId, setExpandedLinkId] = useState(null);
 
-  // --- EFFECT HOOKS ---
-
-  // Effect to synchronize component theme with global HTML dark mode class
+  // This effect is KEPT to listen for global theme changes from the sidebar
   useEffect(() => {
     const rootHtmlElement = document.documentElement;
     const currentHtmlIsDark = rootHtmlElement.classList.contains("dark");
@@ -61,57 +75,28 @@ const SiteDetailPage = ({ siteData, initialTheme = "light" }) => {
     if (theme !== currentGlobalTheme) {
       setTheme(currentGlobalTheme);
     }
-
     const observer = new MutationObserver(() => {
       setTheme(rootHtmlElement.classList.contains("dark") ? "dark" : "light");
     });
-
     observer.observe(rootHtmlElement, {
       attributes: true,
       attributeFilter: ["class"],
     });
-
     return () => observer.disconnect();
-  }, [theme]); // Re-run if local 'theme' state changes
+  }, [theme]);
 
-  // Debugging: Log the received siteData prop when it changes.
-  // Can be removed in production.
-  useEffect(() => {
-    if (siteData) {
-      console.log(
-        "SiteDetailPage: Received siteData prop:",
-        JSON.stringify(siteData, null, 2)
-      );
-    } else {
-      console.log("SiteDetailPage: siteData prop is null or undefined.");
-    }
-  }, [siteData]); // Re-run if siteData prop changes
-
-  // --- MEMOIZATION HOOKS ---
-
-  // Memoize polygon points for SVG to prevent re-calculation on every render
   const polygonPoints = useMemo(() => {
-    const numVertex = Math.floor(5 + Math.random() * 5); // Random number of vertices (5-9)
+    const numVertex = Math.floor(5 + Math.random() * 5);
     return generateRandomPolygonPoints(200, 150, numVertex);
-  }, []); // Empty dependency array: calculate once on component mount
+  }, []);
 
-  // Inject the commonAdditionalDetails into each link from siteData.
-  // This ensures LinkDetailRow has data to display for `additionalDetails`.
   const connectedLinksWithForcedDetails = useMemo(() => {
-    // Safely access siteData.connectedLinks, defaulting to an empty array if siteData or connectedLinks is undefined.
-    const originalLinks = siteData?.connectedLinks || [];
-    return originalLinks.map((link) => ({
-      ...link, // Spread original link properties
-      additionalDetails: { ...commonAdditionalDetails }, // Add/overwrite with common details
-      // Optionally, force an issueType if the link status warrants it:
-      // issueType: (link.status === 'issue' || link.status === 'down')
-      //   ? "Forced Issue Description"
-      //   : link.issueType,
+    return dummyConnectedLinks.map((link) => ({
+      ...link,
+      additionalDetails: { ...commonAdditionalDetails },
     }));
-  }, [siteData?.connectedLinks]); // Re-calculate if the original connectedLinks array changes
+  }, []);
 
-  // --- EARLY RETURN FOR MISSING DATA ---
-  // Hooks must be called before this point.
   if (!siteData) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-white dark:bg-gray-800">
@@ -122,30 +107,13 @@ const SiteDetailPage = ({ siteData, initialTheme = "light" }) => {
     );
   }
 
-  // --- DATA DESTRUCTURING (after early return) ---
-  // Destructure siteData with defaults now that we know siteData exists.
   const { name = "Unnamed Site", description = "" } = siteData;
-  // We will use `connectedLinksWithForcedDetails` for rendering the table.
-
-  // --- DERIVED STATE ---
   const isDark = theme === "dark";
-
-  // --- EVENT HANDLERS ---
-  const toggleTheme = () => {
-    const rootHtmlElement = document.documentElement;
-    if (rootHtmlElement.classList.contains("dark")) {
-      rootHtmlElement.classList.remove("dark");
-    } else {
-      rootHtmlElement.classList.add("dark");
-    }
-    // The MutationObserver will update the 'theme' state.
-  };
 
   const handleLinkRowClick = (linkId) => {
     setExpandedLinkId((prevId) => (prevId === linkId ? null : linkId));
   };
 
-  // --- JSX RENDER ---
   return (
     <div className="bg-white dark:bg-gray-800 min-h-screen transition-colors duration-300">
       <div className="p-6">
@@ -154,13 +122,7 @@ const SiteDetailPage = ({ siteData, initialTheme = "light" }) => {
           <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
             {name}
           </h1>
-          <button
-            onClick={toggleTheme}
-            title={`Switch to ${isDark ? "Light" : "Dark"} Mode`}
-            className="p-2 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-          >
-            {isDark ? "Light Mode" : "Dark Mode"}
-          </button>
+          {/* THEME TOGGLE BUTTON HAS BEEN REMOVED FROM HERE */}
         </header>
 
         {/* Site Info: Description and Topology */}
@@ -172,7 +134,7 @@ const SiteDetailPage = ({ siteData, initialTheme = "light" }) => {
             {description ? (
               <div
                 className="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300 flex-grow overflow-y-auto"
-                dangerouslySetInnerHTML={{ __html: description }} // Use with caution if 'description' is not sanitized
+                dangerouslySetInnerHTML={{ __html: description }}
               />
             ) : (
               <p className="text-gray-500 dark:text-gray-400">
@@ -210,7 +172,7 @@ const SiteDetailPage = ({ siteData, initialTheme = "light" }) => {
                     isDark ? "fill-gray-900" : "fill-white"
                   }`}
                 >
-                  {name.substring(0, 10)} {/* Show first 10 chars of name */}
+                  {name.substring(0, 10)}
                 </text>
               </svg>
             </div>
@@ -268,20 +230,13 @@ const SiteDetailPage = ({ siteData, initialTheme = "light" }) => {
                 {connectedLinksWithForcedDetails &&
                 connectedLinksWithForcedDetails.length > 0 ? (
                   connectedLinksWithForcedDetails.flatMap((link) => {
-                    // Each 'link' object from 'connectedLinks' MUST have a unique 'id'.
                     if (!link || typeof link.id === "undefined") {
-                      console.warn(
-                        "SiteDetailPage: Skipping link due to missing or undefined 'id':",
-                        link
-                      );
-                      return null; // Skip rendering invalid link
+                      return null;
                     }
-
                     const isSelected = expandedLinkId === link.id;
                     const selectedRowBg = isDark
                       ? "bg-slate-700"
                       : "bg-slate-100";
-
                     return (
                       <React.Fragment key={link.id}>
                         <tr
@@ -317,7 +272,7 @@ const SiteDetailPage = ({ siteData, initialTheme = "light" }) => {
                             className="border-l-4 border-blue-500 dark:border-blue-400"
                           >
                             <LinkDetailRow
-                              link={link} // This 'link' object now includes the forced 'additionalDetails'
+                              link={link}
                               isParentSelectedAndDark={isDark}
                             />
                           </tr>
