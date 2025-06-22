@@ -1,4 +1,4 @@
-// Node node definitions: 6 zones, 2 nodes each
+// Node definitions: 6 zones, 2 nodes each
 export const NODES = [
   { id: "Node A1", group: "node", zone: "Zone 1" },
   { id: "Node A2", group: "node", zone: "Zone 1" },
@@ -14,50 +14,70 @@ export const NODES = [
   { id: "Node F2", group: "node", zone: "Zone 6" },
 ];
 
-// Only inter-zone links are shown
+// Expanded links with status categories
 export const LINKS = [
-  { id: "link-1", source: "Node A1", target: "Node B1" },
-  { id: "link-2", source: "Node A2", target: "Node C2" },
-  { id: "link-3", source: "Node B2", target: "Node D1" },
-  { id: "link-4", source: "Node C1", target: "Node D2" },
-  { id: "link-5", source: "Node D1", target: "Node E1" },
-  { id: "link-6", source: "Node E2", target: "Node F1" },
-  { id: "link-7", source: "Node F2", target: "Node A1" },
-  { id: "link-8", source: "Node A1", target: "Node D2" },
-  { id: "link-10", source: "Node C2", target: "Node E1" },
-  { id: "link-11", source: "Node D2", target: "Node A2" },
-  { id: "link-12", source: "Node E1", target: "Node B2" },
-  { id: "link-13", source: "Node F1", target: "Node C1" },
-  { id: "link-14", source: "Node A2", target: "Node E2" },
-  { id: "link-15", source: "Node B2", target: "Node C2" },
-  { id: "link-16", source: "Node D1", target: "Node F1" },
-  { id: "link-17", source: "Node E2", target: "Node A1" },
-  { id: "link-18", source: "Node F2", target: "Node B1" },
-
-  // Duplicates with unique IDs
-  { id: "link-20", source: "Node A2", target: "Node C2" },
-  { id: "link-21", source: "Node B2", target: "Node D1" },
-  { id: "link-22", source: "Node C1", target: "Node D2" },
-  { id: "link-23", source: "Node D1", target: "Node E1" },
-  { id: "link-24", source: "Node E2", target: "Node F1" },
-  { id: "link-25", source: "Node F2", target: "Node A1" },
-  { id: "link-26", source: "Node A1", target: "Node D2" },
-  { id: "link-27", source: "Node B1", target: "Node F2" },
-  { id: "link-28", source: "Node C2", target: "Node E1" },
-  { id: "link-29", source: "Node D2", target: "Node A2" },
-  { id: "link-30", source: "Node E1", target: "Node B2" },
-  { id: "link-31", source: "Node F1", target: "Node C1" },
-  { id: "link-32", source: "Node A2", target: "Node E2" },
-  { id: "link-33", source: "Node B2", target: "Node C2" },
-  { id: "link-34", source: "Node D1", target: "Node F1" },
-  { id: "link-35", source: "Node E2", target: "Node A1" },
-  { id: "link-36", source: "Node F2", target: "Node B1" },
-
-  // Intra-zone links (each zone connects its two nodes)
-  { id: "link-z1", source: "Node A1", target: "Node A2" }, // Zone 1
-  { id: "link-z2", source: "Node B1", target: "Node B2" }, // Zone 2
-  { id: "link-z3", source: "Node C1", target: "Node C2" }, // Zone 3
-  { id: "link-z4", source: "Node D1", target: "Node D2" }, // Zone 4
-  { id: "link-z5", source: "Node E1", target: "Node E2" }, // Zone 5
-  { id: "link-z6", source: "Node F1", target: "Node F2" }, // Zone 6
+  // Original Set with Categories
+  { id: "link-1", source: "Node A1", target: "Node B1", category: "up" },
+  { id: "link-2", source: "Node A2", target: "Node C2", category: "down" },
+  { id: "link-3", source: "Node B2", target: "Node D1", category: "up" },
+  { id: "link-4", source: "Node C1", target: "Node D2", category: "issue" },
+  { id: "link-5", source: "Node D1", target: "Node E1", category: "up" },
+  { id: "link-6", source: "Node E2", target: "Node F1", category: "up" },
+  { id: "link-7", source: "Node F2", target: "Node A1", category: "down" },
+  { id: "link-8", source: "Node A1", target: "Node D2", category: "up" },
+  { id: "link-10", source: "Node C2", target: "Node E1", category: "issue" },
+  { id: "link-11", source: "Node D2", target: "Node A2", category: "up" },
+  { id: "link-12", source: "Node E1", target: "Node B2", category: "up" },
+  { id: "link-13", source: "Node F1", target: "Node C1", category: "up" },
+  { id: "link-14", source: "Node A2", target: "Node E2", category: "down" },
+  { id: "link-15", source: "Node B2", target: "Node C2", category: "up" },
+  { id: "link-16", source: "Node D1", target: "Node F1", category: "issue" },
+  { id: "link-17", source: "Node E2", target: "Node A1", category: "up" },
+  { id: "link-18", source: "Node F2", target: "Node B1", category: "up" },
+  // Duplicates with Categories
+  { id: "link-20", source: "Node A2", target: "Node C2", category: "up" }, // parallel to down link
+  { id: "link-21", source: "Node B2", target: "Node D1", category: "issue" },
+  { id: "link-22", source: "Node C1", target: "Node D2", category: "up" },
+  { id: "link-23", source: "Node D1", target: "Node E1", category: "up" },
+  { id: "link-24", source: "Node E2", target: "Node F1", category: "down" },
+  { id: "link-25", source: "Node F2", target: "Node A1", category: "up" },
+  { id: "link-26", source: "Node A1", target: "Node D2", category: "up" },
+  { id: "link-27", source: "Node B1", target: "Node F2", category: "up" },
+  { id: "link-28", source: "Node C2", target: "Node E1", category: "up" },
+  { id: "link-29", source: "Node D2", target: "Node A2", category: "down" },
+  { id: "link-30", source: "Node E1", target: "Node B2", category: "issue" },
+  { id: "link-31", source: "Node F1", target: "Node C1", category: "up" },
+  { id: "link-32", source: "Node A2", target: "Node E2", category: "up" },
+  { id: "link-33", source: "Node B2", target: "Node C2", category: "up" },
+  { id: "link-34", source: "Node D1", target: "Node F1", category: "up" },
+  { id: "link-35", source: "Node E2", target: "Node A1", category: "up" },
+  { id: "link-36", source: "Node F2", target: "Node B1", category: "down" },
+  // Intra-zone links with Categories
+  { id: "link-z1", source: "Node A1", target: "Node A2", category: "up" },
+  { id: "link-z2", source: "Node B1", target: "Node B2", category: "up" },
+  { id: "link-z3", source: "Node C1", target: "Node C2", category: "issue" },
+  { id: "link-z4", source: "Node D1", target: "Node D2", category: "up" },
+  { id: "link-z5", source: "Node E1", target: "Node E2", category: "down" },
+  { id: "link-z6", source: "Node F1", target: "Node F2", category: "up" },
+  // New Set of 20 Links
+  { id: "link-40", source: "Node A1", target: "Node C1", category: "up" },
+  { id: "link-41", source: "Node B1", target: "Node D1", category: "up" },
+  { id: "link-42", source: "Node C1", target: "Node E1", category: "down" },
+  { id: "link-43", source: "Node D1", target: "Node F1", category: "issue" }, // 3rd link D1-F1
+  { id: "link-44", source: "Node E1", target: "Node A1", category: "up" },
+  { id: "link-45", source: "Node F1", target: "Node B1", category: "up" },
+  { id: "link-46", source: "Node A2", target: "Node B2", category: "issue" },
+  { id: "link-47", source: "Node B2", target: "Node C1", category: "up" },
+  { id: "link-48", source: "Node C2", target: "Node D2", category: "up" },
+  { id: "link-49", source: "Node D2", target: "Node E2", category: "down" },
+  { id: "link-50", source: "Node E2", target: "Node F2", category: "up" },
+  { id: "link-51", source: "Node F2", target: "Node A2", category: "up" },
+  { id: "link-52", source: "Node A1", target: "Node E2", category: "issue" },
+  { id: "link-53", source: "Node B1", target: "Node C2", category: "up" },
+  { id: "link-54", source: "Node B2", target: "Node F1", category: "down" },
+  { id: "link-55", source: "Node C1", target: "Node A2", category: "up" },
+  { id: "link-56", source: "Node D2", target: "Node B1", category: "issue" },
+  { id: "link-57", source: "Node E1", target: "Node F2", category: "up" },
+  { id: "link-58", source: "Node E2", target: "Node D1", category: "up" },
+  { id: "link-59", source: "Node F1", target: "Node A2", category: "up" },
 ];

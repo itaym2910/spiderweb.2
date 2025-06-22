@@ -5,7 +5,9 @@ import { Sidebar } from "./components/ui/sidebar";
 import MainPage from "./MainPage";
 
 // SVG Icon for Fullscreen (Expand)
-const FullscreenIcon = ({ className = "w-5 h-5" }) => (
+export const FullscreenIcon = (
+  { className = "w-5 h-5" } // Export for use in DashboardPage
+) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
@@ -23,7 +25,9 @@ const FullscreenIcon = ({ className = "w-5 h-5" }) => (
 );
 
 // SVG Icon for Exit Fullscreen (Compress)
-const ExitFullscreenIcon = ({ className = "w-5 h-5" }) => (
+export const ExitFullscreenIcon = (
+  { className = "w-5 h-5" } // Export for use in DashboardPage
+) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
@@ -65,31 +69,35 @@ function App() {
   }, []);
 
   const toggleFullscreen = () => {
-    if (!isFullscreen && currentPage !== "Dashboard") {
+    // Keep the logic that fullscreen is only for Dashboard
+    if (currentPage !== "Dashboard") {
+      if (isFullscreen) setIsFullscreen(false); // Exit fullscreen if leaving dashboard
       return;
     }
     setIsFullscreen(!isFullscreen);
   };
 
   useEffect(() => {
+    // If navigating away from Dashboard while in fullscreen, exit fullscreen.
     if (isFullscreen && currentPage !== "Dashboard") {
       setIsFullscreen(false);
     }
   }, [currentPage, isFullscreen]);
 
-  // Determine button classes based on theme
+  // Button classes can now be defined in DashboardPage if preferred, or passed down.
+  // For simplicity here, we'll keep them, but they could also be reconstructed in DashboardPage.
   const exitFullscreenButtonClasses = isAppDarkTheme
-    ? "bg-gray-700 text-white hover:bg-gray-600" // Dark theme classes
-    : "bg-gray-200 text-gray-700 hover:bg-gray-300"; // Light theme classes
+    ? "bg-gray-700 text-white hover:bg-gray-600"
+    : "bg-gray-200 text-gray-700 hover:bg-gray-300";
 
   const enterFullscreenButtonClasses = isAppDarkTheme
-    ? "text-gray-300 hover:bg-gray-700"
-    : "text-gray-600 hover:bg-gray-100";
+    ? "text-gray-300 hover:bg-gray-700 hover:text-white" // ensure text is visible on hover
+    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"; // ensure text is visible on hover
 
   return (
     <BrowserRouter>
       <div className="flex min-h-[100vh] bg-gray-100 dark:bg-gray-950 text-gray-800 dark:text-gray-100 transition-colors">
-        {!isFullscreen && (
+        {!isFullscreen && ( // Sidebar is hidden in fullscreen
           <Sidebar
             currentPage={currentPage}
             setCurrentPage={setCurrentPage}
@@ -102,39 +110,29 @@ function App() {
             isFullscreen ? "p-0" : "p-4 md:p-6"
           }`}
         >
-          {!isFullscreen && (
+          {/* Header is hidden in fullscreen OR only shows page title if not dashboard */}
+          {(!isFullscreen || currentPage !== "Dashboard") && (
             <header className="bg-white dark:bg-gray-800 shadow-sm p-4 mb-6 rounded-lg flex justify-between items-center">
               <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
                 {pageTitle}
               </h1>
-              {currentPage === "Dashboard" && !isFullscreen && (
-                <button
-                  onClick={toggleFullscreen}
-                  className={`p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 ${enterFullscreenButtonClasses}`}
-                  aria-label="Enter fullscreen chart view"
-                  title="Fullscreen Chart"
-                >
-                  <FullscreenIcon className="w-5 h-5" />
-                </button>
-              )}
+              {/* REMOVE Fullscreen button from header */}
             </header>
           )}
 
-          {isFullscreen && currentPage === "Dashboard" && (
-            <button
-              onClick={toggleFullscreen}
-              className={`absolute top-2 right-4 z-[100] p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-400 focus:ring-opacity-50 ${exitFullscreenButtonClasses}`}
-              aria-label="Exit fullscreen chart view"
-              title="Exit Fullscreen"
-            >
-              <ExitFullscreenIcon className="w-5 h-5" />
-            </button>
-          )}
+          {/* REMOVE Absolute positioned Exit Fullscreen button */}
 
           <MainPage
             currentPage={currentPage}
             isFullscreen={isFullscreen}
             isSidebarCollapsed={isSidebarCollapsed}
+            // --- PASS PROPS FOR FULLSCREEN BUTTON ---
+            toggleFullscreen={toggleFullscreen}
+            isAppDarkTheme={isAppDarkTheme} // To style the button
+            // Pass button classes or let DashboardPage define them
+            enterFullscreenButtonClasses={enterFullscreenButtonClasses}
+            exitFullscreenButtonClasses={exitFullscreenButtonClasses}
+            // --- END PASS PROPS ---
           />
         </main>
       </div>
