@@ -1,4 +1,5 @@
 // src/DashboardPage.js
+
 import React from "react";
 import {
   Routes,
@@ -8,6 +9,7 @@ import {
   Navigate,
 } from "react-router-dom";
 import { Card, CardContent } from "./components/ui/card";
+import { Button } from "./components/ui/button";
 import {
   Table,
   TableHead,
@@ -119,6 +121,7 @@ export function DashboardPage({
         : "p-4"
     } relative`;
 
+
   return (
     <div
       className={`flex flex-col h-full ${
@@ -128,22 +131,28 @@ export function DashboardPage({
           : "bg-white dark:bg-gray-800 rounded-lg shadow-md"
       } ${isAppFullscreen ? "p-0" : ""}`}
     >
+
       <Tabs // The <Tabs> component itself is NOT a flex item that grows here
         value={activeTabValue}
         defaultValue="table"
         className="w-full flex flex-col flex-1" // <<< MAKE SURE TABS ITSELF IS FLEX AND CAN GROW
         onValueChange={handleTabChangeForNavigation}
+
       >
         <TabsList // TabsList is just a direct child, its size is content-based
           className={`bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-4 ${
             isAppFullscreen ? "mx-0 mt-0 rounded-none sticky top-0 z-40" : ""
           }`}
         >
-          <TabsTrigger value="table">Main Lines</TabsTrigger>
+          <TabsTrigger value="favorites" className="flex items-center gap-1">
+            <Star className="h-4 w-4 text-yellow-500" /> Favorites
+          </TabsTrigger>
+          <TabsTrigger value="all_interfaces">All Interfaces</TabsTrigger>
           <TabsTrigger value="l_network">L-chart</TabsTrigger>
           <TabsTrigger value="p_network">P-chart</TabsTrigger>
           <TabsTrigger value="site">Site</TabsTrigger>
         </TabsList>
+
 
         {/* This div will contain the routed content and MUST grow to fill space */}
         <div className="flex-1 flex flex-col min-h-0">
@@ -374,3 +383,4 @@ function SiteDetailPageRouteElement() {
     />
   );
 }
+
