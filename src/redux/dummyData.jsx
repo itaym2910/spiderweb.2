@@ -57,6 +57,17 @@ const createInterfaceInfo = (deviceId) => ({
   timestamp: faker.date.recent().toISOString(),
 });
 
+const createTenGigLink = () => ({
+  id: `link-10g-${faker.string.alphanumeric(8)}`,
+  source: `core-rtr-${faker.location.cityAbbr()}`,
+  target: `dist-sw-${faker.string.alphanumeric(4)}`,
+  ip: faker.internet.ip(),
+  // The endpoint name implies 10G, so we'll make the data match that.
+  bandwidth: faker.helpers.arrayElement(["10Gbps", "40Gbps"]),
+  // Use a more descriptive status for the UI
+  status: faker.helpers.arrayElement(["active", "inactive", "error"]),
+});
+
 // --- Main Export Function ---
 
 export const generateAllDummyData = () => {
@@ -80,11 +91,13 @@ export const generateAllDummyData = () => {
     return acc;
   }, {});
 
+  const tenGigLinks = createItems(createTenGigLink, 25);
+
   const netTypes = [
     { id: 1, name: "L-Chart Network" },
     { id: 2, name: "P-Chart Network" },
     { id: 3, name: "Management" },
   ];
 
-  return { corePikudim, coreDevices, sites, deviceInfo, netTypes };
+  return { corePikudim, coreDevices, sites, deviceInfo, netTypes, tenGigLinks };
 };
