@@ -4,7 +4,7 @@ import { Provider } from "react-redux";
 import { store } from "./redux/store";
 import { BrowserRouter } from "react-router-dom";
 import { Sidebar } from "./components/ui/sidebar";
-import MainPage from "./MainPage";
+import MainPage from "./pages/MainPage";
 
 // SVG Icon for Fullscreen (Expand)
 export const FullscreenIcon = (

@@ -23,13 +23,9 @@ const corePikudimSlice = createSlice({
 
 export const { addCorePikudim, deleteCorePikudim } = corePikudimSlice.actions;
 
-// ===================================================================
-// ADD THE 'export' KEYWORD TO YOUR SELECTORS HERE
-// ===================================================================
 export const selectAllPikudim = (state) => state.corePikudim.items;
 
 export const selectPikudimById = (state, pikudimId) =>
   state.corePikudim.items.find((p) => p.id === pikudimId);
-// ===================================================================
 
 export default corePikudimSlice.reducer;

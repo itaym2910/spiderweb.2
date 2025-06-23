@@ -1,9 +1,9 @@
 // src/MainPage.js
 import React from "react";
-import { DashboardPage } from "./pages/DashboardPage";
-import { AlertsPage } from "./pages/AlertsPage";
-import { AdminPanelPage } from "./pages/AdminPanelPage";
-import SearchPage from "./pages/SearchPage";
+import { DashboardPage } from "./DashboardPage";
+import { AlertsPage } from "./AlertsPage";
+import { AdminPanelPage } from "./AdminPanelPage";
+import SearchPage from "./SearchPage";
 
 function MainPage({
   currentPage,
