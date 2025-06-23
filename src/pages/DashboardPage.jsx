@@ -1,4 +1,5 @@
 import React from "react";
+import { useSelector } from "react-redux";
 import {
   Routes,
   Route,
@@ -6,8 +7,8 @@ import {
   useLocation,
   Navigate,
 } from "react-router-dom";
-import { Card, CardContent } from "./components/ui/card";
-import { Button } from "./components/ui/button";
+import { Card, CardContent } from "../components/ui/card";
+import { Button } from "../components/ui/button";
 import {
   Table,
   TableHead,
@@ -15,18 +16,18 @@ import {
   TableBody,
   TableRow,
   TableCell,
-} from "./components/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "./components/ui/tabs";
+} from "../components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Star, ArrowUp, ArrowDown, XCircle } from "lucide-react";
 
-import NetworkVisualizerWrapper from "./components/NetworkVisualizerWrapper";
-import NetworkVisualizer5Wrapper from "./components/NetworkVisualizer5Wrapper";
-import CoreSitePage from "./components/CoreSite/CoreSitePage";
-import SiteDetailPage from "./components/end-site/SiteDetailPage";
-import { FullscreenIcon, ExitFullscreenIcon } from "./App";
+import NetworkVisualizerWrapper from "../components/NetworkVisualizerWrapper";
+import NetworkVisualizer5Wrapper from "../components/NetworkVisualizer5Wrapper";
+import CoreSitePage from "../components/CoreSite/CoreSitePage";
+import SiteDetailPage from "../components/end-site/SiteDetailPage";
+import { FullscreenIcon, ExitFullscreenIcon } from "../App";
 import { useDashboardLogic } from "./useDashboardLogic";
-import LinkTable from "./components/CoreDevice/LinkTable";
-import { sampleLinks } from "./components/CoreDevice/sampleLinkData";
+import LinkTable from "../components/CoreDevice/LinkTable";
+import { sampleLinks } from "../components/CoreDevice/sampleLinkData";
 
 // --- NEW: Import the custom hook ---
 import { useInterfaceData } from "./useInterfaceData";
@@ -80,6 +81,12 @@ export function DashboardPage({
     isAppFullscreen,
     isSidebarCollapsed,
   });
+
+  // Use useSelector to get the data from the Redux state
+  // eslint-disable-next-line no-unused-vars
+  const allPikudim = useSelector((state) => state.corePikudim.items);
+  // eslint-disable-next-line no-unused-vars
+  const allDevices = useSelector((state) => state.devices.items);
 
   // --- NEW: Use the custom hook to get interface data and logic ---
   const { interfaces, handleToggleFavorite } = useInterfaceData();

@@ -1,3 +1,5 @@
+// src/redux/slices/corePikudimSlice.js
+
 import { createSlice } from "@reduxjs/toolkit";
 import { generateAllDummyData } from "../dummyData";
 
@@ -7,24 +9,27 @@ const corePikudimSlice = createSlice({
   name: "corePikudim",
   initialState: {
     items: corePikudim,
-    status: "idle", // for async loading state later
+    status: "idle",
   },
   reducers: {
-    // Reducer for adding a new pikud
     addCorePikudim: (state, action) => {
-      // action.payload will be the new pikud object
       state.items.push(action.payload);
     },
-    // Reducer for deleting a pikud
     deleteCorePikudim: (state, action) => {
-      // action.payload will be the id of the pikud to delete
       state.items = state.items.filter((item) => item.id !== action.payload);
     },
   },
 });
 
-// Export the actions so our components can dispatch them
 export const { addCorePikudim, deleteCorePikudim } = corePikudimSlice.actions;
 
-// Export the reducer to be added to the store
+// ===================================================================
+// ADD THE 'export' KEYWORD TO YOUR SELECTORS HERE
+// ===================================================================
+export const selectAllPikudim = (state) => state.corePikudim.items;
+
+export const selectPikudimById = (state, pikudimId) =>
+  state.corePikudim.items.find((p) => p.id === pikudimId);
+// ===================================================================
+
 export default corePikudimSlice.reducer;

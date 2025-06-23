@@ -1,5 +1,7 @@
 // App.js
 import React, { useState, useEffect } from "react";
+import { Provider } from "react-redux";
+import { store } from "./redux/store";
 import { BrowserRouter } from "react-router-dom";
 import { Sidebar } from "./components/ui/sidebar";
 import MainPage from "./MainPage";
@@ -95,48 +97,50 @@ function App() {
     : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"; // ensure text is visible on hover
 
   return (
-    <BrowserRouter>
-      <div className="flex min-h-[100vh] bg-gray-100 dark:bg-gray-950 text-gray-800 dark:text-gray-100 transition-colors">
-        {!isFullscreen && ( // Sidebar is hidden in fullscreen
-          <Sidebar
-            currentPage={currentPage}
-            setCurrentPage={setCurrentPage}
-            collapsed={isSidebarCollapsed}
-            setCollapsed={setIsSidebarCollapsed}
-          />
-        )}
-        <main
-          className={`flex-1 overflow-y-hidden relative ${
-            isFullscreen ? "p-0" : "p-4 md:p-6"
-          }`}
-        >
-          {/* Header is hidden in fullscreen OR only shows page title if not dashboard */}
-          {(!isFullscreen || currentPage !== "Dashboard") && (
-            <header className="bg-white dark:bg-gray-800 shadow-sm p-4 mb-6 rounded-lg flex justify-between items-center">
-              <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-                {pageTitle}
-              </h1>
-              {/* REMOVE Fullscreen button from header */}
-            </header>
+    <Provider store={store}>
+      <BrowserRouter>
+        <div className="flex min-h-[100vh] bg-gray-100 dark:bg-gray-950 text-gray-800 dark:text-gray-100 transition-colors">
+          {!isFullscreen && ( // Sidebar is hidden in fullscreen
+            <Sidebar
+              currentPage={currentPage}
+              setCurrentPage={setCurrentPage}
+              collapsed={isSidebarCollapsed}
+              setCollapsed={setIsSidebarCollapsed}
+            />
           )}
+          <main
+            className={`flex-1 overflow-y-hidden relative ${
+              isFullscreen ? "p-0" : "p-4 md:p-6"
+            }`}
+          >
+            {/* Header is hidden in fullscreen OR only shows page title if not dashboard */}
+            {(!isFullscreen || currentPage !== "Dashboard") && (
+              <header className="bg-white dark:bg-gray-800 shadow-sm p-4 mb-6 rounded-lg flex justify-between items-center">
+                <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+                  {pageTitle}
+                </h1>
+                {/* REMOVE Fullscreen button from header */}
+              </header>
+            )}
 
-          {/* REMOVE Absolute positioned Exit Fullscreen button */}
+            {/* REMOVE Absolute positioned Exit Fullscreen button */}
 
-          <MainPage
-            currentPage={currentPage}
-            isFullscreen={isFullscreen}
-            isSidebarCollapsed={isSidebarCollapsed}
-            // --- PASS PROPS FOR FULLSCREEN BUTTON ---
-            toggleFullscreen={toggleFullscreen}
-            isAppDarkTheme={isAppDarkTheme} // To style the button
-            // Pass button classes or let DashboardPage define them
-            enterFullscreenButtonClasses={enterFullscreenButtonClasses}
-            exitFullscreenButtonClasses={exitFullscreenButtonClasses}
-            // --- END PASS PROPS ---
-          />
-        </main>
-      </div>
-    </BrowserRouter>
+            <MainPage
+              currentPage={currentPage}
+              isFullscreen={isFullscreen}
+              isSidebarCollapsed={isSidebarCollapsed}
+              // --- PASS PROPS FOR FULLSCREEN BUTTON ---
+              toggleFullscreen={toggleFullscreen}
+              isAppDarkTheme={isAppDarkTheme} // To style the button
+              // Pass button classes or let DashboardPage define them
+              enterFullscreenButtonClasses={enterFullscreenButtonClasses}
+              exitFullscreenButtonClasses={exitFullscreenButtonClasses}
+              // --- END PASS PROPS ---
+            />
+          </main>
+        </div>
+      </BrowserRouter>
+    </Provider>
   );
 }
 
