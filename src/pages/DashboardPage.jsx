@@ -19,7 +19,6 @@ import {
 } from "../components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Star, ArrowUp, ArrowDown, XCircle } from "lucide-react";
-
 import NetworkVisualizerWrapper from "../components/NetworkVisualizerWrapper";
 import NetworkVisualizer5Wrapper from "../components/NetworkVisualizer5Wrapper";
 import CoreSitePage from "../components/CoreSite/CoreSitePage";
@@ -28,9 +27,8 @@ import { FullscreenIcon, ExitFullscreenIcon } from "../App";
 import { useDashboardLogic } from "./useDashboardLogic";
 import LinkTable from "../components/CoreDevice/LinkTable";
 import { sampleLinks } from "../components/CoreDevice/sampleLinkData";
-
-// --- NEW: Import the custom hook ---
 import { useInterfaceData } from "./useInterfaceData";
+import { useRelatedDevices } from "./useRelatedDevices";
 
 // This helper component is for the new "All Interfaces" and "Favorites" tabs
 function StatusIndicator({ status }) {
@@ -52,13 +50,24 @@ function StatusIndicator({ status }) {
   );
 }
 
-// NodeDetailView remains the same
 function NodeDetailView() {
-  const { nodeId } = useParams();
+  const { nodeId, zoneId } = useParams();
+  const otherDevices = useRelatedDevices(nodeId, zoneId);
   const linksToDisplayInTable = sampleLinks;
+
+  const currentTheme = document.documentElement.classList.contains("dark")
+    ? "dark"
+    : "light";
+
   return (
     <div className="p-1">
-      <LinkTable coreDeviceName={nodeId} linksData={linksToDisplayInTable} />
+      <LinkTable
+        coreDeviceName={nodeId}
+        coreSiteName={zoneId}
+        linksData={linksToDisplayInTable}
+        otherDevicesInZone={otherDevices}
+        initialTheme={currentTheme}
+      />
     </div>
   );
 }

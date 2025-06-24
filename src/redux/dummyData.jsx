@@ -82,7 +82,7 @@ const createTenGigLink = (allDevices) => {
 // --- Main Export Function ---
 
 export const generateAllDummyData = () => {
-  const corePikudim = createItems(createCorePikudim, 5);
+  const corePikudim = createItems(createCorePikudim, 6);
 
   const coreDevices = corePikudim.flatMap((pikud) =>
     createItems(createCoreDevice, faker.number.int({ min: 2, max: 4 }), pikud)
