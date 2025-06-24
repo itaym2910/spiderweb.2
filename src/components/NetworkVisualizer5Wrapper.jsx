@@ -1,14 +1,55 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import NetworkVisualizer5 from "./chart/NetworkVisualizer5";
 import LinkDetailTabs from "./LinkDetailTabs";
 
-const NetworkVisualizer5Wrapper = ({ data, theme }) => {
+// --- NEW: Import selectors from your Redux slices ---
+import { selectAllPikudim } from "../redux/slices/corePikudimSlice";
+import { selectAllDevices } from "../redux/slices/devicesSlice";
+import { selectAllTenGigLinks } from "../redux/slices/tenGigLinksSlice";
+
+const NetworkVisualizer5Wrapper = ({ theme }) => {
   const navigate = useNavigate();
 
   // --- State reverted to ONLY manage LINK tabs ---
   const [openLinkTabs, setOpenLinkTabs] = useState([]);
   const [activeLinkTabId, setActiveLinkTabId] = useState(null);
+
+  // --- NEW: Fetch raw data from the Redux store ---
+  const pikudim = useSelector(selectAllPikudim);
+  const devices = useSelector(selectAllDevices);
+  const linksRaw = useSelector(selectAllTenGigLinks);
+
+  const graphData = useMemo(() => {
+    if (!pikudim.length || !devices.length) {
+      return { nodes: [], links: [] };
+    }
+
+    const pikudimMap = pikudim.reduce((acc, p) => {
+      acc[p.id] = p;
+      return acc;
+    }, {});
+
+    // 1. Transform devices into NODES
+    const transformedNodes = devices.map((device) => ({
+      id: device.hostname,
+      group: "node",
+      zone:
+        pikudimMap[device.core_pikudim_site_id]?.core_site_name ||
+        "Unknown Zone",
+    }));
+
+    // 2. Transform tenGigLinks into LINKS
+    const transformedLinks = linksRaw.map((link) => ({
+      id: link.id,
+      source: link.source,
+      target: link.target,
+      category: link.status, // Map 'status' to the 'category' field
+    }));
+
+    return { nodes: transformedNodes, links: transformedLinks };
+  }, [pikudim, devices, linksRaw]);
 
   const handleZoneClick = useCallback(
     (zoneId) => {
@@ -87,7 +128,7 @@ const NetworkVisualizer5Wrapper = ({ data, theme }) => {
       {/* 2. Network Visualizer */}
       <div className="flex-grow relative">
         <NetworkVisualizer5
-          data={data}
+          data={graphData}
           theme={theme}
           onZoneClick={handleZoneClick}
           onLinkClick={handleLinkClick}
