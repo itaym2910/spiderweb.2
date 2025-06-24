@@ -4,10 +4,9 @@ import { useSelector } from "react-redux";
 import NetworkVisualizer5 from "./chart/NetworkVisualizer5";
 import LinkDetailTabs from "./LinkDetailTabs";
 
-// --- NEW: Import selectors from your Redux slices ---
-import { selectAllPikudim } from "../redux/slices/corePikudimSlice";
-import { selectAllDevices } from "../redux/slices/devicesSlice";
-import { selectAllTenGigLinks } from "../redux/slices/tenGigLinksSlice";
+import { selectPikudimByTypeId } from "../redux/slices/corePikudimSlice";
+import { selectDevicesByTypeId } from "../redux/slices/devicesSlice";
+import { selectLinksByTypeId } from "../redux/slices/tenGigLinksSlice";
 
 const NetworkVisualizer5Wrapper = ({ theme }) => {
   const navigate = useNavigate();
@@ -16,10 +15,9 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
   const [openLinkTabs, setOpenLinkTabs] = useState([]);
   const [activeLinkTabId, setActiveLinkTabId] = useState(null);
 
-  // --- NEW: Fetch raw data from the Redux store ---
-  const pikudim = useSelector(selectAllPikudim);
-  const devices = useSelector(selectAllDevices);
-  const linksRaw = useSelector(selectAllTenGigLinks);
+  const pikudim = useSelector((state) => selectPikudimByTypeId(state, 2));
+  const devices = useSelector((state) => selectDevicesByTypeId(state, 2));
+  const linksRaw = useSelector((state) => selectLinksByTypeId(state, 2));
 
   const graphData = useMemo(() => {
     if (!pikudim.length || !devices.length) {

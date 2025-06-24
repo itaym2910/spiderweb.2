@@ -7,19 +7,21 @@ const createItems = (creator, count, ...args) => {
 
 // --- Individual Data Generators ---
 
-const createCorePikudim = () => ({
+const createCorePikudim = (typeId) => ({
   id: faker.number.int({ min: 1000, max: 9999 }),
   core_site_name: `Pikud-${faker.location.city()}`,
-  type_id: faker.helpers.arrayElement([1, 2]), // 1 for 'L', 2 for 'P'
+  type_id: typeId, // Use the provided typeId
   timestamp: faker.date.recent().toISOString(),
 });
 
-const createCoreDevice = (pikudim) => ({
+const createCoreDevice = (pikud) => ({
   id: faker.number.int({ min: 100, max: 999 }),
   hostname: `core-rtr-${faker.string.alphanumeric(4)}`,
   ip_address: faker.internet.ip(),
-  network_type_id: faker.helpers.arrayElement([1, 2, 3]),
-  core_pikudim_site_id: pikudim.id,
+  // Set network_type_id based on the parent pikud's type_id
+  // This makes filtering very easy later.
+  network_type_id: pikud.type_id, // 1 for L-chart devices, 2 for P-chart devices
+  core_pikudim_site_id: pikud.id,
   timestamp: faker.date.recent().toISOString(),
 });
 
@@ -58,23 +60,25 @@ const createInterfaceInfo = (deviceId) => ({
   timestamp: faker.date.recent().toISOString(),
 });
 
-// MODIFIED: This function now accepts the list of devices to create valid links
 const createTenGigLink = (allDevices) => {
-  // Pick two different random devices
   let sourceDevice, targetDevice;
   do {
     sourceDevice = faker.helpers.arrayElement(allDevices);
     targetDevice = faker.helpers.arrayElement(allDevices);
-  } while (sourceDevice.id === targetDevice.id);
+  } while (
+    sourceDevice.id === targetDevice.id ||
+    // Ensure links are only created between devices of the SAME type
+    sourceDevice.network_type_id !== targetDevice.network_type_id
+  );
 
   return {
     id: `link-10g-${faker.string.alphanumeric(8)}`,
-    // Use the hostnames from the actual devices
     source: sourceDevice.hostname,
     target: targetDevice.hostname,
+    // Add the network_type_id to the link itself for easy filtering
+    network_type_id: sourceDevice.network_type_id,
     ip: faker.internet.ip(),
     bandwidth: faker.helpers.arrayElement(["10Gbps", "40Gbps"]),
-    // Map the status to the categories the visualizer expects ('up', 'down', 'issue')
     status: faker.helpers.arrayElement(["up", "down", "issue"]),
   };
 };
@@ -82,7 +86,13 @@ const createTenGigLink = (allDevices) => {
 // --- Main Export Function ---
 
 export const generateAllDummyData = () => {
-  const corePikudim = createItems(createCorePikudim, 5);
+  // Create 6 Pikudim for L-chart (type 1)
+  const lChartPikudim = createItems(createCorePikudim, 6, 1);
+  // Create 5 Pikudim for P-chart (type 2)
+  const pChartPikudim = createItems(createCorePikudim, 5, 2);
+
+  // Combine them into a single list
+  const corePikudim = [...lChartPikudim, ...pChartPikudim];
 
   const coreDevices = corePikudim.flatMap((pikud) =>
     createItems(createCoreDevice, faker.number.int({ min: 2, max: 4 }), pikud)
@@ -101,13 +111,20 @@ export const generateAllDummyData = () => {
     return acc;
   }, {});
 
-  // MODIFIED: Pass the generated coreDevices to the link creator
-  const tenGigLinks = createItems(createTenGigLink, 25, coreDevices);
+  // We need to create links for each network type separately
+  const lChartDevices = coreDevices.filter((d) => d.network_type_id === 1);
+  const pChartDevices = coreDevices.filter((d) => d.network_type_id === 2);
+
+  // Create links ONLY between devices of the same type
+  const lChartLinks = createItems(createTenGigLink, 30, lChartDevices);
+  const pChartLinks = createItems(createTenGigLink, 25, pChartDevices);
+
+  // Combine them into a single list
+  const tenGigLinks = [...lChartLinks, ...pChartLinks];
 
   const netTypes = [
     { id: 1, name: "L-Chart Network" },
     { id: 2, name: "P-Chart Network" },
-    { id: 3, name: "Management" },
   ];
 
   return { corePikudim, coreDevices, sites, deviceInfo, netTypes, tenGigLinks };

@@ -4,10 +4,9 @@ import { useSelector } from "react-redux";
 import NetworkVisualizer from "./chart/NetworkVisualizer";
 import LinkDetailTabs from "./LinkDetailTabs";
 
-// Import selectors from your Redux slices
-import { selectAllPikudim } from "../redux/slices/corePikudimSlice";
-import { selectAllDevices } from "../redux/slices/devicesSlice";
-import { selectAllTenGigLinks } from "../redux/slices/tenGigLinksSlice";
+import { selectPikudimByTypeId } from "../redux/slices/corePikudimSlice";
+import { selectDevicesByTypeId } from "../redux/slices/devicesSlice";
+import { selectLinksByTypeId } from "../redux/slices/tenGigLinksSlice";
 
 const NetworkVisualizerWrapper = ({ theme }) => {
   // Removed `data` prop
@@ -17,10 +16,9 @@ const NetworkVisualizerWrapper = ({ theme }) => {
   const [openLinkTabs, setOpenLinkTabs] = useState([]);
   const [activeLinkTabId, setActiveLinkTabId] = useState(null);
 
-  // --- Fetch raw data from Redux store ---
-  const pikudim = useSelector(selectAllPikudim);
-  const devices = useSelector(selectAllDevices);
-  const linksRaw = useSelector(selectAllTenGigLinks);
+  const pikudim = useSelector((state) => selectPikudimByTypeId(state, 1));
+  const devices = useSelector((state) => selectDevicesByTypeId(state, 1));
+  const linksRaw = useSelector((state) => selectLinksByTypeId(state, 1));
 
   // --- Transform Redux data into the format D3 expects ---
   // useMemo will prevent re-calculating this on every render

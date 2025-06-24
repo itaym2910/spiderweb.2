@@ -21,4 +21,8 @@ const tenGigLinksSlice = createSlice({
 export const { addTenGigLink, deleteTenGigLink, updateTenGigLink } =
   tenGigLinksSlice.actions;
 export const selectAllTenGigLinks = (state) => state.tenGigLinks.items;
+
+export const selectLinksByTypeId = (state, typeId) =>
+  state.tenGigLinks.items.filter((l) => l.network_type_id === typeId);
+
 export default tenGigLinksSlice.reducer;
