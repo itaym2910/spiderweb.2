@@ -59,7 +59,8 @@ const createInterfaceInfo = (deviceId) => ({
 
 const createTenGigLink = () => ({
   id: `link-10g-${faker.string.alphanumeric(8)}`,
-  source: `core-rtr-${faker.location.cityAbbr()}`,
+  // FIX: Replaced stateAbbr() with state({ abbreviated: true })
+  source: `core-rtr-${faker.location.state({ abbreviated: true })}`,
   target: `dist-sw-${faker.string.alphanumeric(4)}`,
   ip: faker.internet.ip(),
   // The endpoint name implies 10G, so we'll make the data match that.
