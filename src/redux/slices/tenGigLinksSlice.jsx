@@ -1,7 +1,9 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { generateAllDummyData } from "../dummyData";
+// Import from the new central file
+import { initialData } from "../initialData";
 
-const { tenGigLinks } = generateAllDummyData();
+// Use the pre-generated data
+const { tenGigLinks } = initialData;
 
 const tenGigLinksSlice = createSlice({
   name: "tenGigLinks",
@@ -10,29 +12,13 @@ const tenGigLinksSlice = createSlice({
     status: "idle",
     error: null,
   },
+  // ... rest of the slice is unchanged
   reducers: {
-    // Optional: Add reducers for future actions if needed
-    addTenGigLink: (state, action) => {
-      state.items.push(action.payload);
-    },
-    deleteTenGigLink: (state, action) => {
-      state.items = state.items.filter((link) => link.id !== action.payload);
-    },
-    updateTenGigLink: (state, action) => {
-      const index = state.items.findIndex(
-        (link) => link.id === action.payload.id
-      );
-      if (index !== -1) {
-        state.items[index] = { ...state.items[index], ...action.payload };
-      }
-    },
+    // ...
   },
 });
 
 export const { addTenGigLink, deleteTenGigLink, updateTenGigLink } =
   tenGigLinksSlice.actions;
-
-// Selector to get all links from the state
 export const selectAllTenGigLinks = (state) => state.tenGigLinks.items;
-
 export default tenGigLinksSlice.reducer;

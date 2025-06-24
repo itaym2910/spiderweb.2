@@ -1,9 +1,9 @@
-// src/redux/slices/corePikudimSlice.js
-
 import { createSlice } from "@reduxjs/toolkit";
-import { generateAllDummyData } from "../dummyData";
+// Import from the new central file
+import { initialData } from "../initialData";
 
-const { corePikudim } = generateAllDummyData();
+// Use the pre-generated data
+const { corePikudim } = initialData;
 
 const corePikudimSlice = createSlice({
   name: "corePikudim",
@@ -11,6 +11,7 @@ const corePikudimSlice = createSlice({
     items: corePikudim,
     status: "idle",
   },
+  // ... rest of the slice is unchanged
   reducers: {
     addCorePikudim: (state, action) => {
       state.items.push(action.payload);
@@ -22,10 +23,7 @@ const corePikudimSlice = createSlice({
 });
 
 export const { addCorePikudim, deleteCorePikudim } = corePikudimSlice.actions;
-
 export const selectAllPikudim = (state) => state.corePikudim.items;
-
 export const selectPikudimById = (state, pikudimId) =>
   state.corePikudim.items.find((p) => p.id === pikudimId);
-
 export default corePikudimSlice.reducer;

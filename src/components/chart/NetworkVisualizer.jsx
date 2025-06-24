@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from "react";
 import * as d3 from "d3";
-import { NODES, LINKS } from "./constants"; // Assuming these are your data files
 import { linkPositionFromEdges, getNodeGroups } from "./drawHelpers";
 import { renderCoreDevices } from "./renderCoreDevices";
 import {
@@ -16,17 +15,9 @@ const NetworkVisualizer = ({
   onLinkClick,
   onNodeClick,
 }) => {
-  console.log(
-    "[NetworkVisualizer] Component rendering. Received onZoneClick prop. Type:",
-    typeof onZoneClick
-  );
   const svgRef = useRef();
 
   useEffect(() => {
-    console.log(
-      "[NetworkVisualizer useEffect] Inside useEffect. onZoneClick type:",
-      typeof onZoneClick
-    );
     const svgElement = svgRef.current;
     if (!svgElement) return; // Guard if ref not yet available
 
@@ -34,8 +25,17 @@ const NetworkVisualizer = ({
     const width = svgElement.clientWidth || window.innerWidth;
     const height = svgElement.clientHeight || window.innerHeight;
 
-    const nodes = structuredClone(NODES);
-    const links = structuredClone(LINKS);
+    // MODIFIED: Use the data from props instead of constants
+    const nodes = structuredClone(data.nodes || []);
+    const links = structuredClone(data.links || []);
+
+    // Guard against running with no data
+    if (nodes.length === 0) {
+      // Optional: clear the SVG if there's no data
+      d3.select(svgElement).selectAll("*").remove();
+      return;
+    }
+
     const NODE_GROUPS = getNodeGroups(nodes);
 
     const nodeMap = {};

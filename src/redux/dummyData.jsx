@@ -23,6 +23,7 @@ const createCoreDevice = (pikudim) => ({
   timestamp: faker.date.recent().toISOString(),
 });
 
+// ... (createSite and createInterfaceInfo remain unchanged) ...
 const createSite = (device) => ({
   id: faker.number.int({ min: 10000, max: 99999 }),
   interface_id: faker.number.int({ min: 1, max: 48 }),
@@ -57,17 +58,26 @@ const createInterfaceInfo = (deviceId) => ({
   timestamp: faker.date.recent().toISOString(),
 });
 
-const createTenGigLink = () => ({
-  id: `link-10g-${faker.string.alphanumeric(8)}`,
-  // FIX: Replaced stateAbbr() with state({ abbreviated: true })
-  source: `core-rtr-${faker.location.state({ abbreviated: true })}`,
-  target: `dist-sw-${faker.string.alphanumeric(4)}`,
-  ip: faker.internet.ip(),
-  // The endpoint name implies 10G, so we'll make the data match that.
-  bandwidth: faker.helpers.arrayElement(["10Gbps", "40Gbps"]),
-  // Use a more descriptive status for the UI
-  status: faker.helpers.arrayElement(["active", "inactive", "error"]),
-});
+// MODIFIED: This function now accepts the list of devices to create valid links
+const createTenGigLink = (allDevices) => {
+  // Pick two different random devices
+  let sourceDevice, targetDevice;
+  do {
+    sourceDevice = faker.helpers.arrayElement(allDevices);
+    targetDevice = faker.helpers.arrayElement(allDevices);
+  } while (sourceDevice.id === targetDevice.id);
+
+  return {
+    id: `link-10g-${faker.string.alphanumeric(8)}`,
+    // Use the hostnames from the actual devices
+    source: sourceDevice.hostname,
+    target: targetDevice.hostname,
+    ip: faker.internet.ip(),
+    bandwidth: faker.helpers.arrayElement(["10Gbps", "40Gbps"]),
+    // Map the status to the categories the visualizer expects ('up', 'down', 'issue')
+    status: faker.helpers.arrayElement(["up", "down", "issue"]),
+  };
+};
 
 // --- Main Export Function ---
 
@@ -82,7 +92,6 @@ export const generateAllDummyData = () => {
     createItems(createSite, faker.number.int({ min: 5, max: 10 }), device)
   );
 
-  // A map of deviceId to its list of interfaces
   const deviceInfo = coreDevices.reduce((acc, device) => {
     acc[device.id] = createItems(
       createInterfaceInfo,
@@ -92,7 +101,8 @@ export const generateAllDummyData = () => {
     return acc;
   }, {});
 
-  const tenGigLinks = createItems(createTenGigLink, 25);
+  // MODIFIED: Pass the generated coreDevices to the link creator
+  const tenGigLinks = createItems(createTenGigLink, 25, coreDevices);
 
   const netTypes = [
     { id: 1, name: "L-Chart Network" },

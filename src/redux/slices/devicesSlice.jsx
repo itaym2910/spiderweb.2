@@ -1,32 +1,25 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { generateAllDummyData } from "../dummyData";
+// Import from the new central file
+import { initialData } from "../initialData";
 
-const { coreDevices, deviceInfo } = generateAllDummyData();
+// Use the pre-generated data
+const { coreDevices, deviceInfo } = initialData;
 
 const devicesSlice = createSlice({
   name: "devices",
   initialState: {
     items: coreDevices,
-    deviceInfo: deviceInfo, // Store detailed interface info here
+    deviceInfo: deviceInfo,
     status: "idle",
   },
+  // ... rest of the slice is unchanged
   reducers: {
-    addCoreDevice: (state, action) => {
-      state.items.push(action.payload);
-    },
-    deleteDevice: (state, action) => {
-      state.items = state.items.filter((item) => item.id !== action.payload);
-      delete state.deviceInfo[action.payload]; // Also remove its detailed info
-    },
-    // This simulates the refresh action
-    refreshInterfacesForDevice: (state, action) => {
-      const deviceId = action.payload;
-      // In a real app, you'd fetch. Here, we can just log it.
-      console.log(`Simulating refresh for device: ${deviceId}`);
-    },
+    // ...
   },
 });
 
 export const { addCoreDevice, deleteDevice, refreshInterfacesForDevice } =
   devicesSlice.actions;
+export const selectAllDevices = (state) => state.devices.items;
+export const selectDeviceInfo = (state) => state.devices.deviceInfo;
 export default devicesSlice.reducer;
