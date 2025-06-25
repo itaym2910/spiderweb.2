@@ -23,6 +23,7 @@ import NetworkVisualizerWrapper from "../components/NetworkVisualizerWrapper";
 import NetworkVisualizer5Wrapper from "../components/NetworkVisualizer5Wrapper";
 import CoreSitePage from "../components/CoreSite/CoreSitePage";
 import SiteDetailPage from "../components/end-site/SiteDetailPage";
+import EndSiteIndexPage from "../components/end-site/EndSiteIndexPage";
 import { FullscreenIcon, ExitFullscreenIcon } from "../App";
 import { useDashboardLogic } from "./useDashboardLogic";
 import LinkTable from "../components/CoreDevice/LinkTable";
@@ -393,25 +394,16 @@ export function DashboardPage({
             />
 
             <Route
-              path="/sites/*"
+              path="/sites/*" // Keep the wildcard to allow for sub-routes
               element={
                 <Card className={getCardClassName("site")}>
                   <CardContent className={getCardContentClassName("site")}>
                     <div className="relative w-full h-full">
                       <Routes>
-                        <Route
-                          index
-                          element={
-                            <div className="p-6">
-                              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
-                                Site Information
-                              </h2>
-                              <p className="text-gray-700 dark:text-gray-300">
-                                Select a site to view details.
-                              </p>
-                            </div>
-                          }
-                        />
+                        {/* The base path `/sites` now renders the index page */}
+                        <Route index element={<EndSiteIndexPage />} />
+
+                        {/* The detail page is now a sub-route */}
                         <Route
                           path="site/:siteNavId"
                           element={<SiteDetailPageRouteElement />}
@@ -434,29 +426,19 @@ export function DashboardPage({
 
 function SiteDetailPageRouteElement() {
   const location = useLocation();
-  const { siteNavId } = useParams();
+  // We still get the siteData from the location state if it exists
   const siteDataFromState = location.state?.siteData;
 
-  if (!siteDataFromState) {
-    return (
-      <div className="p-6">
-        <h2 className="text-xl font-semibold text-red-700 dark:text-red-300">
-          Error
-        </h2>
-        <p className="text-gray-700 dark:text-gray-300">
-          Site data not found for ID: {siteNavId}. Please navigate from a valid
-          source.
-        </p>
-      </div>
-    );
-  }
-
-  return (
+  // If we have site data, show the detail page.
+  // Otherwise, show the index/search page.
+  return siteDataFromState ? (
     <SiteDetailPage
       siteData={siteDataFromState}
       initialTheme={
         document.documentElement.classList.contains("dark") ? "dark" : "light"
       }
     />
+  ) : (
+    <EndSiteIndexPage />
   );
 }
