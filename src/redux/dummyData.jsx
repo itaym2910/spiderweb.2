@@ -14,13 +14,12 @@ const createCorePikudim = (typeId) => ({
   timestamp: faker.date.recent().toISOString(),
 });
 
-const createCoreDevice = (pikud) => ({
+const createCoreDevice = (pikud, endingNumber) => ({
   id: faker.number.int({ min: 100, max: 999 }),
-  hostname: `core-rtr-${faker.string.alphanumeric(4)}`,
+  // The hostname is now constructed with the provided ending number
+  hostname: `rtr-${faker.string.alphanumeric(4)}-${endingNumber}`,
   ip_address: faker.internet.ip(),
-  // Set network_type_id based on the parent pikud's type_id
-  // This makes filtering very easy later.
-  network_type_id: pikud.type_id, // 1 for L-chart devices, 2 for P-chart devices
+  network_type_id: pikud.type_id,
   core_pikudim_site_id: pikud.id,
   timestamp: faker.date.recent().toISOString(),
 });
@@ -86,18 +85,32 @@ const createTenGigLink = (allDevices) => {
 // --- Main Export Function ---
 
 export const generateAllDummyData = () => {
-  // Create 6 Pikudim for L-chart (type 1)
+  // --- This part is unchanged ---
   const lChartPikudim = createItems(createCorePikudim, 6, 1);
-  // Create 5 Pikudim for P-chart (type 2)
   const pChartPikudim = createItems(createCorePikudim, 5, 2);
-
-  // Combine them into a single list
   const corePikudim = [...lChartPikudim, ...pChartPikudim];
 
-  const coreDevices = corePikudim.flatMap((pikud) =>
-    createItems(createCoreDevice, faker.number.int({ min: 2, max: 6 }), pikud)
-  );
+  // --- THIS IS THE NEW CORE LOGIC ---
+  const allowedEndings = [1, 2, 4, 5, 7, 8];
 
+  const coreDevices = corePikudim.flatMap((pikud) => {
+    // For each Pikud, determine how many devices to create (2 to 6)
+    const deviceCount = faker.number.int({ min: 2, max: 6 });
+
+    // Create an array to hold the devices for this specific Pikud
+    const devicesForThisPikud = [];
+
+    // Loop based on the determined count, but not exceeding the number of allowed endings
+    for (let i = 0; i < deviceCount && i < allowedEndings.length; i++) {
+      const endingNumber = allowedEndings[i]; // Get the ending number in order
+      const newDevice = createCoreDevice(pikud, endingNumber); // Pass it to the creator
+      devicesForThisPikud.push(newDevice);
+    }
+
+    return devicesForThisPikud;
+  });
+
+  // --- The rest of the function is unchanged ---
   const sites = coreDevices.flatMap((device) =>
     createItems(createSite, faker.number.int({ min: 5, max: 10 }), device)
   );
