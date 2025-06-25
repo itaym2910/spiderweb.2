@@ -34,11 +34,8 @@ export default function CoreSiteView({
   centerX,
   centerY,
   selectedNodeId,
-  onMainToggleSwitch,
   showExtendedNodes,
   onToggleExtendedNodes,
-  mainToggleNode1Text,
-  mainToggleNode2Text,
   onBackToChart,
   onSiteClick,
   onLinkClick,
@@ -143,10 +140,7 @@ export default function CoreSiteView({
         <CoreSiteControls
           theme={theme}
           displayZoneId={displayZoneId}
-          selectedNodeId={selectedNodeId}
-          onToggleSwitch={onMainToggleSwitch}
-          mainToggleOption1Text={mainToggleNode1Text}
-          mainToggleOption2Text={mainToggleNode2Text}
+          //selectedNodeId={selectedNodeId}
           zoneId={zoneId}
           showExtendedNodes={showExtendedNodes}
           onToggleExtendedNodes={onToggleExtendedNodes}

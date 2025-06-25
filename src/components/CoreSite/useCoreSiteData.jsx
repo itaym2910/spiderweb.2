@@ -32,11 +32,6 @@ export function useCoreSiteData(chartType) {
   const [showExtendedNodes, setShowExtendedNodes] = useState(false);
   const [animateExtendedLayoutUp, setAnimateExtendedLayoutUp] = useState(false);
   const [previousSelectedNodeId, setPreviousSelectedNodeId] = useState(null);
-
-  // --- State for the toggle switch text ---
-  const [mainToggleNode1Text, setMainToggleNode1Text] = useState("");
-  const [mainToggleNode2Text, setMainToggleNode2Text] = useState("");
-
   const [openDetailTabs, setOpenDetailTabs] = useState([]);
   const [activeDetailTabId, setActiveDetailTabId] = useState(null);
 
@@ -47,22 +42,6 @@ export function useCoreSiteData(chartType) {
       setPreviousSelectedNodeId(initialNodeId);
     }
   }, [devicesForZone, nodeIdFromUrl, selectedNodeId]);
-
-  useEffect(() => {
-    // Dynamically update toggle switch text based on the current view
-    let toggleDevice1, toggleDevice2;
-    if (showExtendedNodes) {
-      // Extended view toggle is for devices at index 4 and 5
-      toggleDevice1 = devicesForZone[4];
-      toggleDevice2 = devicesForZone[5];
-    } else {
-      // Initial view toggle is for devices at index 2 and 3
-      toggleDevice1 = devicesForZone[2];
-      toggleDevice2 = devicesForZone[3];
-    }
-    setMainToggleNode1Text(toggleDevice1?.hostname || "N/A");
-    setMainToggleNode2Text(toggleDevice2?.hostname || "N/A");
-  }, [showExtendedNodes, devicesForZone]);
 
   useEffect(() => {
     if (showExtendedNodes) {
@@ -131,31 +110,25 @@ export function useCoreSiteData(chartType) {
     });
   };
 
-  const handleMainToggleSwitch = () => {
-    const devicesInToggle = showExtendedNodes
-      ? [devicesForZone[4], devicesForZone[5]]
-      : [devicesForZone[2], devicesForZone[3]];
-
-    const device1 = devicesInToggle[0];
-    const device2 = devicesInToggle[1];
-
-    if (device1 && device2) {
-      setSelectedNodeId((prev) =>
-        prev === device1.hostname ? device2.hostname : device1.hostname
-      );
-    } else if (device1) {
-      setSelectedNodeId(device1.hostname); // If only one device, just select it
+  const onNodeClickInZone = (clickedNodeData) => {
+    if (!clickedNodeData || !clickedNodeData.id) {
+      console.warn("Node data incomplete for action:", clickedNodeData);
+      return;
     }
-  };
 
-  const onNodeClickInZone = (nodeData) => {
-    if (nodeData && nodeData.id) {
-      navigate(`node/${nodeData.id}`);
-    } else {
-      console.warn(
-        "CoreSitePage: Node data incomplete for navigation:",
-        nodeData
+    // --- THIS IS THE CORE LOGIC ---
+    if (clickedNodeData.id === selectedNodeId) {
+      // The user clicked on the node that is ALREADY focused.
+      // This is our trigger to navigate.
+      console.log(
+        `Navigating to details for already-focused node: ${clickedNodeData.id}`
       );
+      navigate(`node/${clickedNodeData.id}`);
+    } else {
+      // The user clicked on a DIFFERENT node.
+      // The action is to change the focus.
+      console.log(`Setting focus to ${clickedNodeData.id}`);
+      setSelectedNodeId(clickedNodeData.id);
     }
   };
 
@@ -258,11 +231,9 @@ export function useCoreSiteData(chartType) {
     centerX,
     centerY,
     selectedNodeId,
-    handleMainToggleSwitch,
     showExtendedNodes,
     handleToggleExtendedNodes,
-    mainToggleNode1Text,
-    mainToggleNode2Text,
+    devicesInZoneCount: devicesForZone.length,
     handleBackToChart,
     onSiteClick: handleSiteClick,
     onLinkClick: handleLinkClick,
@@ -271,7 +242,6 @@ export function useCoreSiteData(chartType) {
     activeDetailTabId,
     setActiveDetailTabId,
     handleCloseTab,
-    devicesInZoneCount: devicesForZone.length,
     handleNavigateToSite,
   };
 }
