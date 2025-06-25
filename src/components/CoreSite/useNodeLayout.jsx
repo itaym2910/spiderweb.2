@@ -3,7 +3,8 @@ export function useNodeLayout(
   height,
   showExtendedNodes,
   animateExtendedLayoutUp,
-  devicesForZone = [] // Accept the real devices, default to empty array
+  devicesForZone = [],
+  allLinksForChart = []
 ) {
   const centerX = width / 2;
   const mainZoneCenterY = height / 3;
@@ -30,7 +31,6 @@ export function useNodeLayout(
   let nodePositions = [];
   let currentDevices = [];
   let currentNodes = [];
-  const currentLinks = [];
 
   if (showExtendedNodes) {
     // --- EXTENDED LAYOUT ---
@@ -84,28 +84,28 @@ export function useNodeLayout(
     };
   });
 
-  // Create links between all visible nodes (positions)
-  // The parent hook will filter out links connected to "None" nodes.
-  const nodesForLinking = [
-    currentNodes[0], // Top-left
-    currentNodes[1], // Top-right
-    currentNodes[3], // Bottom-right
-    currentNodes[2], // Bottom-left
-  ];
+  // --- NEW LOGIC: Filter the real links instead of creating them ---
+  // 1. Create a Set of the hostnames for the currently visible nodes for fast lookups.
+  const visibleNodeIds = new Set(
+    currentNodes.filter((n) => n.id !== "None").map((n) => n.id)
+  );
 
-  for (let i = 0; i < nodesForLinking.length; i++) {
-    for (let j = i + 1; j < nodesForLinking.length; j++) {
-      currentLinks.push({
-        id: `link-${nodesForLinking[i].id}-${nodesForLinking[j].id}`,
-        source: nodesForLinking[i],
-        target: nodesForLinking[j],
-      });
-    }
-  }
+  // 2. Filter the master list of all links.
+  const visibleLinks = allLinksForChart.filter(
+    (link) => visibleNodeIds.has(link.source) && visibleNodeIds.has(link.target)
+  );
+
+  // 3. Map the filtered links to the D3 format, replacing string IDs with full node objects.
+  const nodeMap = new Map(currentNodes.map((node) => [node.id, node]));
+  const finalLinks = visibleLinks.map((link) => ({
+    ...link,
+    source: nodeMap.get(link.source),
+    target: nodeMap.get(link.target),
+  }));
 
   return {
     nodes: currentNodes,
-    links: currentLinks,
+    links: finalLinks, // <-- Return the filtered and mapped real links
     centerX: centerX,
     centerY: mainZoneCenterY,
   };

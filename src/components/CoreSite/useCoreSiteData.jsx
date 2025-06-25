@@ -10,6 +10,7 @@ import { useSelector } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
 import { useNodeLayout } from "./useNodeLayout";
 import { selectAllSites } from "../../redux/slices/sitesSlice";
+import { selectLinksByTypeId } from "../../redux/slices/tenGigLinksSlice";
 import { selectAllDevices } from "../../redux/slices/devicesSlice";
 import { selectAllPikudim } from "../../redux/slices/corePikudimSlice";
 
@@ -21,6 +22,9 @@ export function useCoreSiteData(chartType) {
   const allPikudim = useSelector(selectAllPikudim);
   const allDevices = useSelector(selectAllDevices);
   const allSites = useSelector(selectAllSites);
+  const allLinksForChart = useSelector((state) =>
+    selectLinksByTypeId(state, chartType === "P" ? 2 : 1)
+  );
 
   const devicesForZone = useMemo(() => {
     if (!zoneId || !allPikudim.length || !allDevices.length) return [];
@@ -102,7 +106,8 @@ export function useCoreSiteData(chartType) {
     dimensions.height,
     showExtendedNodes,
     animateExtendedLayoutUp,
-    devicesForZone
+    devicesForZone,
+    allLinksForChart
   );
 
   const nodes = layoutNodes.filter((node) => node.id !== "None");

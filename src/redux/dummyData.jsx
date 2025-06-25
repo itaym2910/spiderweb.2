@@ -59,61 +59,116 @@ const createInterfaceInfo = (deviceId) => ({
   timestamp: faker.date.recent().toISOString(),
 });
 
-const createTenGigLink = (allDevices) => {
-  let sourceDevice, targetDevice;
-  do {
-    sourceDevice = faker.helpers.arrayElement(allDevices);
-    targetDevice = faker.helpers.arrayElement(allDevices);
-  } while (
-    sourceDevice.id === targetDevice.id ||
-    // Ensure links are only created between devices of the SAME type
-    sourceDevice.network_type_id !== targetDevice.network_type_id
-  );
-
-  return {
-    id: `link-10g-${faker.string.alphanumeric(8)}`,
-    source: sourceDevice.hostname,
-    target: targetDevice.hostname,
-    // Add the network_type_id to the link itself for easy filtering
-    network_type_id: sourceDevice.network_type_id,
-    ip: faker.internet.ip(),
-    bandwidth: faker.helpers.arrayElement(["10Gbps", "40Gbps"]),
-    status: faker.helpers.arrayElement(["up", "down", "issue"]),
-  };
-};
+const createTenGigLink = (sourceDevice, targetDevice) => ({
+  id: `link-10g-${faker.string.alphanumeric(8)}`,
+  source: sourceDevice.hostname,
+  target: targetDevice.hostname,
+  network_type_id: sourceDevice.network_type_id,
+  ip: faker.internet.ip(),
+  bandwidth: faker.helpers.arrayElement(["10Gbps", "40Gbps"]),
+  status: faker.helpers.arrayElement(["up", "down", "issue"]),
+});
 
 // --- Main Export Function ---
 
 export const generateAllDummyData = () => {
-  // --- This part is unchanged ---
+  // --- 1. Generate Pikudim (Core Sites) and Devices ---
   const lChartPikudim = createItems(createCorePikudim, 6, 1);
   const pChartPikudim = createItems(createCorePikudim, 5, 2);
   const corePikudim = [...lChartPikudim, ...pChartPikudim];
 
-  // --- THIS IS THE NEW CORE LOGIC ---
   const allowedEndings = [1, 2, 4, 5, 7, 8];
-
   const coreDevices = corePikudim.flatMap((pikud) => {
-    // For each Pikud, determine how many devices to create (2 to 6)
     const deviceCount = faker.number.int({ min: 2, max: 6 });
-
-    // Create an array to hold the devices for this specific Pikud
     const devicesForThisPikud = [];
-
-    // Loop based on the determined count, but not exceeding the number of allowed endings
     for (let i = 0; i < deviceCount && i < allowedEndings.length; i++) {
-      const endingNumber = allowedEndings[i]; // Get the ending number in order
-      const newDevice = createCoreDevice(pikud, endingNumber); // Pass it to the creator
-      devicesForThisPikud.push(newDevice);
+      const endingNumber = allowedEndings[i];
+      devicesForThisPikud.push(createCoreDevice(pikud, endingNumber));
     }
-
     return devicesForThisPikud;
   });
 
+  // --- 2. Group Devices by their Core Site ID ---
+  const devicesBySite = new Map();
+  for (const device of coreDevices) {
+    if (!devicesBySite.has(device.core_pikudim_site_id)) {
+      devicesBySite.set(device.core_pikudim_site_id, []);
+    }
+    devicesBySite.get(device.core_pikudim_site_id).push(device);
+  }
+
+  // --- 3. Generate Structured "Same Site" Links ---
+  const sameSiteLinks = [];
+  const sameSitePairs = [
+    [1, 2],
+    [1, 4],
+    [1, 5],
+    [2, 4],
+    [2, 5],
+    [4, 5],
+    [4, 7],
+    [4, 8],
+    [5, 7],
+    [5, 8],
+    [7, 8],
+  ];
+
+  for (const siteDevices of devicesBySite.values()) {
+    // Create a quick lookup map of devices in this site by their ending number
+    const deviceMapByEnding = new Map();
+    for (const device of siteDevices) {
+      const ending = parseInt(device.hostname.split("-").pop(), 10);
+      deviceMapByEnding.set(ending, device);
+    }
+
+    // Iterate through the predefined pairs to create links
+    for (const [end1, end2] of sameSitePairs) {
+      if (deviceMapByEnding.has(end1) && deviceMapByEnding.has(end2)) {
+        const device1 = deviceMapByEnding.get(end1);
+        const device2 = deviceMapByEnding.get(end2);
+        sameSiteLinks.push(createTenGigLink(device1, device2));
+      }
+    }
+  }
+
+  // --- 4. Generate Random "Different Site" Links ---
+  const differentSiteLinks = [];
+  const lChartDevices = coreDevices.filter((d) => d.network_type_id === 1);
+  const pChartDevices = coreDevices.filter((d) => d.network_type_id === 2);
+
+  const createRandomInterSiteLinks = (deviceList, count) => {
+    const createdPairs = new Set(); // To prevent duplicate random links
+    for (let i = 0; i < count; i++) {
+      if (deviceList.length < 2) break; // Not enough devices to link
+      let sourceDevice, targetDevice, pairKey;
+
+      // Ensure we find two devices from different sites
+      do {
+        sourceDevice = faker.helpers.arrayElement(deviceList);
+        targetDevice = faker.helpers.arrayElement(deviceList);
+        const sortedIds = [sourceDevice.id, targetDevice.id].sort();
+        pairKey = `${sortedIds[0]}-${sortedIds[1]}`;
+      } while (
+        sourceDevice.core_pikudim_site_id ===
+          targetDevice.core_pikudim_site_id ||
+        createdPairs.has(pairKey)
+      );
+
+      differentSiteLinks.push(createTenGigLink(sourceDevice, targetDevice));
+      createdPairs.add(pairKey);
+    }
+  };
+
+  createRandomInterSiteLinks(lChartDevices, 40); // Create 40 random links for L-chart
+  createRandomInterSiteLinks(pChartDevices, 30); // Create 30 random links for P-chart
+
+  // --- 5. Combine All Links and Finalize Data ---
+  const tenGigLinks = [...sameSiteLinks, ...differentSiteLinks];
+
+  // The rest of the data generation remains unchanged
   const sites = coreDevices.flatMap((device) =>
     createItems(createSite, faker.number.int({ min: 5, max: 55 }), device)
   );
-
   const deviceInfo = coreDevices.reduce((acc, device) => {
     acc[device.id] = createItems(
       createInterfaceInfo,
@@ -122,18 +177,6 @@ export const generateAllDummyData = () => {
     );
     return acc;
   }, {});
-
-  // We need to create links for each network type separately
-  const lChartDevices = coreDevices.filter((d) => d.network_type_id === 1);
-  const pChartDevices = coreDevices.filter((d) => d.network_type_id === 2);
-
-  // Create links ONLY between devices of the same type
-  const lChartLinks = createItems(createTenGigLink, 30, lChartDevices);
-  const pChartLinks = createItems(createTenGigLink, 25, pChartDevices);
-
-  // Combine them into a single list
-  const tenGigLinks = [...lChartLinks, ...pChartLinks];
-
   const netTypes = [
     { id: 1, name: "L-Chart Network" },
     { id: 2, name: "P-Chart Network" },
