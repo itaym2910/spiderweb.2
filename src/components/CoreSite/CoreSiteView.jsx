@@ -43,7 +43,7 @@ export default function CoreSiteView({
   onSiteClick,
   onLinkClick,
   onNodeClick,
-  // --- NEW PROPS FOR TABS ---
+  devicesInZoneCount,
   openDetailTabs,
   activeDetailTabId,
   onSetActiveTab,
@@ -150,6 +150,7 @@ export default function CoreSiteView({
           zoneId={zoneId}
           showExtendedNodes={showExtendedNodes}
           onToggleExtendedNodes={onToggleExtendedNodes}
+          devicesInZoneCount={devicesInZoneCount}
         />
 
         {/* The canvas and sites bar also live in this container and are sized relative to it */}

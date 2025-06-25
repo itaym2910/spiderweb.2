@@ -95,7 +95,7 @@ export const generateAllDummyData = () => {
   const corePikudim = [...lChartPikudim, ...pChartPikudim];
 
   const coreDevices = corePikudim.flatMap((pikud) =>
-    createItems(createCoreDevice, faker.number.int({ min: 2, max: 4 }), pikud)
+    createItems(createCoreDevice, faker.number.int({ min: 2, max: 6 }), pikud)
   );
 
   const sites = coreDevices.flatMap((device) =>

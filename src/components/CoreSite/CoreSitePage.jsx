@@ -22,7 +22,7 @@ export default function CoreSitePage({ theme = "dark", chartType }) {
     onSiteClick,
     onLinkClick,
     onNodeClickInZone,
-    // --- NEW TAB STATE FROM HOOK ---
+    devicesInZoneCount,
     openDetailTabs,
     activeDetailTabId,
     setActiveDetailTabId,
@@ -50,7 +50,7 @@ export default function CoreSitePage({ theme = "dark", chartType }) {
       onSiteClick={onSiteClick}
       onLinkClick={onLinkClick}
       onNodeClick={onNodeClickInZone}
-      // --- PASS TAB PROPS TO VIEW ---
+      devicesInZoneCount={devicesInZoneCount}
       openDetailTabs={openDetailTabs}
       activeDetailTabId={activeDetailTabId}
       onSetActiveTab={setActiveDetailTabId}

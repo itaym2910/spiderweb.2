@@ -1,39 +1,68 @@
-// src/components/CoreSite/useCoreSiteData.js
 import {
   useState,
   useEffect,
   useLayoutEffect,
   useRef,
   useCallback,
+  useMemo,
 } from "react";
+import { useSelector } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
 import { useNodeLayout } from "./useNodeLayout";
+import { selectAllDevices } from "../../redux/slices/devicesSlice";
+import { selectAllPikudim } from "../../redux/slices/corePikudimSlice";
 
-// Add chartType as a parameter to the hook
 export function useCoreSiteData(chartType) {
-  const { zoneId, nodeId: nodeIdFromUrl } = useParams(); // Get nodeId from URL
+  const { zoneId, nodeId: nodeIdFromUrl } = useParams();
   const navigate = useNavigate();
   const containerRef = useRef(null);
 
+  const allDevices = useSelector(selectAllDevices);
+  const allPikudim = useSelector(selectAllPikudim);
+
+  const devicesForZone = useMemo(() => {
+    if (!zoneId || !allPikudim.length || !allDevices.length) return [];
+    const currentPikud = allPikudim.find((p) => p.core_site_name === zoneId);
+    if (!currentPikud) return [];
+    return allDevices.filter((d) => d.core_pikudim_site_id === currentPikud.id);
+  }, [zoneId, allDevices, allPikudim]);
+
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [selectedNodeId, setSelectedNodeId] = useState("Node 4");
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [showExtendedNodes, setShowExtendedNodes] = useState(false);
   const [animateExtendedLayoutUp, setAnimateExtendedLayoutUp] = useState(false);
-  const [previousSelectedNodeId, setPreviousSelectedNodeId] =
-    useState("Node 4");
-  const [mainToggleNode1Text, setMainToggleNode1Text] =
-    useState("Node 4 (80 Sites)");
-  const [mainToggleNode2Text, setMainToggleNode2Text] =
-    useState("Node 3 (30 Sites)");
+  const [previousSelectedNodeId, setPreviousSelectedNodeId] = useState(null);
 
-  // --- REPLACED POPUP MANAGER WITH TAB STATE ---
+  // --- State for the toggle switch text ---
+  const [mainToggleNode1Text, setMainToggleNode1Text] = useState("");
+  const [mainToggleNode2Text, setMainToggleNode2Text] = useState("");
+
   const [openDetailTabs, setOpenDetailTabs] = useState([]);
   const [activeDetailTabId, setActiveDetailTabId] = useState(null);
 
-  // useEffects for layout, animation, and zone changes remain the same
   useEffect(() => {
-    setSelectedNodeId(nodeIdFromUrl || "Node 4");
-  }, [nodeIdFromUrl]);
+    if (devicesForZone.length > 0 && !selectedNodeId) {
+      const initialNodeId = nodeIdFromUrl || devicesForZone[0].hostname;
+      setSelectedNodeId(initialNodeId);
+      setPreviousSelectedNodeId(initialNodeId);
+    }
+  }, [devicesForZone, nodeIdFromUrl, selectedNodeId]);
+
+  useEffect(() => {
+    // Dynamically update toggle switch text based on the current view
+    let toggleDevice1, toggleDevice2;
+    if (showExtendedNodes) {
+      // Extended view toggle is for devices at index 4 and 5
+      toggleDevice1 = devicesForZone[4];
+      toggleDevice2 = devicesForZone[5];
+    } else {
+      // Initial view toggle is for devices at index 2 and 3
+      toggleDevice1 = devicesForZone[2];
+      toggleDevice2 = devicesForZone[3];
+    }
+    setMainToggleNode1Text(toggleDevice1?.hostname || "N/A");
+    setMainToggleNode2Text(toggleDevice2?.hostname || "N/A");
+  }, [showExtendedNodes, devicesForZone]);
 
   useEffect(() => {
     if (showExtendedNodes) {
@@ -45,16 +74,8 @@ export function useCoreSiteData(chartType) {
     }
   }, [showExtendedNodes]);
 
-  useEffect(() => {
-    if (zoneId !== "Zone 5" && zoneId !== "Zone 6") {
-      setShowExtendedNodes(false);
-      setSelectedNodeId(previousSelectedNodeId || "Node 4");
-      setMainToggleNode1Text("Node 4 (80 Sites)");
-      setMainToggleNode2Text("Node 3 (30 Sites)");
-    }
-  }, [zoneId, previousSelectedNodeId]);
-
   useLayoutEffect(() => {
+    // This effect can be simplified or removed if not strictly needed
     setShowExtendedNodes(false);
   }, [zoneId]);
 
@@ -67,42 +88,63 @@ export function useCoreSiteData(chartType) {
         });
       }
     };
-    if (containerRef.current) {
-      updateDimensions();
-    }
+    if (containerRef.current) updateDimensions();
     window.addEventListener("resize", updateDimensions);
     return () => window.removeEventListener("resize", updateDimensions);
   }, []);
 
-  const { nodes, links, centerX, centerY } = useNodeLayout(
+  const {
+    nodes: layoutNodes,
+    links: layoutLinks,
+    centerX,
+    centerY,
+  } = useNodeLayout(
     dimensions.width,
     dimensions.height,
     showExtendedNodes,
-    animateExtendedLayoutUp
+    animateExtendedLayoutUp,
+    devicesForZone
+  );
+
+  const nodes = layoutNodes.filter((node) => node.id !== "None");
+  const links = layoutLinks.filter(
+    (link) => link.source.id !== "None" && link.target.id !== "None"
   );
 
   const handleToggleExtendedNodes = () => {
     setShowExtendedNodes((prevShowExtended) => {
       const nextShowExtended = !prevShowExtended;
       if (nextShowExtended) {
+        // Switching to extended view
         setPreviousSelectedNodeId(selectedNodeId);
-        setSelectedNodeId("Node 5");
-        setMainToggleNode1Text("Node 5 (80 Sites)");
-        setMainToggleNode2Text("Node 6 (30 Sites)");
+        // Select the first visible node in the new layout (device at index 2)
+        const newSelected = devicesForZone[2]?.hostname;
+        if (newSelected) setSelectedNodeId(newSelected);
       } else {
-        setSelectedNodeId(previousSelectedNodeId);
-        setMainToggleNode1Text("Node 4 (80 Sites)");
-        setMainToggleNode2Text("Node 3 (30 Sites)");
+        // Switching back to initial view
+        // Restore previous selection or default to first device
+        setSelectedNodeId(
+          previousSelectedNodeId || devicesForZone[0]?.hostname
+        );
       }
       return nextShowExtended;
     });
   };
 
   const handleMainToggleSwitch = () => {
-    if (showExtendedNodes) {
-      setSelectedNodeId((prev) => (prev === "Node 5" ? "Node 6" : "Node 5"));
-    } else {
-      setSelectedNodeId((prev) => (prev === "Node 4" ? "Node 3" : "Node 4"));
+    const devicesInToggle = showExtendedNodes
+      ? [devicesForZone[4], devicesForZone[5]]
+      : [devicesForZone[2], devicesForZone[3]];
+
+    const device1 = devicesInToggle[0];
+    const device2 = devicesInToggle[1];
+
+    if (device1 && device2) {
+      setSelectedNodeId((prev) =>
+        prev === device1.hostname ? device2.hostname : device1.hostname
+      );
+    } else if (device1) {
+      setSelectedNodeId(device1.hostname); // If only one device, just select it
     }
   };
 
@@ -117,7 +159,6 @@ export function useCoreSiteData(chartType) {
     }
   };
 
-  // --- NEW HANDLERS FOR THE TAB UI ---
   const addOrActivateTab = useCallback((payload) => {
     const { id, type } = payload;
     const tabId = `${type}-${id}`;
@@ -158,17 +199,14 @@ export function useCoreSiteData(chartType) {
   const handleNavigateToSite = useCallback(
     (siteData) => {
       if (siteData.navId) {
-        // --- THIS IS THE FIX ---
-        // Add a second argument to navigate() to pass state.
         navigate(`/sites/site/${siteData.navId}`, {
-          state: { siteData: siteData }, // Pass the data payload here
+          state: { siteData: siteData },
         });
       }
     },
     [navigate]
   );
 
-  // --- MODIFIED CLICK HANDLERS ---
   const handleSiteClick = (siteIndex, siteName) => {
     const navigationId = `${zoneId}-Site${siteIndex + 1}`;
     const siteDetailPayload = {
@@ -177,9 +215,8 @@ export function useCoreSiteData(chartType) {
       name: siteName,
       type: "site",
       zone: zoneId,
-      // ... same data as before
       physicalStatus: Math.random() > 0.2 ? "Up" : "Down",
-      protocolStatus: Math.random() > 0.2 ? "Up" : "Down", // Changed to match StatusBulb
+      protocolStatus: Math.random() > 0.2 ? "Up" : "Down",
       ospfStatus: "Full",
       mplsStatus: "Active",
       description: `Detailed description for ${siteName} in ${zoneId}.`,
@@ -200,7 +237,7 @@ export function useCoreSiteData(chartType) {
       linkBandwidth: `${Math.floor(Math.random() * 1000) + 100} Gbps`,
       latency: `${Math.floor(Math.random() * 50) + 1} ms`,
       utilization: `${Math.floor(Math.random() * 100)}%`,
-      status: Math.random() > 0.15 ? "up" : "down", // Changed to match StatusBulb
+      status: Math.random() > 0.15 ? "up" : "down",
       linkId: linkData.id,
       linkDescription: "Core fiber optic interconnect.",
     };
@@ -208,7 +245,7 @@ export function useCoreSiteData(chartType) {
   };
 
   const handleBackToChart = () => {
-    const basePath = chartType === "p-chart" ? "/p-chart" : "/l-chart";
+    const basePath = chartType === "P" ? "/p-chart" : "/l-chart";
     navigate(basePath);
   };
 
@@ -230,11 +267,11 @@ export function useCoreSiteData(chartType) {
     onSiteClick: handleSiteClick,
     onLinkClick: handleLinkClick,
     onNodeClickInZone: onNodeClickInZone,
-    // --- EXPORT NEW TAB STATE AND HANDLERS ---
     openDetailTabs,
     activeDetailTabId,
-    setActiveDetailTabId, // Pass the setter directly
+    setActiveDetailTabId,
     handleCloseTab,
+    devicesInZoneCount: devicesForZone.length,
     handleNavigateToSite,
   };
 }
