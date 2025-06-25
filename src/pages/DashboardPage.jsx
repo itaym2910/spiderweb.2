@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { useSelector } from "react-redux";
 import {
   Routes,
@@ -28,8 +28,11 @@ import { FullscreenIcon, ExitFullscreenIcon } from "../App";
 import { useDashboardLogic } from "./useDashboardLogic";
 import LinkTable from "../components/CoreDevice/LinkTable";
 import { useInterfaceData } from "./useInterfaceData";
+import AllInterfacesPage from "./AllInterfacesPage";
 import { useRelatedDevices } from "./useRelatedDevices";
-import { useLinkTableData } from "./useLinkTableData";
+import { selectAllDevices } from "../redux/slices/devicesSlice";
+import { selectAllSites } from "../redux/slices/sitesSlice";
+import { selectAllTenGigLinks } from "../redux/slices/tenGigLinksSlice";
 
 // This helper component is for the new "All Interfaces" and "Favorites" tabs
 function StatusIndicator({ status }) {
@@ -52,11 +55,96 @@ function StatusIndicator({ status }) {
 }
 
 function NodeDetailView({ chartType }) {
-  const { nodeId, zoneId } = useParams();
+  const { nodeId: deviceHostname, zoneId } = useParams();
 
-  const otherDevices = useRelatedDevices(nodeId, zoneId);
-  // Pass the chartType prop to the hook
-  const linksForTable = useLinkTableData(chartType);
+  // 1. Fetch ALL necessary raw data from Redux using stable selectors.
+  const allDevices = useSelector(selectAllDevices);
+  const allSites = useSelector(selectAllSites);
+  const allLinks = useSelector(selectAllTenGigLinks);
+
+  // This hook for related devices is simple and can stay.
+  const otherDevicesInZone = useRelatedDevices(deviceHostname, zoneId);
+
+  // 2. Perform ALL filtering and data transformation inside a single, stable useMemo.
+  // This is the key to preventing the duplication bug.
+  const linksForTable = useMemo(() => {
+    // Add console.log to see when this expensive calculation runs
+    // console.log(`Calculating links for: ${deviceHostname}`);
+
+    if (
+      !deviceHostname ||
+      !chartType ||
+      !allDevices.length ||
+      !allLinks.length
+    ) {
+      return [];
+    }
+
+    // Filter core links by the chart type ('L' or 'P')
+    const typeId = chartType === "P" ? 2 : 1;
+    const allCoreLinksForChart = allLinks.filter(
+      (link) => link.network_type_id === typeId
+    );
+
+    const currentDevice = allDevices.find((d) => d.hostname === deviceHostname);
+    if (!currentDevice) return [];
+
+    const deviceMapByHostname = new Map(allDevices.map((d) => [d.hostname, d]));
+
+    // --- Inter-Core Links ---
+    const interCoreLinks = allCoreLinksForChart
+      .filter(
+        (link) =>
+          link.source === deviceHostname || link.target === deviceHostname
+      )
+      .map((link) => {
+        const otherDeviceHostname =
+          link.source === deviceHostname ? link.target : link.source;
+        const otherDevice = deviceMapByHostname.get(otherDeviceHostname);
+
+        let linkType = "inter-core-different-site";
+        if (
+          otherDevice &&
+          otherDevice.core_pikudim_site_id ===
+            currentDevice.core_pikudim_site_id
+        ) {
+          linkType = "inter-core-same-site";
+        }
+
+        return {
+          id: link.id,
+          name: `Link to ${otherDeviceHostname}`,
+          description: `Inter-Core Link (${
+            linkType.includes("same") ? "Same Site" : "Different Site"
+          })`,
+          status: link.status,
+          bandwidth: link.bandwidth,
+          ospfStatus: "Enabled",
+          mplsStatus: "Enabled",
+          type: linkType,
+        };
+      });
+
+    // --- Core-to-Site Links ---
+    const coreToSiteLinks = allSites
+      .filter((site) => site.device_id === currentDevice.id)
+      .map((site) => ({
+        id: `site-link-${site.id}`,
+        name: site.site_name_english,
+        description: `Connection to End-Site`,
+        status: "up",
+        bandwidth: "1 Gbps",
+        ospfStatus: "N/A",
+        mplsStatus: "N/A",
+        type: "core-to-site",
+        additionalDetails: {
+          mediaType: "Ethernet/Fiber",
+          containerName: site.site_name_hebrew,
+        },
+      }));
+
+    return [...interCoreLinks, ...coreToSiteLinks];
+  }, [deviceHostname, chartType, allDevices, allSites, allLinks]); // Dependencies
 
   const currentTheme = document.documentElement.classList.contains("dark")
     ? "dark"
@@ -65,10 +153,10 @@ function NodeDetailView({ chartType }) {
   return (
     <div className="p-1">
       <LinkTable
-        coreDeviceName={nodeId}
+        coreDeviceName={deviceHostname}
         coreSiteName={zoneId}
-        linksData={linksForTable}
-        otherDevicesInZone={otherDevices}
+        linksData={linksForTable} // Pass the memoized, stable data
+        otherDevicesInZone={otherDevicesInZone}
         initialTheme={currentTheme}
       />
     </div>
@@ -247,7 +335,6 @@ export function DashboardPage({
                 </Card>
               }
             />
-            {/* --- NEW: /all_interfaces route --- */}
             <Route
               path="/all_interfaces"
               element={
@@ -255,61 +342,8 @@ export function DashboardPage({
                   <CardContent
                     className={getCardContentClassName("all_interfaces")}
                   >
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Interface</TableHead>
-                          <TableHead>Device</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Traffic (In / Out)</TableHead>
-                          <TableHead>Errors (In / Out)</TableHead>
-                          <TableHead className="text-right">Favorite</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {interfaces.map((iface) => (
-                          <TableRow key={iface.id}>
-                            <TableCell>
-                              <div className="font-medium">
-                                {iface.interfaceName}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                {iface.description}
-                              </div>
-                            </TableCell>
-                            <TableCell>{iface.deviceName}</TableCell>
-                            <TableCell>
-                              <StatusIndicator status={iface.status} />
-                            </TableCell>
-                            <TableCell>{`${iface.trafficIn} / ${iface.trafficOut}`}</TableCell>
-                            <TableCell
-                              className={
-                                iface.errors.in > 0 || iface.errors.out > 0
-                                  ? "font-bold text-orange-600 dark:text-orange-400"
-                                  : ""
-                              }
-                            >
-                              {`${iface.errors.in} / ${iface.errors.out}`}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleToggleFavorite(iface.id)}
-                              >
-                                <Star
-                                  className={`h-5 w-5 transition-colors ${
-                                    iface.isFavorite
-                                      ? "text-yellow-500 fill-yellow-400"
-                                      : "text-gray-400 hover:text-yellow-500"
-                                  }`}
-                                />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                    {/* Simply render the new component */}
+                    <AllInterfacesPage />
                   </CardContent>
                 </Card>
               }

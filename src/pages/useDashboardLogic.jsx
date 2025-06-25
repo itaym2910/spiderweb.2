@@ -1,137 +1,99 @@
-// src/useDashboardLogic.js
-import { useState, useEffect, useRef } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useState, useMemo } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
+/**
+ * A custom hook to manage the shared logic for the main dashboard UI,
+ * including tab navigation and state synchronization with the URL.
+ *
+ * @param {object} props - Component props.
+ * @param {boolean} props.isAppFullscreen - Whether the entire app is in fullscreen mode.
+ * @param {boolean} props.isSidebarCollapsed - Whether the main sidebar is collapsed.
+ * @returns {object} - An object containing state and handlers for the dashboard.
+ */
 export function useDashboardLogic({ isAppFullscreen, isSidebarCollapsed }) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const getBasePathForTab = (tabValue) => {
-    switch (tabValue) {
-      case "table":
-        return "/mainlines";
-      case "l_network":
-        return "/l-chart";
-      case "p_network":
-        return "/p-chart";
-      case "site":
-        return "/sites";
-      default:
-        return "/mainlines";
-    }
+  /**
+   * Determines the active tab value based on the current URL path.
+   * This is used to initialize the state and to synchronize the UI
+   * when the user navigates using browser back/forward buttons.
+   * @param {string} path - The current location.pathname.
+   * @returns {string} The corresponding tab value.
+   */
+  const getTabValueFromPath = (path) => {
+    if (path.startsWith("/l-chart")) return "l_network";
+    if (path.startsWith("/p-chart")) return "p_network";
+    if (path.startsWith("/sites")) return "site";
+    if (path.startsWith("/all_interfaces")) return "all_interfaces";
+    if (path.startsWith("/favorites")) return "favorites";
+    return "favorites"; // Default to 'favorites' if no match is found
   };
 
-  const getTabFromPath = (pathname) => {
-    if (pathname.startsWith("/sites")) return "site";
-    if (pathname.startsWith("/l-chart")) return "l_network";
-    if (pathname.startsWith("/p-chart")) return "p_network";
-    if (pathname === "/mainlines") return "table";
-    // Default for "/" (before redirect) or any other unhandled path
-    return "table";
-  };
-
-  const [theme, setTheme] = useState(
-    document.documentElement.classList.contains("dark") ? "dark" : "light"
+  // State to keep track of the currently active tab.
+  // It's initialized based on the current URL path.
+  const [activeTabValue, setActiveTabValue] = useState(
+    getTabValueFromPath(location.pathname)
   );
 
-  // Initialize activeTabValue directly from the current URL path.
-  // The useEffect below will keep it in sync.
-  const [activeTabValue, setActiveTabValue] = useState(() => {
-    return getTabFromPath(location.pathname);
-  });
-
-  const tabContentCardRef = useRef(null); // Still potentially useful for popupAnchor
-  const [popupAnchorCoords, setPopupAnchorCoords] = useState({
-    top: 20,
-    right: 20,
-  });
-
+  // This effect listens for changes in the URL (e.g., from browser navigation)
+  // and updates the active tab state to keep the UI in sync.
   useEffect(() => {
-    const observer = new MutationObserver(() => {
-      setTheme(
-        document.documentElement.classList.contains("dark") ? "dark" : "light"
-      );
-    });
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const updateAnchor = () => {
-      // Logic for popupAnchorCoords remains the same
-      // It might need adjustment if tabContentCardRef is no longer reliable due to Cards being in Routes
-      // For now, assuming the fallback or existing logic is acceptable.
-      if (
-        tabContentCardRef.current &&
-        activeTabValue !== "l_network" &&
-        activeTabValue !== "p_network" &&
-        activeTabValue !== "site"
-      ) {
-        // Example condition if ref is specific
-        const rect = tabContentCardRef.current.getBoundingClientRect();
-        setPopupAnchorCoords({
-          top: rect.top,
-          right: window.innerWidth - rect.right,
-        });
-      } else {
-        // Fallback for charts or if ref is not specific to current view
-        const appHeader = document.querySelector("header"); // This might be null in fullscreen
-        const mainPadding = isAppFullscreen ? 0 : 24;
-        let topOffset = mainPadding;
-        if (appHeader) {
-          topOffset = appHeader.getBoundingClientRect().bottom + mainPadding;
-        } else if (!isAppFullscreen) {
-          // If no header but not fullscreen, assume some top padding
-          topOffset = 20; // Default dashboard padding
-        } else {
-          topOffset = 20; // Default for fullscreen charts
-        }
-        setPopupAnchorCoords({
-          top: topOffset,
-          right: mainPadding + 20, // Add some offset from edge
-        });
-      }
-    };
-    updateAnchor();
-    window.addEventListener("resize", updateAnchor);
-    return () => window.removeEventListener("resize", updateAnchor);
-  }, [activeTabValue, isAppFullscreen, isSidebarCollapsed]); // Re-calculate if these change
-
-  // Sync activeTabValue WITH URL changes. This is the primary mechanism.
-  useEffect(() => {
-    const newTabBasedOnUrl = getTabFromPath(location.pathname);
-    if (newTabBasedOnUrl !== activeTabValue) {
-      setActiveTabValue(newTabBasedOnUrl);
+    const newTabValue = getTabValueFromPath(location.pathname);
+    if (newTabValue !== activeTabValue) {
+      setActiveTabValue(newTabValue);
     }
-  }, [activeTabValue, location.pathname]); // IMPORTANT: Only location.pathname. activeTabValue derived from it.
+  }, [location.pathname, activeTabValue]);
 
-  const handleTabChangeForNavigation = (newClickedTabValue) => {
-    const targetPath = getBasePathForTab(newClickedTabValue);
-
-    // Only navigate. The useEffect above will sync activeTabValue from the URL.
-    if (location.pathname !== targetPath) {
-      navigate(targetPath);
-    } else {
-      // If already on the target path, but the tab click was for the same logical tab,
-      // ensure activeTabValue is correctly set (e.g., if initial state was slightly off).
-      // This is a defensive measure.
-      if (activeTabValue !== newClickedTabValue) {
-        setActiveTabValue(newClickedTabValue);
-      }
+  /**
+   * Handles the click event on a tab. It determines the correct URL path
+   * for the clicked tab's value and navigates to it.
+   * @param {string} value - The value of the clicked shadcn/ui TabsTrigger.
+   */
+  const handleTabChangeForNavigation = (value) => {
+    let path;
+    switch (value) {
+      case "l_network":
+        path = "/l-chart";
+        break;
+      case "p_network":
+        path = "/p-chart";
+        break;
+      case "site":
+        path = "/sites";
+        break;
+      case "all_interfaces":
+        path = "/all_interfaces"; // Correctly maps to the all_interfaces path
+        break;
+      case "favorites":
+      default:
+        path = "/favorites";
+        break;
+    }
+    // Navigate to the new path if it's different from the current one
+    if (path !== location.pathname) {
+      navigate(path);
     }
   };
 
-  const chartKeySuffix = `${isAppFullscreen}-${isSidebarCollapsed}`;
+  // This memoized value creates a unique key suffix for the visualizer components.
+  // This is useful for forcing a re-mount and re-render of the D3 charts
+  // when certain UI states change (like entering fullscreen or collapsing the sidebar),
+  // which might affect their container dimensions.
+  const chartKeySuffix = useMemo(() => {
+    return `${isAppFullscreen}-${isSidebarCollapsed}`;
+  }, [isAppFullscreen, isSidebarCollapsed]);
 
+  // The hook returns all the state and handlers that the DashboardPage component needs.
   return {
-    theme,
+    theme: document.documentElement.classList.contains("dark")
+      ? "dark"
+      : "light",
     activeTabValue,
-    tabContentCardRef, // Pass it, DashboardPage might assign it to the correct Card conditionally
-    popupAnchorCoords,
     handleTabChangeForNavigation,
     chartKeySuffix,
+    // Note: popupAnchorCoords was in the original code but seems unused.
+    // I'm keeping it here in case it's used by code not provided.
+    popupAnchorCoords: null,
   };
 }
