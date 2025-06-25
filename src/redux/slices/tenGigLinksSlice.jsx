@@ -1,8 +1,6 @@
-import { createSlice } from "@reduxjs/toolkit";
-// Import from the new central file
+import { createSlice, createSelector } from "@reduxjs/toolkit"; // Import createSelector
 import { initialData } from "../initialData";
 
-// Use the pre-generated data
 const { tenGigLinks } = initialData;
 
 const tenGigLinksSlice = createSlice({
@@ -20,9 +18,21 @@ const tenGigLinksSlice = createSlice({
 
 export const { addTenGigLink, deleteTenGigLink, updateTenGigLink } =
   tenGigLinksSlice.actions;
+
+// --- Selectors ---
+
 export const selectAllTenGigLinks = (state) => state.tenGigLinks.items;
 
-export const selectLinksByTypeId = (state, typeId) =>
-  state.tenGigLinks.items.filter((l) => l.network_type_id === typeId);
+// --- MEMOIZED SELECTOR ---
+const selectLinkItems = (state) => state.tenGigLinks.items;
+const selectTypeIdFromLink = (state, typeId) => typeId;
+
+export const selectLinksByTypeId = createSelector(
+  [selectLinkItems, selectTypeIdFromLink],
+  (links, typeId) => {
+    if (!typeId) return [];
+    return links.filter((l) => l.network_type_id === typeId);
+  }
+);
 
 export default tenGigLinksSlice.reducer;

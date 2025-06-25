@@ -1,8 +1,6 @@
-import { createSlice } from "@reduxjs/toolkit";
-// Import from the new central file
+import { createSlice, createSelector } from "@reduxjs/toolkit"; // Import createSelector
 import { initialData } from "../initialData";
 
-// Use the pre-generated data
 const { corePikudim } = initialData;
 
 const corePikudimSlice = createSlice({
@@ -23,11 +21,24 @@ const corePikudimSlice = createSlice({
 });
 
 export const { addCorePikudim, deleteCorePikudim } = corePikudimSlice.actions;
+
+// --- Selectors ---
+
 export const selectAllPikudim = (state) => state.corePikudim.items;
+
 export const selectPikudimById = (state, pikudimId) =>
   state.corePikudim.items.find((p) => p.id === pikudimId);
 
-export const selectPikudimByTypeId = (state, typeId) =>
-  state.corePikudim.items.filter((p) => p.type_id === typeId);
+// --- MEMOIZED SELECTOR ---
+const selectPikudimItems = (state) => state.corePikudim.items;
+const selectTypeId = (state, typeId) => typeId;
+
+export const selectPikudimByTypeId = createSelector(
+  [selectPikudimItems, selectTypeId],
+  (pikudim, typeId) => {
+    if (!typeId) return [];
+    return pikudim.filter((p) => p.type_id === typeId);
+  }
+);
 
 export default corePikudimSlice.reducer;

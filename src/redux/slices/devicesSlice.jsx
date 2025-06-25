@@ -1,8 +1,6 @@
-import { createSlice } from "@reduxjs/toolkit";
-// Import from the new central file
+import { createSlice, createSelector } from "@reduxjs/toolkit"; // Import createSelector
 import { initialData } from "../initialData";
 
-// Use the pre-generated data
 const { coreDevices, deviceInfo } = initialData;
 
 const devicesSlice = createSlice({
@@ -20,10 +18,22 @@ const devicesSlice = createSlice({
 
 export const { addCoreDevice, deleteDevice, refreshInterfacesForDevice } =
   devicesSlice.actions;
+
+// --- Selectors ---
+
 export const selectAllDevices = (state) => state.devices.items;
 export const selectDeviceInfo = (state) => state.devices.deviceInfo;
 
-export const selectDevicesByTypeId = (state, typeId) =>
-  state.devices.items.filter((d) => d.network_type_id === typeId);
+// --- MEMOIZED SELECTOR ---
+const selectDeviceItems = (state) => state.devices.items;
+const selectTypeIdFromDevice = (state, typeId) => typeId;
+
+export const selectDevicesByTypeId = createSelector(
+  [selectDeviceItems, selectTypeIdFromDevice],
+  (devices, typeId) => {
+    if (!typeId) return [];
+    return devices.filter((d) => d.network_type_id === typeId);
+  }
+);
 
 export default devicesSlice.reducer;

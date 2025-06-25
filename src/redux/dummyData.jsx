@@ -110,9 +110,8 @@ export const generateAllDummyData = () => {
     return devicesForThisPikud;
   });
 
-  // --- The rest of the function is unchanged ---
   const sites = coreDevices.flatMap((device) =>
-    createItems(createSite, faker.number.int({ min: 5, max: 10 }), device)
+    createItems(createSite, faker.number.int({ min: 5, max: 55 }), device)
   );
 
   const deviceInfo = coreDevices.reduce((acc, device) => {

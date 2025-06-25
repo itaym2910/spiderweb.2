@@ -9,6 +9,7 @@ import {
 import { useSelector } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
 import { useNodeLayout } from "./useNodeLayout";
+import { selectAllSites } from "../../redux/slices/sitesSlice";
 import { selectAllDevices } from "../../redux/slices/devicesSlice";
 import { selectAllPikudim } from "../../redux/slices/corePikudimSlice";
 
@@ -17,8 +18,9 @@ export function useCoreSiteData(chartType) {
   const navigate = useNavigate();
   const containerRef = useRef(null);
 
-  const allDevices = useSelector(selectAllDevices);
   const allPikudim = useSelector(selectAllPikudim);
+  const allDevices = useSelector(selectAllDevices);
+  const allSites = useSelector(selectAllSites);
 
   const devicesForZone = useMemo(() => {
     if (!zoneId || !allPikudim.length || !allDevices.length) return [];
@@ -34,6 +36,24 @@ export function useCoreSiteData(chartType) {
   const [previousSelectedNodeId, setPreviousSelectedNodeId] = useState(null);
   const [openDetailTabs, setOpenDetailTabs] = useState([]);
   const [activeDetailTabId, setActiveDetailTabId] = useState(null);
+
+  const sitesForFocusedNode = useMemo(() => {
+    // This logic will only re-run if allDevices, selectedNodeId, or allSites changes.
+    if (!selectedNodeId || !allDevices.length || !allSites.length) {
+      return [];
+    }
+
+    // 1. Find the full device object for the selectedNodeId (which is a hostname)
+    const focusedDevice = allDevices.find((d) => d.hostname === selectedNodeId);
+
+    // 2. If we found the device, use its real ID to filter the sites
+    if (focusedDevice) {
+      return allSites.filter((site) => site.device_id === focusedDevice.id);
+    }
+
+    // 3. Otherwise, return an empty array
+    return [];
+  }, [allDevices, selectedNodeId, allSites]);
 
   useEffect(() => {
     if (devicesForZone.length > 0 && !selectedNodeId) {
@@ -180,22 +200,16 @@ export function useCoreSiteData(chartType) {
     [navigate]
   );
 
-  const handleSiteClick = (siteIndex, siteName) => {
-    const navigationId = `${zoneId}-Site${siteIndex + 1}`;
+  const handleSiteClick = (siteData) => {
+    // Modified to accept the whole site object
     const siteDetailPayload = {
-      id: navigationId,
-      navId: navigationId,
-      name: siteName,
+      id: siteData.id, // Use the real ID
+      navId: `site-${siteData.id}`,
+      name: siteData.site_name_english, // Use the real name
       type: "site",
       zone: zoneId,
-      physicalStatus: Math.random() > 0.2 ? "Up" : "Down",
-      protocolStatus: Math.random() > 0.2 ? "Up" : "Down",
-      ospfStatus: "Full",
-      mplsStatus: "Active",
-      description: `Detailed description for ${siteName} in ${zoneId}.`,
-      mediaType: "Fiber",
-      cdpNeighbors: "Core-Router-A",
-      containerName: "Rack 4, Unit 8",
+      // You can add more real data from the site object here if needed
+      description: `Details for ${siteData.site_name_english}`,
     };
     addOrActivateTab(siteDetailPayload);
   };
@@ -235,6 +249,7 @@ export function useCoreSiteData(chartType) {
     handleToggleExtendedNodes,
     devicesInZoneCount: devicesForZone.length,
     handleBackToChart,
+    sitesForFocusedNode,
     onSiteClick: handleSiteClick,
     onLinkClick: handleLinkClick,
     onNodeClickInZone: onNodeClickInZone,

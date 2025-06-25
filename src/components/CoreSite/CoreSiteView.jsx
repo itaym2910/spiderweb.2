@@ -37,6 +37,7 @@ export default function CoreSiteView({
   showExtendedNodes,
   onToggleExtendedNodes,
   onBackToChart,
+  sites,
   onSiteClick,
   onLinkClick,
   onNodeClick,
@@ -169,6 +170,7 @@ export default function CoreSiteView({
           focusedNodeId={selectedNodeId}
           siteRefs={siteRefs}
           theme={theme}
+          sites={sites}
           onSiteClick={onSiteClick}
         />
       </div>
