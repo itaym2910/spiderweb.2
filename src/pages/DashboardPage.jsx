@@ -26,9 +26,9 @@ import SiteDetailPage from "../components/end-site/SiteDetailPage";
 import { FullscreenIcon, ExitFullscreenIcon } from "../App";
 import { useDashboardLogic } from "./useDashboardLogic";
 import LinkTable from "../components/CoreDevice/LinkTable";
-import { sampleLinks } from "../components/CoreDevice/sampleLinkData";
 import { useInterfaceData } from "./useInterfaceData";
 import { useRelatedDevices } from "./useRelatedDevices";
+import { useLinkTableData } from "./useLinkTableData";
 
 // This helper component is for the new "All Interfaces" and "Favorites" tabs
 function StatusIndicator({ status }) {
@@ -50,10 +50,12 @@ function StatusIndicator({ status }) {
   );
 }
 
-function NodeDetailView() {
+function NodeDetailView({ chartType }) {
   const { nodeId, zoneId } = useParams();
+
   const otherDevices = useRelatedDevices(nodeId, zoneId);
-  const linksToDisplayInTable = sampleLinks;
+  // Pass the chartType prop to the hook
+  const linksForTable = useLinkTableData(chartType);
 
   const currentTheme = document.documentElement.classList.contains("dark")
     ? "dark"
@@ -64,7 +66,7 @@ function NodeDetailView() {
       <LinkTable
         coreDeviceName={nodeId}
         coreSiteName={zoneId}
-        linksData={linksToDisplayInTable}
+        linksData={linksForTable}
         otherDevicesInZone={otherDevices}
         initialTheme={currentTheme}
       />

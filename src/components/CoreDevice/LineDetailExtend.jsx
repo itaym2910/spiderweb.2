@@ -29,10 +29,6 @@ const LinkDetailRow = ({ link, isParentSelectedAndDark }) => {
     typeof link.issueType === "string" &&
     link.issueType.trim() !== "";
 
-  // Debugging logs (you can remove these once the issue is resolved)
-  // console.log(`Link ID: ${link.id}, Status: ${link.status}, IssueType: ${link.issueType}, HasIssueType: ${hasRelevantIssueType}`);
-  // console.log(`Link ID: ${link.id}, AdditionalDetails: ${JSON.stringify(link.additionalDetails)}, HasAdditionalDetails: ${hasAdditionalDetails}`);
-
   const tdClasses = `relative -left-[4px]`;
 
   const detailRowBackground = isParentSelectedAndDark

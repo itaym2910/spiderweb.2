@@ -41,16 +41,35 @@ const LinkTable = ({
 
   useEffect(() => {
     let currentLinks = [...linksData];
+
+    // 1. Filter by Link Type first (no change here)
     if (linkTypeFilter !== "all") {
       currentLinks = currentLinks.filter(
         (link) => link && link.type === linkTypeFilter
       );
     }
-    if (statusFilter !== "all") {
+
+    // 2. Apply status filtering with the new logic
+    if (statusFilter === "issue") {
+      // SPECIAL CASE: When "Issue" is selected...
+      // First, get all 'down' and 'issue' links.
+      const problemLinks = currentLinks.filter(
+        (link) => link && (link.status === "down" || link.status === "issue")
+      );
+      // Then, sort them to put 'down' links first.
+      problemLinks.sort((a, b) => {
+        if (a.status === "down" && b.status !== "down") return -1; // a (down) comes before b
+        if (a.status !== "down" && b.status === "down") return 1; // b (down) comes before a
+        return 0; // maintain original order for links with same status
+      });
+      currentLinks = problemLinks;
+    } else if (statusFilter !== "all") {
+      // Standard filtering for 'up', 'down', or any other status
       currentLinks = currentLinks.filter(
         (link) => link && link.status === statusFilter
       );
     }
+
     setFilteredLinks(currentLinks);
   }, [linksData, linkTypeFilter, statusFilter]);
 
