@@ -3,34 +3,64 @@ import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import NetworkVisualizer5 from "./chart/NetworkVisualizer5";
 import LinkDetailTabs from "./LinkDetailTabs";
-
 import { selectPikudimByTypeId } from "../redux/slices/corePikudimSlice";
 import { selectDevicesByTypeId } from "../redux/slices/devicesSlice";
 import { selectLinksByTypeId } from "../redux/slices/tenGigLinksSlice";
 
+function selectTopTwoDevices(devices) {
+  if (devices.length <= 2) return devices;
+  const priorityOrder = [4, 5, 1, 2, 7, 8];
+  const sortedDevices = [...devices].sort((a, b) => {
+    const a_ending = parseInt(a.hostname.split("-").pop(), 10);
+    const b_ending = parseInt(b.hostname.split("-").pop(), 10);
+    const a_priority = priorityOrder.indexOf(a_ending);
+    const b_priority = priorityOrder.indexOf(b_ending);
+    const final_a_priority = a_priority === -1 ? 99 : a_priority;
+    const final_b_priority = b_priority === -1 ? 99 : b_priority;
+    return final_a_priority - final_b_priority;
+  });
+  return sortedDevices.slice(0, 2);
+}
+
 const NetworkVisualizer5Wrapper = ({ theme }) => {
   const navigate = useNavigate();
 
-  // --- State reverted to ONLY manage LINK tabs ---
   const [openLinkTabs, setOpenLinkTabs] = useState([]);
   const [activeLinkTabId, setActiveLinkTabId] = useState(null);
 
   const pikudim = useSelector((state) => selectPikudimByTypeId(state, 2));
-  const devices = useSelector((state) => selectDevicesByTypeId(state, 2));
+  const allDevicesForType = useSelector((state) =>
+    selectDevicesByTypeId(state, 2)
+  );
   const linksRaw = useSelector((state) => selectLinksByTypeId(state, 2));
 
   const graphData = useMemo(() => {
-    if (!pikudim.length || !devices.length) {
+    if (!pikudim.length || !allDevicesForType.length) {
       return { nodes: [], links: [] };
     }
+
+    const devicesByPikudId = allDevicesForType.reduce((acc, device) => {
+      const siteId = device.core_pikudim_site_id;
+      if (!acc[siteId]) {
+        acc[siteId] = [];
+      }
+      acc[siteId].push(device);
+      return acc;
+    }, {});
+
+    const topDevicesPerPikud = Object.values(devicesByPikudId).flatMap(
+      (deviceGroup) => selectTopTwoDevices(deviceGroup)
+    );
+
+    const visibleDeviceHostnames = new Set(
+      topDevicesPerPikud.map((d) => d.hostname)
+    );
 
     const pikudimMap = pikudim.reduce((acc, p) => {
       acc[p.id] = p;
       return acc;
     }, {});
-
-    // 1. Transform devices into NODES
-    const transformedNodes = devices.map((device) => ({
+    const transformedNodes = topDevicesPerPikud.map((device) => ({
       id: device.hostname,
       group: "node",
       zone:
@@ -38,16 +68,21 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
         "Unknown Zone",
     }));
 
-    // 2. Transform tenGigLinks into LINKS
-    const transformedLinks = linksRaw.map((link) => ({
-      id: link.id,
-      source: link.source,
-      target: link.target,
-      category: link.status, // Map 'status' to the 'category' field
-    }));
+    const transformedLinks = linksRaw
+      .filter(
+        (link) =>
+          visibleDeviceHostnames.has(link.source) &&
+          visibleDeviceHostnames.has(link.target)
+      )
+      .map((link) => ({
+        id: link.id,
+        source: link.source,
+        target: link.target,
+        category: link.status,
+      }));
 
     return { nodes: transformedNodes, links: transformedLinks };
-  }, [pikudim, devices, linksRaw]);
+  }, [pikudim, allDevicesForType, linksRaw]);
 
   const handleZoneClick = useCallback(
     (zoneId) => {

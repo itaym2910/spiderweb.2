@@ -3,38 +3,68 @@ import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import NetworkVisualizer from "./chart/NetworkVisualizer";
 import LinkDetailTabs from "./LinkDetailTabs";
-
 import { selectPikudimByTypeId } from "../redux/slices/corePikudimSlice";
 import { selectDevicesByTypeId } from "../redux/slices/devicesSlice";
 import { selectLinksByTypeId } from "../redux/slices/tenGigLinksSlice";
 
+function selectTopTwoDevices(devices) {
+  if (devices.length <= 2) return devices;
+  const priorityOrder = [4, 5, 1, 2, 7, 8];
+  const sortedDevices = [...devices].sort((a, b) => {
+    const a_ending = parseInt(a.hostname.split("-").pop(), 10);
+    const b_ending = parseInt(b.hostname.split("-").pop(), 10);
+    const a_priority = priorityOrder.indexOf(a_ending);
+    const b_priority = priorityOrder.indexOf(b_ending);
+    const final_a_priority = a_priority === -1 ? 99 : a_priority;
+    const final_b_priority = b_priority === -1 ? 99 : b_priority;
+    return final_a_priority - final_b_priority;
+  });
+  return sortedDevices.slice(0, 2);
+}
+
 const NetworkVisualizerWrapper = ({ theme }) => {
-  // Removed `data` prop
   const navigate = useNavigate();
 
-  // --- State for LINK tabs remains the same ---
   const [openLinkTabs, setOpenLinkTabs] = useState([]);
   const [activeLinkTabId, setActiveLinkTabId] = useState(null);
 
   const pikudim = useSelector((state) => selectPikudimByTypeId(state, 1));
-  const devices = useSelector((state) => selectDevicesByTypeId(state, 1));
+  const allDevicesForType = useSelector((state) =>
+    selectDevicesByTypeId(state, 1)
+  );
   const linksRaw = useSelector((state) => selectLinksByTypeId(state, 1));
 
-  // --- Transform Redux data into the format D3 expects ---
-  // useMemo will prevent re-calculating this on every render
   const graphData = useMemo(() => {
-    if (!pikudim.length || !devices.length) {
+    if (!pikudim.length || !allDevicesForType.length) {
       return { nodes: [], links: [] };
     }
 
-    // Create a quick lookup map for Pikudim names
+    // 1. Group all devices by their parent site ID
+    const devicesByPikudId = allDevicesForType.reduce((acc, device) => {
+      const siteId = device.core_pikudim_site_id;
+      if (!acc[siteId]) {
+        acc[siteId] = [];
+      }
+      acc[siteId].push(device);
+      return acc;
+    }, {});
+
+    // 2. For each group, select the top 2 devices using our priority logic
+    const topDevicesPerPikud = Object.values(devicesByPikudId).flatMap(
+      (deviceGroup) => selectTopTwoDevices(deviceGroup)
+    );
+
+    // 3. Create a set of the visible device hostnames for easy link filtering
+    const visibleDeviceHostnames = new Set(
+      topDevicesPerPikud.map((d) => d.hostname)
+    );
+
+    // 4. Transform the selected devices into NODES for D3
     const pikudimMap = pikudim.reduce((acc, p) => {
       acc[p.id] = p;
       return acc;
     }, {});
-
-    // 1. Transform devices into NODES
-    const transformedNodes = devices.map((device) => ({
+    const transformedNodes = topDevicesPerPikud.map((device) => ({
       id: device.hostname,
       group: "node",
       zone:
@@ -42,17 +72,22 @@ const NetworkVisualizerWrapper = ({ theme }) => {
         "Unknown Zone",
     }));
 
-    // 2. Transform tenGigLinks into LINKS
-    const transformedLinks = linksRaw.map((link) => ({
-      id: link.id,
-      source: link.source,
-      target: link.target,
-      // Map the 'status' field to the 'category' field the visualizer expects
-      category: link.status,
-    }));
+    // 5. Filter the raw links to only include those between visible nodes
+    const transformedLinks = linksRaw
+      .filter(
+        (link) =>
+          visibleDeviceHostnames.has(link.source) &&
+          visibleDeviceHostnames.has(link.target)
+      )
+      .map((link) => ({
+        id: link.id,
+        source: link.source,
+        target: link.target,
+        category: link.status,
+      }));
 
     return { nodes: transformedNodes, links: transformedLinks };
-  }, [pikudim, devices, linksRaw]);
+  }, [pikudim, allDevicesForType, linksRaw]);
 
   const handleZoneClick = useCallback(
     (zoneId) => {
