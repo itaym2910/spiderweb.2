@@ -158,8 +158,8 @@ export const generateAllDummyData = () => {
     }
   };
 
-  createRandomInterSiteLinks(lChartDevices, 40);
-  createRandomInterSiteLinks(pChartDevices, 30);
+  createRandomInterSiteLinks(lChartDevices, 50);
+  createRandomInterSiteLinks(pChartDevices, 40);
 
   const tenGigLinks = [...sameSiteLinks, ...differentSiteLinks];
 

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { useInterfaceData } from "./useInterfaceData"; // Assuming this hook provides all data
+import { useInterfaceData } from "./useInterfaceData"; // The hook now provides the device options
 import { Button } from "../components/ui/button";
 import {
   Table,
@@ -50,28 +50,32 @@ const FavoriteButton = ({ isFavorite, onClick }) => (
 
 // Main Component
 export default function AllInterfacesPage() {
-  const { interfaces, handleToggleFavorite } = useInterfaceData();
+  // --- UPDATED: Get the new filter options list from the hook ---
+  const { interfaces, handleToggleFavorite, deviceFilterOptions } =
+    useInterfaceData();
+
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-
-  // Create a list of unique device names for the filter dropdown
-  const uniqueDeviceNames = useMemo(() => {
-    const names = new Set(interfaces.map((iface) => iface.deviceName));
-    return ["all", ...Array.from(names).sort()];
-  }, [interfaces]);
   const [deviceFilter, setDeviceFilter] = useState("all");
+
+  // --- REMOVED: The old logic to generate device names from the interface list is no longer needed.
 
   const filteredInterfaces = useMemo(() => {
     return interfaces.filter((iface) => {
-      // Status Filter
+      // Status Filter (no change)
       if (statusFilter !== "all" && iface.status !== statusFilter) {
         return false;
       }
-      // Device Filter
-      if (deviceFilter !== "all" && iface.deviceName !== deviceFilter) {
+
+      // --- UPDATED: Device Filter Logic ---
+      // Instead of an exact match, check if the `iface.deviceName` string
+      // INCLUDES the selected device from the filter. This correctly handles
+      // core links like "rtr-a <-> rtr-b" when you filter for "rtr-a".
+      if (deviceFilter !== "all" && !iface.deviceName.includes(deviceFilter)) {
         return false;
       }
-      // Search Term Filter (checks interface name, description, and device name)
+
+      // Search Term Filter (no change)
       if (searchTerm) {
         const lowercasedTerm = searchTerm.toLowerCase();
         return (
@@ -114,7 +118,8 @@ export default function AllInterfacesPage() {
             className="mt-1 w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
-        {/* Device Filter */}
+
+        {/* --- UPDATED: Device Filter Dropdown --- */}
         <div>
           <label
             htmlFor="device-filter"
@@ -128,13 +133,15 @@ export default function AllInterfacesPage() {
             onChange={(e) => setDeviceFilter(e.target.value)}
             className="mt-1 w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500"
           >
-            {uniqueDeviceNames.map((name) => (
+            {/* Map over the new, clean list provided by the hook */}
+            {deviceFilterOptions.map((name) => (
               <option key={name} value={name}>
                 {name === "all" ? "All Devices" : name}
               </option>
             ))}
           </select>
         </div>
+
         {/* Status Filter */}
         <div>
           <label
@@ -152,12 +159,11 @@ export default function AllInterfacesPage() {
             <option value="all">All Statuses</option>
             <option value="Up">Up</option>
             <option value="Down">Down</option>
-            <option value="Admin Down">Admin Down</option>
           </select>
         </div>
       </div>
 
-      {/* --- Interfaces Table --- */}
+      {/* --- Interfaces Table (No change to this structure) --- */}
       <div className="flex-grow overflow-auto border dark:border-gray-700 rounded-lg">
         <Table>
           <TableHeader className="sticky top-0 bg-gray-50 dark:bg-gray-700">
