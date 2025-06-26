@@ -1,15 +1,17 @@
-// App.js
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Provider } from "react-redux";
 import { store } from "./redux/store";
-import { BrowserRouter } from "react-router-dom";
-import { Sidebar } from "./components/ui/sidebar";
-import MainPage from "./pages/MainPage";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 
-// SVG Icon for Fullscreen (Expand)
-export const FullscreenIcon = (
-  { className = "w-5 h-5" } // Export for use in DashboardPage
-) => (
+// Component & Page Imports
+import { Sidebar } from "./components/ui/sidebar";
+import { DashboardPage } from "./pages/DashboardPage";
+import { AdminPanelPage } from "./pages/AdminPanelPage";
+import { AlertsPage } from "./pages/AlertsPage";
+import SearchPage from "./pages/SearchPage";
+
+// --- NOTE: These SVG components could be moved to a dedicated file for cleanliness ---
+export const FullscreenIcon = ({ className = "w-5 h-5" }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
@@ -26,10 +28,7 @@ export const FullscreenIcon = (
   </svg>
 );
 
-// SVG Icon for Exit Fullscreen (Compress)
-export const ExitFullscreenIcon = (
-  { className = "w-5 h-5" } // Export for use in DashboardPage
-) => (
+export const ExitFullscreenIcon = ({ className = "w-5 h-5" }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
@@ -46,99 +45,130 @@ export const ExitFullscreenIcon = (
   </svg>
 );
 
-function App() {
-  const [currentPage, setCurrentPage] = useState("Dashboard");
+/**
+ * AppLayout is a new component that manages the main application structure.
+ * It contains the Sidebar and the main content area where pages are routed.
+ * It's responsible for managing UI state like sidebar collapse and fullscreen.
+ */
+function AppLayout() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isAppDarkTheme, setIsAppDarkTheme] = useState(
-    document.documentElement.classList.contains("dark")
-  );
+  const location = useLocation(); // Hook to get the current URL path
 
-  let pageTitle = currentPage;
-  if (currentPage === "Notifications") {
-    pageTitle = "Alerts";
-  }
+  // --- REPLACED `currentPage` state ---
+  // We now derive the active page label directly from the URL.
+  // This ensures the UI is always in sync with the URL.
+  const activePageLabel = useMemo(() => {
+    const path = location.pathname;
+    if (path.startsWith("/admin")) return "Admin Panel";
+    if (path.startsWith("/search")) return "Search";
+    if (path.startsWith("/notifications")) return "Alerts"; // Use a consistent title
+    if (path.startsWith("/help")) return "Help";
+    if (path.startsWith("/settings")) return "Settings";
+    // Default for "/", "/sites", "/l-chart", etc.
+    return "Dashboard";
+  }, [location.pathname]);
 
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      setIsAppDarkTheme(document.documentElement.classList.contains("dark"));
-    });
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-    return () => observer.disconnect();
-  }, []);
+  const isDashboardActive = activePageLabel === "Dashboard";
 
+  // Fullscreen logic is now based on the derived active page
   const toggleFullscreen = () => {
-    // Keep the logic that fullscreen is only for Dashboard
-    if (currentPage !== "Dashboard") {
-      if (isFullscreen) setIsFullscreen(false); // Exit fullscreen if leaving dashboard
-      return;
-    }
+    if (!isDashboardActive) return;
     setIsFullscreen(!isFullscreen);
   };
 
   useEffect(() => {
-    // If navigating away from Dashboard while in fullscreen, exit fullscreen.
-    if (isFullscreen && currentPage !== "Dashboard") {
+    // Automatically exit fullscreen if we navigate away from the dashboard
+    if (isFullscreen && !isDashboardActive) {
       setIsFullscreen(false);
     }
-  }, [currentPage, isFullscreen]);
+  }, [isFullscreen, isDashboardActive]);
 
-  // Button classes can now be defined in DashboardPage if preferred, or passed down.
-  // For simplicity here, we'll keep them, but they could also be reconstructed in DashboardPage.
-  const exitFullscreenButtonClasses = isAppDarkTheme
-    ? "bg-gray-700 text-white hover:bg-gray-600"
-    : "bg-gray-200 text-gray-700 hover:bg-gray-300";
+  return (
+    <div className="flex min-h-[100vh] bg-gray-100 dark:bg-gray-950 text-gray-800 dark:text-gray-100 transition-colors">
+      {!isFullscreen && (
+        <Sidebar
+          currentPage={activePageLabel}
+          collapsed={isSidebarCollapsed}
+          setCollapsed={setIsSidebarCollapsed}
+        />
+      )}
+      <main
+        className={`flex-1 flex flex-col overflow-y-auto relative ${
+          isFullscreen ? "p-0" : "p-4 md:p-6"
+        }`}
+      >
+        {/* The Header is now part of the main layout, displayed for all pages */}
+        {!isFullscreen && (
+          <header className="bg-white dark:bg-gray-800 shadow-sm p-4 mb-6 rounded-lg shrink-0">
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+              {activePageLabel}
+            </h1>
+          </header>
+        )}
 
-  const enterFullscreenButtonClasses = isAppDarkTheme
-    ? "text-gray-300 hover:bg-gray-700 hover:text-white" // ensure text is visible on hover
-    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"; // ensure text is visible on hover
+        {/* This wrapper ensures the routed content fills the remaining vertical space */}
+        <div className="flex-1 min-h-0">
+          {/*
+            The <Routes> component is the new "page switcher", replacing MainPage.js.
+            It listens to the URL and renders the matching component.
+          */}
+          <Routes>
+            <Route path="/admin" element={<AdminPanelPage />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/notifications" element={<AlertsPage />} />
+            <Route
+              path="/help"
+              element={
+                <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow">
+                  Help Page Content
+                </div>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow">
+                  Settings Page Content
+                </div>
+              }
+            />
 
+            {/*
+              The wildcard route "/*" acts as the default. It matches anything not
+              explicitly matched above (e.g., '/', '/sites', '/l-chart').
+              This is where we render the DashboardPage, which has its own
+              internal router to handle its tabs.
+            */}
+            <Route
+              path="/*"
+              element={
+                <DashboardPage
+                  isAppFullscreen={isFullscreen}
+                  isSidebarCollapsed={isSidebarCollapsed}
+                  toggleAppFullscreen={toggleFullscreen}
+                  isFullscreenActive={isFullscreen}
+                  enterFullscreenButtonClasses="text-gray-600 hover:bg-gray-100"
+                  exitFullscreenButtonClasses="bg-gray-200 text-gray-700"
+                />
+              }
+            />
+          </Routes>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+/**
+ * The root App component. Its only job is to set up the global providers
+ * for Redux (state management) and React Router (navigation).
+ */
+function App() {
   return (
     <Provider store={store}>
       <BrowserRouter>
-        <div className="flex min-h-[100vh] bg-gray-100 dark:bg-gray-950 text-gray-800 dark:text-gray-100 transition-colors">
-          {!isFullscreen && ( // Sidebar is hidden in fullscreen
-            <Sidebar
-              currentPage={currentPage}
-              setCurrentPage={setCurrentPage}
-              collapsed={isSidebarCollapsed}
-              setCollapsed={setIsSidebarCollapsed}
-            />
-          )}
-          <main
-            className={`flex-1 overflow-y-hidden relative ${
-              isFullscreen ? "p-0" : "p-4 md:p-6"
-            }`}
-          >
-            {/* Header is hidden in fullscreen OR only shows page title if not dashboard */}
-            {(!isFullscreen || currentPage !== "Dashboard") && (
-              <header className="bg-white dark:bg-gray-800 shadow-sm p-4 mb-6 rounded-lg flex justify-between items-center">
-                <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-                  {pageTitle}
-                </h1>
-                {/* REMOVE Fullscreen button from header */}
-              </header>
-            )}
-
-            {/* REMOVE Absolute positioned Exit Fullscreen button */}
-
-            <MainPage
-              currentPage={currentPage}
-              isFullscreen={isFullscreen}
-              isSidebarCollapsed={isSidebarCollapsed}
-              // --- PASS PROPS FOR FULLSCREEN BUTTON ---
-              toggleFullscreen={toggleFullscreen}
-              isAppDarkTheme={isAppDarkTheme} // To style the button
-              // Pass button classes or let DashboardPage define them
-              enterFullscreenButtonClasses={enterFullscreenButtonClasses}
-              exitFullscreenButtonClasses={exitFullscreenButtonClasses}
-              // --- END PASS PROPS ---
-            />
-          </main>
-        </div>
+        <AppLayout />
       </BrowserRouter>
     </Provider>
   );
