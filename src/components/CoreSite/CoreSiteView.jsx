@@ -174,8 +174,6 @@ export default function CoreSiteView({
           onSiteClick={onSiteClick}
         />
       </div>
-
-      {/* REMOVED: The entire div that used to map over openPopups and render SiteDetailPopup */}
     </div>
   );
 }

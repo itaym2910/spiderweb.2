@@ -4,7 +4,7 @@ import {
   MdDashboard,
   MdInsights, // Kept for reference, but not used in the reordered list
   MdAdminPanelSettings,
-  MdSearch,     // Search Icon
+  MdSearch, // Search Icon
   MdNotifications,
   MdHelp,
   MdSettings,
@@ -33,7 +33,12 @@ function NavItem({ label, icon, collapsed, active, onClick }) {
   );
 }
 
-export function Sidebar({ currentPage, setCurrentPage, collapsed, setCollapsed }) {
+export function Sidebar({
+  currentPage,
+  setCurrentPage,
+  collapsed,
+  setCollapsed,
+}) {
   // REORDERED navItems array
   const navItems = [
     { label: "Dashboard", icon: <MdDashboard size={20} /> },
@@ -55,7 +60,11 @@ export function Sidebar({ currentPage, setCurrentPage, collapsed, setCollapsed }
     >
       {/* Header & Toggle */}
       <div className="flex items-center justify-between p-4 border-b dark:border-gray-700 shrink-0">
-        {!collapsed && <div className="text-xl font-bold text-gray-800 dark:text-white">SpiderWeb</div>}
+        {!collapsed && (
+          <div className="text-xl font-bold text-gray-800 dark:text-white">
+            SPIDERWEB
+          </div>
+        )}
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
@@ -95,7 +104,7 @@ export function Sidebar({ currentPage, setCurrentPage, collapsed, setCollapsed }
           />
         ))}
         <div className="mt-2">
-         <DarkModeToggle collapsed={collapsed} />
+          <DarkModeToggle collapsed={collapsed} />
         </div>
       </div>
     </div>

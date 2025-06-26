@@ -24,13 +24,15 @@ const createCoreDevice = (pikud, endingNumber) => ({
   timestamp: faker.date.recent().toISOString(),
 });
 
-// ... (createSite and createInterfaceInfo remain unchanged) ...
-const createSite = (device) => ({
+// --- CHANGED ---
+// The createSite function is now more flexible.
+// It accepts a deviceId and a names object to allow for creating paired sites.
+const createSite = (deviceId, siteNames) => ({
   id: faker.number.int({ min: 10000, max: 99999 }),
   interface_id: faker.number.int({ min: 1, max: 48 }),
-  device_id: device.id,
-  site_name_hebrew: `אתר ${faker.location.city()}`,
-  site_name_english: `Site ${faker.location.city()}`,
+  device_id: deviceId, // Use the provided deviceId
+  site_name_hebrew: siteNames.hebrew, // Use the provided Hebrew name
+  site_name_english: siteNames.english, // Use the provided English name
   timestamp: faker.date.recent().toISOString(),
 });
 
@@ -114,19 +116,19 @@ export const generateAllDummyData = () => {
   ];
 
   for (const siteDevices of devicesBySite.values()) {
-    // Create a quick lookup map of devices in this site by their ending number
     const deviceMapByEnding = new Map();
     for (const device of siteDevices) {
       const ending = parseInt(device.hostname.split("-").pop(), 10);
       deviceMapByEnding.set(ending, device);
     }
-
-    // Iterate through the predefined pairs to create links
     for (const [end1, end2] of sameSitePairs) {
       if (deviceMapByEnding.has(end1) && deviceMapByEnding.has(end2)) {
-        const device1 = deviceMapByEnding.get(end1);
-        const device2 = deviceMapByEnding.get(end2);
-        sameSiteLinks.push(createTenGigLink(device1, device2));
+        sameSiteLinks.push(
+          createTenGigLink(
+            deviceMapByEnding.get(end1),
+            deviceMapByEnding.get(end2)
+          )
+        );
       }
     }
   }
@@ -137,12 +139,10 @@ export const generateAllDummyData = () => {
   const pChartDevices = coreDevices.filter((d) => d.network_type_id === 2);
 
   const createRandomInterSiteLinks = (deviceList, count) => {
-    const createdPairs = new Set(); // To prevent duplicate random links
+    const createdPairs = new Set();
     for (let i = 0; i < count; i++) {
-      if (deviceList.length < 2) break; // Not enough devices to link
+      if (deviceList.length < 2) break;
       let sourceDevice, targetDevice, pairKey;
-
-      // Ensure we find two devices from different sites
       do {
         sourceDevice = faker.helpers.arrayElement(deviceList);
         targetDevice = faker.helpers.arrayElement(deviceList);
@@ -153,22 +153,44 @@ export const generateAllDummyData = () => {
           targetDevice.core_pikudim_site_id ||
         createdPairs.has(pairKey)
       );
-
       differentSiteLinks.push(createTenGigLink(sourceDevice, targetDevice));
       createdPairs.add(pairKey);
     }
   };
 
-  createRandomInterSiteLinks(lChartDevices, 40); // Create 40 random links for L-chart
-  createRandomInterSiteLinks(pChartDevices, 30); // Create 30 random links for P-chart
+  createRandomInterSiteLinks(lChartDevices, 40);
+  createRandomInterSiteLinks(pChartDevices, 30);
 
-  // --- 5. Combine All Links and Finalize Data ---
   const tenGigLinks = [...sameSiteLinks, ...differentSiteLinks];
 
-  // The rest of the data generation remains unchanged
-  const sites = coreDevices.flatMap((device) =>
-    createItems(createSite, faker.number.int({ min: 5, max: 55 }), device)
-  );
+  // --- 5. Generate Paired Sites (Dual-Homed) ---
+  // --- REPLACED LOGIC ---
+  const sites = [];
+  const numberOfLogicalSites = 250; // The number of conceptual sites to create
+
+  if (coreDevices.length >= 2) {
+    for (let i = 0; i < numberOfLogicalSites; i++) {
+      // 1. Create a single set of names for the logical site
+      const city = faker.location.city();
+      const siteNames = {
+        hebrew: `אתר ${city}`,
+        english: `Site ${city}`,
+      };
+
+      // 2. Pick two *different* core devices to connect the site to
+      let device1, device2;
+      do {
+        device1 = faker.helpers.arrayElement(coreDevices);
+        device2 = faker.helpers.arrayElement(coreDevices);
+      } while (device1.id === device2.id); // Ensure they are not the same device
+
+      // 3. Create two site entries (one for each device) and add to the array
+      sites.push(createSite(device1.id, siteNames));
+      sites.push(createSite(device2.id, siteNames));
+    }
+  }
+
+  // --- 6. Finalize Remaining Data ---
   const deviceInfo = coreDevices.reduce((acc, device) => {
     acc[device.id] = createItems(
       createInterfaceInfo,

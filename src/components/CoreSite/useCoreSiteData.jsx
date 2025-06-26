@@ -194,16 +194,47 @@ export function useCoreSiteData(chartType) {
     [activeDetailTabId]
   );
 
+  // REPLACE THE OLD FUNCTION WITH THIS NEW ONE:
+
   const handleNavigateToSite = useCallback(
-    (siteData) => {
-      if (siteData.navId) {
-        navigate(`/sites/site/${siteData.navId}`, {
-          state: { siteData: siteData },
+    (clickedSiteData) => {
+      // `clickedSiteData` is the single site object from the tab.
+      // It contains the `name` property (e.g., "Site West Pasquale").
+      if (!clickedSiteData || !clickedSiteData.name) {
+        console.error("Navigation failed: No site data provided.");
+        return;
+      }
+
+      // 1. Get the English name of the site. This is our unique key to find the group.
+      const targetSiteName = clickedSiteData.name;
+
+      // 2. Search through the `allSites` array (which you already have in this hook)
+      //    to find every connection that matches this name. This rebuilds the "group".
+      const siteGroup = allSites.filter(
+        (site) => site.site_name_english === targetSiteName
+      );
+
+      // 3. If we found at least one matching site, we can navigate.
+      if (siteGroup.length > 0) {
+        // Create a URL-friendly version of the name.
+        const navId = encodeURIComponent(targetSiteName);
+
+        // 4. THIS IS THE CRITICAL FIX:
+        //    Navigate with the data in the CORRECT format. The router expects an
+        //    object with a `siteGroupData` key, and its value is the array we just built.
+        navigate(`/sites/site/${navId}`, {
+          state: { siteGroupData: siteGroup },
         });
+      } else {
+        // Optional: Handle the case where for some reason the site couldn't be found.
+        console.error(
+          "Could not find a matching site group for:",
+          targetSiteName
+        );
       }
     },
-    [navigate]
-  );
+    [navigate, allSites]
+  ); // <-- Add `allSites` to the dependency array
 
   const handleSiteClick = (siteData) => {
     // Modified to accept the whole site object

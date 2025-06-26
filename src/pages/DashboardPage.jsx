@@ -458,21 +458,27 @@ export function DashboardPage({
   );
 }
 
+// Find this function at the bottom of your DashboardPage.jsx file
 function SiteDetailPageRouteElement() {
   const location = useLocation();
-  // We still get the siteData from the location state if it exists
-  const siteDataFromState = location.state?.siteData;
 
-  // If we have site data, show the detail page.
-  // Otherwise, show the index/search page.
-  return siteDataFromState ? (
+  // --- FIX ---
+  // Change `siteData` to `siteGroupData` to match what's being sent.
+  const siteGroupFromState = location.state?.siteGroupData;
+
+  // If we have the group data, show the detail page.
+  // Otherwise (e.g., direct URL access), show the index/search page.
+  return siteGroupFromState ? (
     <SiteDetailPage
-      siteData={siteDataFromState}
+      // Pass the data down with a more descriptive prop name
+      siteGroup={siteGroupFromState}
       initialTheme={
         document.documentElement.classList.contains("dark") ? "dark" : "light"
       }
     />
   ) : (
-    <EndSiteIndexPage />
+    // This fallback is correct. If a user types the URL manually,
+    // they should see the search page.
+    <Navigate to="/sites" replace />
   );
 }
