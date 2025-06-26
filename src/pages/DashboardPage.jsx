@@ -27,7 +27,7 @@ import EndSiteIndexPage from "../components/end-site/EndSiteIndexPage";
 import { FullscreenIcon, ExitFullscreenIcon } from "../App";
 import { useDashboardLogic } from "./useDashboardLogic";
 import LinkTable from "../components/CoreDevice/LinkTable";
-import { useInterfaceData } from "./useInterfaceData";
+import FavoritesPage from "./FavoritesPage";
 import AllInterfacesPage from "./AllInterfacesPage";
 import { useRelatedDevices } from "./useRelatedDevices";
 import { selectAllDevices } from "../redux/slices/devicesSlice";
@@ -188,10 +188,6 @@ export function DashboardPage({
   // eslint-disable-next-line no-unused-vars
   const allDevices = useSelector((state) => state.devices.items);
 
-  // --- NEW: Use the custom hook to get interface data and logic ---
-  const { interfaces, handleToggleFavorite } = useInterfaceData();
-  const favoriteInterfaces = interfaces.filter((iface) => iface.isFavorite);
-
   const location = useLocation();
 
   const renderFullscreenToggleButton = () => {
@@ -281,56 +277,15 @@ export function DashboardPage({
         <div className="flex-1 flex flex-col min-h-0">
           <Routes>
             {/* --- REPLACED: /mainlines route with /favorites route --- */}
+            {/* --- FIND THIS ROUTE --- */}
             <Route
               path="/favorites"
               element={
+                // --- AND REPLACE ITS CONTENT ---
                 <Card className={getCardClassName("favorites")}>
                   <CardContent className={getCardContentClassName("favorites")}>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Interface</TableHead>
-                          <TableHead>Device</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {favoriteInterfaces.length > 0 ? (
-                          favoriteInterfaces.map((iface) => (
-                            <TableRow key={iface.id}>
-                              <TableCell>
-                                <div className="font-medium">
-                                  {iface.interfaceName}
-                                </div>
-                                <div className="text-sm text-gray-500">
-                                  {iface.description}
-                                </div>
-                              </TableCell>
-                              <TableCell>{iface.deviceName}</TableCell>
-                              <TableCell>
-                                <StatusIndicator status={iface.status} />
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleToggleFavorite(iface.id)}
-                                >
-                                  <Star className="h-5 w-5 text-yellow-500 fill-yellow-400" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={4} className="h-24 text-center">
-                              No favorite interfaces selected.
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
+                    {/* The inline table is gone, replaced by our new component */}
+                    <FavoritesPage />
                   </CardContent>
                 </Card>
               }

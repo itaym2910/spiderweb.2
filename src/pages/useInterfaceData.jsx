@@ -1,117 +1,97 @@
-import { useState } from "react";
+// src/hooks/useInterfaceData.js (or wherever it is located)
 
-// --- Data Source ---
-// In a real application, this would come from an API call.
-const allInterfacesData = [
-  {
-    id: "cr01-gi1/0/1",
-    deviceName: "core-router-01",
-    interfaceName: "GigabitEthernet1/0/1",
-    description: "Uplink to ISP-A (Primary)",
-    status: "Up",
-    trafficIn: "850 Mbps",
-    trafficOut: "620 Mbps",
-    errors: { in: 0, out: 0 },
-    isFavorite: true, // This interface is a favorite
-  },
-  {
-    id: "asw01-fa0/24",
-    deviceName: "access-switch-01",
-    interfaceName: "FastEthernet0/24",
-    description: "Connection to Marketing Dept Printer",
-    status: "Down",
-    trafficIn: "0 Mbps",
-    trafficOut: "0 Mbps",
-    errors: { in: 0, out: 0 },
-    isFavorite: false, // Not a favorite
-  },
-  {
-    id: "dsw01-te1/0/1",
-    deviceName: "dist-switch-01",
-    interfaceName: "TenGigabitEthernet1/0/1",
-    description: "Trunk to Core Router",
-    status: "Up",
-    trafficIn: "1.2 Gbps",
-    trafficOut: "980 Mbps",
-    errors: { in: 14, out: 3 },
-    isFavorite: true, // This interface is a favorite
-  },
-  {
-    id: "fw01-eth1",
-    deviceName: "firewall-cluster-a",
-    interfaceName: "ethernet1/1",
-    description: "DMZ Zone Link",
-    status: "Up",
-    trafficIn: "340 Mbps",
-    trafficOut: "450 Mbps",
-    errors: { in: 0, out: 0 },
-    isFavorite: false, // Not a favorite
-  },
-  {
-    id: "cr01-gi1/0/1",
-    deviceName: "core-router-01",
-    interfaceName: "GigabitEthernet1/0/1",
-    description: "Uplink to ISP-A (Primary)",
-    status: "Up",
-    trafficIn: "850 Mbps",
-    trafficOut: "620 Mbps",
-    errors: { in: 0, out: 0 },
-    isFavorite: true,
-  },
-  {
-    id: "asw01-fa0/24",
-    deviceName: "access-switch-01",
-    interfaceName: "FastEthernet0/24",
-    description: "Connection to Marketing Dept Printer",
-    status: "Down",
-    trafficIn: "0 Mbps",
-    trafficOut: "0 Mbps",
-    errors: { in: 0, out: 0 },
-    isFavorite: false,
-  },
-  {
-    id: "dsw01-te1/0/1",
-    deviceName: "dist-switch-01",
-    interfaceName: "TenGigabitEthernet1/0/1",
-    description: "Trunk to Core Router",
-    status: "Up",
-    trafficIn: "1.2 Gbps",
-    trafficOut: "980 Mbps",
-    errors: { in: 14, out: 3 },
-    isFavorite: true,
-  },
-  {
-    id: "fw01-eth1",
-    deviceName: "firewall-cluster-a",
-    interfaceName: "ethernet1/1",
-    description: "DMZ Zone Link",
-    status: "Up",
-    trafficIn: "340 Mbps",
-    trafficOut: "450 Mbps",
-    errors: { in: 0, out: 0 },
-    isFavorite: false,
-  },
-];
+import { useMemo, useCallback } from "react";
+import { useSelector, useDispatch } from "react-redux"; // <-- Import useDispatch
+import { faker } from "@faker-js/faker";
 
-/**
- * Custom hook to manage network interface data.
- * @returns {{
- *   interfaces: Array<object>,
- *   handleToggleFavorite: Function
- * }}
- */
+import { selectAllSites } from "../redux/slices/sitesSlice";
+import { selectAllTenGigLinks } from "../redux/slices/tenGigLinksSlice";
+import { selectAllDevices } from "../redux/slices/devicesSlice";
+// --- 1. IMPORT the Redux selector and action ---
+import {
+  selectFavoriteIds,
+  toggleFavorite,
+} from "../redux/slices/favoritesSlice";
+
 export function useInterfaceData() {
-  const [interfaces, setInterfaces] = useState(allInterfacesData);
+  const dispatch = useDispatch(); // <-- Get the dispatch function
 
-  const handleToggleFavorite = (interfaceId) => {
-    setInterfaces(
-      interfaces.map((iface) =>
-        iface.id === interfaceId
-          ? { ...iface, isFavorite: !iface.isFavorite }
-          : iface
-      )
-    );
-  };
+  // --- 2. GET data from the global Redux store ---
+  const allSites = useSelector(selectAllSites);
+  const allTenGigLinks = useSelector(selectAllTenGigLinks);
+  const allDevices = useSelector(selectAllDevices);
+  const favoriteIds = useSelector(selectFavoriteIds); // <-- Get favorite IDs from Redux
+
+  // --- REMOVED: The local `useState` for favorites is gone! ---
+  // const [favoriteIds, setFavoriteIds] = useState(new Set());
+
+  const deviceMap = useMemo(
+    () => new Map(allDevices.map((d) => [d.id, d])),
+    [allDevices]
+  );
+
+  // The logic for combining data is the same, but now `favoriteIds` comes from Redux.
+  // This `useMemo` will now correctly re-run whenever the GLOBAL favorite state changes.
+  const interfaces = useMemo(() => {
+    const siteConnections = allSites.map((site) => {
+      const device = deviceMap.get(site.device_id);
+      return {
+        id: `site-${site.id}`,
+        deviceName: device?.hostname || "Unknown Device",
+        interfaceName: `Port ${site.interface_id}`,
+        description: `Connection to site: ${site.site_name_english}`,
+        status: "Up",
+        trafficIn: `${faker.number.int({ min: 1, max: 800 })} Mbps`,
+        trafficOut: `${faker.number.int({ min: 1, max: 800 })} Mbps`,
+        errors: {
+          in: faker.number.int({ max: 5 }),
+          out: faker.number.int({ max: 2 }),
+        },
+      };
+    });
+
+    const tenGigCoreLinks = allTenGigLinks.map((link) => {
+      const formattedStatus =
+        link.status.charAt(0).toUpperCase() + link.status.slice(1);
+      return {
+        id: link.id,
+        deviceName: `${link.source} <-> ${link.target}`,
+        interfaceName: `10G Inter-Core Link`,
+        description: `Inter-site trunk (${link.bandwidth})`,
+        status: formattedStatus === "Issue" ? "Down" : formattedStatus,
+        trafficIn: `${faker.number.float({
+          min: 1,
+          max: 9,
+          precision: 0.1,
+        })} Gbps`,
+        trafficOut: `${faker.number.float({
+          min: 1,
+          max: 9,
+          precision: 0.1,
+        })} Gbps`,
+        errors: {
+          in: faker.number.int({ max: 20 }),
+          out: faker.number.int({ max: 15 }),
+        },
+      };
+    });
+
+    const allLinks = [...siteConnections, ...tenGigCoreLinks];
+
+    return allLinks.map((link) => ({
+      ...link,
+      isFavorite: favoriteIds.has(link.id),
+    }));
+  }, [allSites, allTenGigLinks, deviceMap, favoriteIds]);
+
+  // --- 3. REWRITE the handler to dispatch a Redux action ---
+  const handleToggleFavorite = useCallback(
+    (linkId) => {
+      // Instead of calling a local `set...` function, we dispatch a global action.
+      dispatch(toggleFavorite(linkId));
+    },
+    [dispatch]
+  );
 
   return { interfaces, handleToggleFavorite };
 }
