@@ -13,12 +13,17 @@ import {
 } from "../components/ui/table";
 import { Star, ArrowUp, ArrowDown, XCircle } from "lucide-react";
 
-// --- Reusable Helper Components (copied from AllInterfacesPage for consistency) ---
+// --- Reusable Helper Components (No changes needed, styles are consistent) ---
 
 const StatusIndicator = ({ status }) => {
   const config = {
     Up: { color: "text-green-500", Icon: ArrowUp, label: "Up" },
     Down: { color: "text-red-500", Icon: ArrowDown, label: "Down" },
+    "Admin Down": {
+      color: "text-gray-500",
+      Icon: XCircle,
+      label: "Admin Down",
+    },
   }[status] || { color: "text-gray-500", Icon: XCircle, label: "Unknown" };
 
   return (
@@ -46,22 +51,94 @@ const FavoriteButton = ({ isFavorite, onClick }) => (
   </Button>
 );
 
-// --- Main Component ---
-
+// --- STYLES UPDATED ---
 export default function FavoritesPage() {
-  // 1. Get the unified list of all interfaces and the toggle function from the shared hook.
   const { interfaces, handleToggleFavorite } = useInterfaceData();
 
-  // 2. Filter the unified list to get ONLY the favorited items.
-  //    useMemo ensures this filtering only happens when the source data changes.
   const favoriteInterfaces = useMemo(() => {
     return interfaces.filter((iface) => iface.isFavorite);
   }, [interfaces]);
 
+  const renderContent = () => {
+    if (favoriteInterfaces.length > 0) {
+      return (
+        <div className="overflow-x-auto border dark:border-gray-700/50 rounded-lg">
+          <Table>
+            <TableHeader className="bg-gray-100/50 dark:bg-gray-800/50">
+              <TableRow>
+                <TableHead className="font-semibold text-gray-600 dark:text-gray-300">
+                  Interface / Link
+                </TableHead>
+                <TableHead className="font-semibold text-gray-600 dark:text-gray-300">
+                  Device(s)
+                </TableHead>
+                <TableHead className="font-semibold text-gray-600 dark:text-gray-300">
+                  Status
+                </TableHead>
+                <TableHead className="font-semibold text-gray-600 dark:text-gray-300">
+                  Traffic (In / Out)
+                </TableHead>
+                <TableHead className="text-right font-semibold text-gray-600 dark:text-gray-300">
+                  Actions
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {favoriteInterfaces.map((iface) => (
+                <TableRow
+                  key={iface.id}
+                  className="hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                >
+                  <TableCell>
+                    <div className="font-medium text-gray-800 dark:text-gray-100">
+                      {iface.interfaceName}
+                    </div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs">
+                      {iface.description}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-gray-600 dark:text-gray-300">
+                    {iface.deviceName}
+                  </TableCell>
+                  <TableCell>
+                    <StatusIndicator status={iface.status} />
+                  </TableCell>
+                  <TableCell className="text-gray-600 dark:text-gray-300">{`${iface.trafficIn} / ${iface.trafficOut}`}</TableCell>
+                  <TableCell className="text-right">
+                    <FavoriteButton
+                      isFavorite={iface.isFavorite}
+                      onClick={() => handleToggleFavorite(iface.id)}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      );
+    }
+    // Enhanced "Empty State"
+    return (
+      <div className="text-center py-16 px-4 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
+        <Star
+          size={56}
+          className="mx-auto text-yellow-400 dark:text-yellow-500 mb-4"
+        />
+        <p className="text-xl font-semibold text-gray-600 dark:text-gray-400">
+          No Favorite Connections Yet
+        </p>
+        <p className="text-md text-gray-500 dark:text-gray-500 mt-2">
+          Click the star icon on any interface in the "All Interfaces" page to
+          add it here.
+        </p>
+      </div>
+    );
+  };
+
   return (
-    <div className="p-4 md:p-6 h-full flex flex-col">
-      <header className="mb-4">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+    <div className="p-6 bg-gray-50 dark:bg-gray-900 min-h-full">
+      <header className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
           Favorite Connections
         </h1>
         <p className="text-md text-gray-600 dark:text-gray-400 mt-1">
@@ -69,60 +146,9 @@ export default function FavoritesPage() {
         </p>
       </header>
 
-      {/* --- Favorites Table --- */}
-      <div className="flex-grow overflow-auto border dark:border-gray-700 rounded-lg">
-        <Table>
-          <TableHeader className="sticky top-0 bg-gray-50 dark:bg-gray-700">
-            <TableRow>
-              <TableHead>Interface / Link</TableHead>
-              <TableHead>Device(s)</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Traffic (In / Out)</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {/* 3. Render the filtered list or an empty state message */}
-            {favoriteInterfaces.length > 0 ? (
-              favoriteInterfaces.map((iface) => (
-                <TableRow key={iface.id}>
-                  <TableCell>
-                    <div className="font-medium">{iface.interfaceName}</div>
-                    <div className="text-sm text-gray-500">
-                      {iface.description}
-                    </div>
-                  </TableCell>
-                  <TableCell>{iface.deviceName}</TableCell>
-                  <TableCell>
-                    <StatusIndicator status={iface.status} />
-                  </TableCell>
-                  <TableCell>{`${iface.trafficIn} / ${iface.trafficOut}`}</TableCell>
-                  <TableCell className="text-right">
-                    {/* The same toggle function works here to "unfavorite" */}
-                    <FavoriteButton
-                      isFavorite={iface.isFavorite}
-                      onClick={() => handleToggleFavorite(iface.id)}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={5}
-                  className="h-24 text-center text-gray-500"
-                >
-                  No favorite interfaces selected.
-                  <br />
-                  <span className="text-sm">
-                    Click the star on any item in the "All Interfaces" tab to
-                    add it here.
-                  </span>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+      {/* Main Content Card */}
+      <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md">
+        {renderContent()}
       </div>
     </div>
   );

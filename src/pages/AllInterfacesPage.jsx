@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { useInterfaceData } from "./useInterfaceData"; // The hook now provides the device options
+import { useInterfaceData } from "./useInterfaceData"; // Hook provides data and filter options
 import { Button } from "../components/ui/button";
 import {
   Table,
@@ -9,9 +9,9 @@ import {
   TableRow,
   TableCell,
 } from "../components/ui/table";
-import { Star, ArrowUp, ArrowDown, XCircle } from "lucide-react";
+import { Star, ArrowUp, ArrowDown, XCircle, Search } from "lucide-react";
 
-// Helper components (can be in this file or a separate one)
+// Helper components remain unchanged, styles are good.
 const StatusIndicator = ({ status }) => {
   const config = {
     Up: { color: "text-green-500", Icon: ArrowUp, label: "Up" },
@@ -48,9 +48,8 @@ const FavoriteButton = ({ isFavorite, onClick }) => (
   </Button>
 );
 
-// Main Component
+// --- STYLES UPDATED ---
 export default function AllInterfacesPage() {
-  // --- UPDATED: Get the new filter options list from the hook ---
   const { interfaces, handleToggleFavorite, deviceFilterOptions } =
     useInterfaceData();
 
@@ -58,24 +57,11 @@ export default function AllInterfacesPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [deviceFilter, setDeviceFilter] = useState("all");
 
-  // --- REMOVED: The old logic to generate device names from the interface list is no longer needed.
-
   const filteredInterfaces = useMemo(() => {
     return interfaces.filter((iface) => {
-      // Status Filter (no change)
-      if (statusFilter !== "all" && iface.status !== statusFilter) {
+      if (statusFilter !== "all" && iface.status !== statusFilter) return false;
+      if (deviceFilter !== "all" && !iface.deviceName.includes(deviceFilter))
         return false;
-      }
-
-      // --- UPDATED: Device Filter Logic ---
-      // Instead of an exact match, check if the `iface.deviceName` string
-      // INCLUDES the selected device from the filter. This correctly handles
-      // core links like "rtr-a <-> rtr-b" when you filter for "rtr-a".
-      if (deviceFilter !== "all" && !iface.deviceName.includes(deviceFilter)) {
-        return false;
-      }
-
-      // Search Term Filter (no change)
       if (searchTerm) {
         const lowercasedTerm = searchTerm.toLowerCase();
         return (
@@ -88,114 +74,59 @@ export default function AllInterfacesPage() {
     });
   }, [interfaces, searchTerm, statusFilter, deviceFilter]);
 
-  return (
-    <div className="p-4 md:p-6 h-full flex flex-col">
-      <header className="mb-4">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-          All Network Interfaces
-        </h1>
-        <p className="text-md text-gray-600 dark:text-gray-400 mt-1">
-          Search, filter, and manage all interfaces across the network.
-        </p>
-      </header>
-
-      {/* --- Filter & Search Bar --- */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-        {/* Search Input */}
-        <div className="md:col-span-1">
-          <label
-            htmlFor="search-interfaces"
-            className="text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
-            Search
-          </label>
-          <input
-            id="search-interfaces"
-            type="text"
-            placeholder="Search by name, device..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="mt-1 w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500"
-          />
-        </div>
-
-        {/* --- UPDATED: Device Filter Dropdown --- */}
-        <div>
-          <label
-            htmlFor="device-filter"
-            className="text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
-            Device
-          </label>
-          <select
-            id="device-filter"
-            value={deviceFilter}
-            onChange={(e) => setDeviceFilter(e.target.value)}
-            className="mt-1 w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500"
-          >
-            {/* Map over the new, clean list provided by the hook */}
-            {deviceFilterOptions.map((name) => (
-              <option key={name} value={name}>
-                {name === "all" ? "All Devices" : name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Status Filter */}
-        <div>
-          <label
-            htmlFor="status-filter"
-            className="text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
-            Status
-          </label>
-          <select
-            id="status-filter"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="mt-1 w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="all">All Statuses</option>
-            <option value="Up">Up</option>
-            <option value="Down">Down</option>
-          </select>
-        </div>
-      </div>
-
-      {/* --- Interfaces Table (No change to this structure) --- */}
-      <div className="flex-grow overflow-auto border dark:border-gray-700 rounded-lg">
-        <Table>
-          <TableHeader className="sticky top-0 bg-gray-50 dark:bg-gray-700">
-            <TableRow>
-              <TableHead>Interface</TableHead>
-              <TableHead>Device</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Traffic (In / Out)</TableHead>
-              <TableHead>Errors (In / Out)</TableHead>
-              <TableHead className="text-right">Favorite</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredInterfaces.length > 0 ? (
-              filteredInterfaces.map((iface) => (
-                <TableRow key={iface.id}>
+  const renderContent = () => {
+    if (filteredInterfaces.length > 0) {
+      return (
+        <div className="overflow-x-auto border dark:border-gray-700/50 rounded-lg">
+          <Table>
+            <TableHeader className="bg-gray-100/50 dark:bg-gray-800/50">
+              <TableRow>
+                <TableHead className="font-semibold text-gray-600 dark:text-gray-300">
+                  Interface
+                </TableHead>
+                <TableHead className="font-semibold text-gray-600 dark:text-gray-300">
+                  Device
+                </TableHead>
+                <TableHead className="font-semibold text-gray-600 dark:text-gray-300">
+                  Status
+                </TableHead>
+                <TableHead className="font-semibold text-gray-600 dark:text-gray-300">
+                  Traffic (In / Out)
+                </TableHead>
+                <TableHead className="font-semibold text-gray-600 dark:text-gray-300">
+                  Errors (In / Out)
+                </TableHead>
+                <TableHead className="text-right font-semibold text-gray-600 dark:text-gray-300">
+                  Favorite
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredInterfaces.map((iface) => (
+                <TableRow
+                  key={iface.id}
+                  className="hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                >
                   <TableCell>
-                    <div className="font-medium">{iface.interfaceName}</div>
-                    <div className="text-sm text-gray-500">
+                    <div className="font-medium text-gray-800 dark:text-gray-100">
+                      {iface.interfaceName}
+                    </div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs">
                       {iface.description}
                     </div>
                   </TableCell>
-                  <TableCell>{iface.deviceName}</TableCell>
+                  <TableCell className="text-gray-600 dark:text-gray-300">
+                    {iface.deviceName}
+                  </TableCell>
                   <TableCell>
                     <StatusIndicator status={iface.status} />
                   </TableCell>
-                  <TableCell>{`${iface.trafficIn} / ${iface.trafficOut}`}</TableCell>
+                  <TableCell className="text-gray-600 dark:text-gray-300">{`${iface.trafficIn} / ${iface.trafficOut}`}</TableCell>
                   <TableCell
                     className={
                       iface.errors.in > 0 || iface.errors.out > 0
                         ? "font-bold text-orange-600 dark:text-orange-400"
-                        : ""
+                        : "text-gray-600 dark:text-gray-300"
                     }
                   >
                     {`${iface.errors.in} / ${iface.errors.out}`}
@@ -207,19 +138,105 @@ export default function AllInterfacesPage() {
                     />
                   </TableCell>
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className="h-24 text-center text-gray-500"
-                >
-                  No interfaces match your filters.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      );
+    }
+    // Enhanced "No Results" state
+    return (
+      <div className="text-center py-16 px-4 mt-6 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
+        <Search
+          size={56}
+          className="mx-auto text-gray-400 dark:text-gray-500 mb-4"
+        />
+        <p className="text-xl font-semibold text-gray-600 dark:text-gray-400">
+          No Interfaces Found
+        </p>
+        <p className="text-md text-gray-500 dark:text-gray-500 mt-2">
+          Your search or filters did not match any interfaces. Try adjusting
+          your criteria.
+        </p>
+      </div>
+    );
+  };
+
+  return (
+    <div className="p-6 bg-gray-50 dark:bg-gray-900 min-h-full">
+      <header className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
+          All Network Interfaces
+        </h1>
+        <p className="text-md text-gray-600 dark:text-gray-400 mt-1">
+          Search, filter, and manage all interfaces across the network.
+        </p>
+      </header>
+
+      {/* Filter & Search Bar Card */}
+      <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label
+              htmlFor="search-interfaces"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+            >
+              Search by Keyword
+            </label>
+            <input
+              id="search-interfaces"
+              type="text"
+              placeholder="Name, device, description..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="device-filter"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+            >
+              Filter by Device
+            </label>
+            <select
+              id="device-filter"
+              value={deviceFilter}
+              onChange={(e) => setDeviceFilter(e.target.value)}
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            >
+              {deviceFilterOptions.map((name) => (
+                <option key={name} value={name}>
+                  {name === "all" ? "All Devices" : name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label
+              htmlFor="status-filter"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+            >
+              Filter by Status
+            </label>
+            <select
+              id="status-filter"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            >
+              <option value="all">All Statuses</option>
+              <option value="Up">Up</option>
+              <option value="Down">Down</option>
+              <option value="Admin Down">Admin Down</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md">
+        {renderContent()}
       </div>
     </div>
   );
