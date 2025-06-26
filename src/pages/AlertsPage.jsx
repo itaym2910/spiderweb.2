@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { MdErrorOutline, MdWarningAmber, MdInfoOutline, MdNotifications, MdClose } from "react-icons/md"; // Added MdClose
+import {
+  MdErrorOutline,
+  MdWarningAmber,
+  MdInfoOutline,
+  MdNotifications,
+  MdClose,
+} from "react-icons/md";
+
+// --- MOCK DATA & MODAL (No style changes needed, they are self-contained) ---
 
 const generateMockAlerts = () => {
   const alerts = [];
@@ -25,8 +33,12 @@ const generateMockAlerts = () => {
       type: types[Math.floor(Math.random() * types.length)],
       message: messages[Math.floor(Math.random() * messages.length)],
       timestamp: new Date(now.getTime() - randomMinutesAgo * 60000),
-      networkLine: `Line-${String.fromCharCode(65 + Math.floor(i / 10))}-${(i % 10) + 1}`,
-      details: `This is a more detailed description for alert ${i + 1}. It might include diagnostic information, affected systems, or suggested actions. For example, if it's a latency issue, this might show traceroute results or specific metrics. If it's a security alert, it might link to an incident report.`,
+      networkLine: `Line-${String.fromCharCode(65 + Math.floor(i / 10))}-${
+        (i % 10) + 1
+      }`,
+      details: `This is a more detailed description for alert ${
+        i + 1
+      }. It might include diagnostic information, affected systems, or suggested actions. For example, if it's a latency issue, this might show traceroute results or specific metrics. If it's a security alert, it might link to an incident report.`,
       source: `SourceSystem-${Math.floor(Math.random() * 5) + 1}`,
       severityScore: Math.floor(Math.random() * 10) + 1,
     });
@@ -34,37 +46,29 @@ const generateMockAlerts = () => {
   return alerts.sort((a, b) => b.timestamp - a.timestamp);
 };
 
-const AlertIcon = ({ type, size = 24 }) => { // Added size prop with default
-  if (type === "error") return <MdErrorOutline className="text-red-500 flex-shrink-0" size={size} />;
-  if (type === "warning") return <MdWarningAmber className="text-yellow-500 flex-shrink-0" size={size} />;
+const AlertIcon = ({ type, size = 24 }) => {
+  if (type === "error")
+    return (
+      <MdErrorOutline className="text-red-500 flex-shrink-0" size={size} />
+    );
+  if (type === "warning")
+    return (
+      <MdWarningAmber className="text-yellow-500 flex-shrink-0" size={size} />
+    );
   return <MdInfoOutline className="text-blue-500 flex-shrink-0" size={size} />;
 };
 
-// New AlertModal Component
 const AlertModal = ({ alert, onClose }) => {
   if (!alert) return null;
-
-  // Handle Escape key press
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [onClose]);
 
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-      onClick={onClose} // Close on overlay click
+      onClick={onClose}
     >
       <div
         className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto relative"
-        onClick={(e) => e.stopPropagation()} // Prevent click inside modal from closing it
+        onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
@@ -73,55 +77,81 @@ const AlertModal = ({ alert, onClose }) => {
         >
           <MdClose size={24} />
         </button>
-
         <div className="flex items-start space-x-3 mb-4">
           <AlertIcon type={alert.type} size={32} />
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
               Alert Details
             </h2>
-            <p className={`text-sm font-medium ${alert.type === "error" ? "text-red-600 dark:text-red-400" :
-                alert.type === "warning" ? "text-yellow-600 dark:text-yellow-400" :
-                  "text-blue-600 dark:text-blue-400"
-              }`}>
+            <p
+              className={`text-sm font-medium ${
+                alert.type === "error"
+                  ? "text-red-600 dark:text-red-400"
+                  : alert.type === "warning"
+                  ? "text-yellow-600 dark:text-yellow-400"
+                  : "text-blue-600 dark:text-blue-400"
+              }`}
+            >
               Type: {alert.type.charAt(0).toUpperCase() + alert.type.slice(1)}
             </p>
           </div>
         </div>
-
         <div className="space-y-3 text-sm">
           <p>
-            <strong className="text-gray-700 dark:text-gray-300">Message:</strong>
-            <span className="text-gray-600 dark:text-gray-400 ml-1">{alert.message}</span>
+            <strong className="text-gray-700 dark:text-gray-300">
+              Message:
+            </strong>
+            <span className="text-gray-600 dark:text-gray-400 ml-1">
+              {alert.message}
+            </span>
           </p>
           <p>
-            <strong className="text-gray-700 dark:text-gray-300">Timestamp:</strong>
-            <span className="text-gray-600 dark:text-gray-400 ml-1">{alert.timestamp.toLocaleString()}</span>
+            <strong className="text-gray-700 dark:text-gray-300">
+              Timestamp:
+            </strong>
+            <span className="text-gray-600 dark:text-gray-400 ml-1">
+              {alert.timestamp.toLocaleString()}
+            </span>
           </p>
           <p>
-            <strong className="text-gray-700 dark:text-gray-300">Network Line:</strong>
-            <span className="text-gray-600 dark:text-gray-400 ml-1">{alert.networkLine}</span>
+            <strong className="text-gray-700 dark:text-gray-300">
+              Network Line:
+            </strong>
+            <span className="text-gray-600 dark:text-gray-400 ml-1">
+              {alert.networkLine}
+            </span>
           </p>
           <p>
-            <strong className="text-gray-700 dark:text-gray-300">Source:</strong>
-            <span className="text-gray-600 dark:text-gray-400 ml-1">{alert.source}</span>
+            <strong className="text-gray-700 dark:text-gray-300">
+              Source:
+            </strong>
+            <span className="text-gray-600 dark:text-gray-400 ml-1">
+              {alert.source}
+            </span>
           </p>
           <p>
-            <strong className="text-gray-700 dark:text-gray-300">Severity Score:</strong>
-            <span className="text-gray-600 dark:text-gray-400 ml-1">{alert.severityScore}/10</span>
+            <strong className="text-gray-700 dark:text-gray-300">
+              Severity Score:
+            </strong>
+            <span className="text-gray-600 dark:text-gray-400 ml-1">
+              {alert.severityScore}/10
+            </span>
           </p>
           <div className="pt-2">
-            <strong className="text-gray-700 dark:text-gray-300 block mb-1">Details:</strong>
+            <strong className="text-gray-700 dark:text-gray-300 block mb-1">
+              Details:
+            </strong>
             <p className="text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 p-3 rounded-md text-xs leading-relaxed">
               {alert.details}
             </p>
           </div>
           <p>
             <strong className="text-gray-700 dark:text-gray-300">ID:</strong>
-            <span className="text-xs text-gray-500 dark:text-gray-500 ml-1">{alert.id}</span>
+            <span className="text-xs text-gray-500 dark:text-gray-500 ml-1">
+              {alert.id}
+            </span>
           </p>
         </div>
-
         <div className="mt-6 text-right">
           <button
             onClick={onClose}
@@ -135,21 +165,30 @@ const AlertModal = ({ alert, onClose }) => {
   );
 };
 
-
-const AlertCard = ({ alert, onClick }) => ( // Added onClick prop
+// --- STYLES UPDATED ---
+const AlertCard = ({ alert, onClick }) => (
   <div
-    className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md flex items-start space-x-3 hover:shadow-lg transition-shadow cursor-pointer" // Added cursor-pointer
-    onClick={onClick} // Added onClick handler
+    onClick={onClick}
+    className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer border border-transparent dark:hover:border-blue-500 hover:border-blue-400"
   >
-    <AlertIcon type={alert.type} />
-    <div className="flex-1 min-w-0">
-      <p className="font-semibold text-gray-800 dark:text-white truncate">{alert.message}</p>
-      <p className="text-sm text-gray-600 dark:text-gray-300">
-        Network Line: {alert.networkLine}
-      </p>
-      <p className="text-xs text-gray-500 dark:text-gray-400">
-        {alert.timestamp.toLocaleString()}
-      </p>
+    <div className="flex items-start space-x-4">
+      <AlertIcon type={alert.type} size={28} />
+      <div className="flex-1 min-w-0">
+        <p
+          className="font-semibold text-gray-800 dark:text-white truncate"
+          title={alert.message}
+        >
+          {alert.message}
+        </p>
+        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs space-y-1">
+          <p className="text-gray-600 dark:text-gray-300">
+            <strong>Network Line:</strong> {alert.networkLine}
+          </p>
+          <p className="text-gray-500 dark:text-gray-400">
+            {alert.timestamp.toLocaleString()}
+          </p>
+        </div>
+      </div>
     </div>
   </div>
 );
@@ -162,22 +201,22 @@ const timePeriods = [
   { label: "All Time", value: "all" },
 ];
 
+// --- STYLES UPDATED ---
 export function AlertsPage() {
   const [allAlerts, setAllAlerts] = useState([]);
   const [selectedPeriod, setSelectedPeriod] = useState("1h");
-  const [selectedAlert, setSelectedAlert] = useState(null); // For modal
-  const [isModalOpen, setIsModalOpen] = useState(false);   // For modal visibility
+  const [selectedAlert, setSelectedAlert] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     setAllAlerts(generateMockAlerts());
   }, []);
 
   const filteredAlerts = useMemo(() => {
+    // ... filtering logic remains the same
     if (!allAlerts.length) return [];
-
     const now = new Date();
     let startTime;
-
     switch (selectedPeriod) {
       case "1h":
         startTime = new Date(now.getTime() - 1 * 60 * 60 * 1000);
@@ -205,22 +244,32 @@ export function AlertsPage() {
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
-    setSelectedAlert(null);
+    setSelectedAlert(null); // Good practice to clear after close
   };
 
   return (
-    <> {/* Using Fragment to allow modal to be a sibling at the top level */}
-      <div className="container mx-auto flex flex-col h-[90%]">
-        <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg shadow">
-          <div className="flex flex-wrap gap-2">
+    <>
+      <div className="p-6 bg-gray-50 dark:bg-gray-900 min-h-full">
+        <header className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
+            System Alerts
+          </h1>
+          <p className="text-md text-gray-600 dark:text-gray-400 mt-1">
+            Review real-time alerts from the network infrastructure.
+          </p>
+        </header>
+
+        <div className="mb-8">
+          <div className="flex flex-wrap gap-3 p-3 rounded-lg bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 max-w-lg">
             {timePeriods.map((period) => (
               <button
                 key={period.value}
                 onClick={() => setSelectedPeriod(period.value)}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors
-                  ${selectedPeriod === period.value
-                    ? "bg-blue-600 text-white shadow-md"
-                    : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-blue-500
+                  ${
+                    selectedPeriod === period.value
+                      ? "bg-blue-600 text-white shadow"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
                   }`}
               >
                 {period.label}
@@ -229,32 +278,34 @@ export function AlertsPage() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-1 rounded-lg max-h-[calc(100vh-220px)] md:max-h-[calc(100vh-200px)]">
+        <div>
           {filteredAlerts.length > 0 ? (
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {filteredAlerts.map((alert) => (
                 <AlertCard
                   key={alert.id}
                   alert={alert}
-                  onClick={() => handleAlertClick(alert)} // Pass handler to AlertCard
+                  onClick={() => handleAlertClick(alert)}
                 />
               ))}
             </div>
           ) : (
-            <div className="text-center py-10 flex flex-col items-center justify-center h-full">
-              <MdNotifications size={48} className="mx-auto text-gray-400 dark:text-gray-500 mb-4" />
-              <p className="text-xl text-gray-600 dark:text-gray-400">
-                No alerts to display for the selected period.
+            <div className="text-center py-16 px-4">
+              <MdNotifications
+                size={56}
+                className="mx-auto text-gray-400 dark:text-gray-500 mb-4"
+              />
+              <p className="text-xl font-semibold text-gray-600 dark:text-gray-400">
+                All Clear!
               </p>
-              <p className="text-sm text-gray-500 dark:text-gray-500">
-                Try selecting a different time range or check back later.
+              <p className="text-md text-gray-500 dark:text-gray-500 mt-2">
+                No alerts found for the selected period. Try a wider time range.
               </p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Modal Rendering */}
       {isModalOpen && selectedAlert && (
         <AlertModal alert={selectedAlert} onClose={handleCloseModal} />
       )}
