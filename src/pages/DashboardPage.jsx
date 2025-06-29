@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { useSelector } from "react-redux";
 import {
   Routes,
@@ -8,24 +8,16 @@ import {
   Navigate,
 } from "react-router-dom";
 import { Card, CardContent } from "../components/ui/card";
-import { Button } from "../components/ui/button";
-import {
-  Table,
-  TableHead,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableCell,
-} from "../components/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { Star, ArrowUp, ArrowDown, XCircle } from "lucide-react";
+import { ArrowUp, ArrowDown, XCircle } from "lucide-react";
 import NetworkVisualizerWrapper from "../components/NetworkVisualizerWrapper";
 import NetworkVisualizer5Wrapper from "../components/NetworkVisualizer5Wrapper";
 import CoreSitePage from "../components/CoreSite/CoreSitePage";
 import SiteDetailPage from "../components/end-site/SiteDetailPage";
 import EndSiteIndexPage from "../components/end-site/EndSiteIndexPage";
-import { FullscreenIcon, ExitFullscreenIcon } from "../App";
-import { useDashboardLogic } from "./useDashboardLogic";
+import {
+  FullscreenIcon,
+  ExitFullscreenIcon,
+} from "../components/layout/AppLayout"; // Adjusted path
 import LinkTable from "../components/CoreDevice/LinkTable";
 import FavoritesPage from "./FavoritesPage";
 import AllInterfacesPage from "./AllInterfacesPage";
@@ -34,7 +26,7 @@ import { selectAllDevices } from "../redux/slices/devicesSlice";
 import { selectAllSites } from "../redux/slices/sitesSlice";
 import { selectAllTenGigLinks } from "../redux/slices/tenGigLinksSlice";
 
-// This helper component is for the new "All Interfaces" and "Favorites" tabs
+// This helper component is for the "All Interfaces" and "Favorites" tabs
 function StatusIndicator({ status }) {
   const statusConfig = {
     Up: { color: "text-green-500", Icon: ArrowUp, label: "Up" },
@@ -54,23 +46,15 @@ function StatusIndicator({ status }) {
   );
 }
 
+// This component remains unchanged and is used for nested routing within the charts.
 function NodeDetailView({ chartType }) {
   const { nodeId: deviceHostname, zoneId } = useParams();
-
-  // 1. Fetch ALL necessary raw data from Redux using stable selectors.
   const allDevices = useSelector(selectAllDevices);
   const allSites = useSelector(selectAllSites);
   const allLinks = useSelector(selectAllTenGigLinks);
-
-  // This hook for related devices is simple and can stay.
   const otherDevicesInZone = useRelatedDevices(deviceHostname, zoneId);
 
-  // 2. Perform ALL filtering and data transformation inside a single, stable useMemo.
-  // This is the key to preventing the duplication bug.
-  const linksForTable = useMemo(() => {
-    // Add console.log to see when this expensive calculation runs
-    // console.log(`Calculating links for: ${deviceHostname}`);
-
+  const linksForTable = React.useMemo(() => {
     if (
       !deviceHostname ||
       !chartType ||
@@ -79,19 +63,15 @@ function NodeDetailView({ chartType }) {
     ) {
       return [];
     }
-
-    // Filter core links by the chart type ('L' or 'P')
     const typeId = chartType === "P" ? 2 : 1;
     const allCoreLinksForChart = allLinks.filter(
       (link) => link.network_type_id === typeId
     );
-
     const currentDevice = allDevices.find((d) => d.hostname === deviceHostname);
     if (!currentDevice) return [];
 
     const deviceMapByHostname = new Map(allDevices.map((d) => [d.hostname, d]));
 
-    // --- Inter-Core Links ---
     const interCoreLinks = allCoreLinksForChart
       .filter(
         (link) =>
@@ -101,7 +81,6 @@ function NodeDetailView({ chartType }) {
         const otherDeviceHostname =
           link.source === deviceHostname ? link.target : link.source;
         const otherDevice = deviceMapByHostname.get(otherDeviceHostname);
-
         let linkType = "inter-core-different-site";
         if (
           otherDevice &&
@@ -110,7 +89,6 @@ function NodeDetailView({ chartType }) {
         ) {
           linkType = "inter-core-same-site";
         }
-
         return {
           id: link.id,
           name: `Link to ${otherDeviceHostname}`,
@@ -125,13 +103,12 @@ function NodeDetailView({ chartType }) {
         };
       });
 
-    // --- Core-to-Site Links ---
     const coreToSiteLinks = allSites
       .filter((site) => site.device_id === currentDevice.id)
       .map((site) => ({
         id: `site-link-${site.id}`,
         name: site.site_name_english,
-        description: `Connection to End-Site`,
+        description: "Connection to End-Site",
         status: "up",
         bandwidth: "1 Gbps",
         ospfStatus: "N/A",
@@ -144,7 +121,7 @@ function NodeDetailView({ chartType }) {
       }));
 
     return [...interCoreLinks, ...coreToSiteLinks];
-  }, [deviceHostname, chartType, allDevices, allSites, allLinks]); // Dependencies
+  }, [deviceHostname, chartType, allDevices, allSites, allLinks]);
 
   const currentTheme = document.documentElement.classList.contains("dark")
     ? "dark"
@@ -155,7 +132,7 @@ function NodeDetailView({ chartType }) {
       <LinkTable
         coreDeviceName={deviceHostname}
         coreSiteName={zoneId}
-        linksData={linksForTable} // Pass the memoized, stable data
+        linksData={linksForTable}
         otherDevicesInZone={otherDevicesInZone}
         initialTheme={currentTheme}
       />
@@ -163,41 +140,34 @@ function NodeDetailView({ chartType }) {
   );
 }
 
+/**
+ * The DashboardPage is now a container for the different tab contents.
+ * It no longer manages tab state itself but receives it via props from AppLayout.
+ * Its primary responsibility is to use React Router to display the correct content
+ * for the active URL path (e.g., /favorites, /l-chart, etc.).
+ */
 export function DashboardPage({
+  // Props related to fullscreen and layout
   isAppFullscreen,
-  isSidebarCollapsed,
   toggleAppFullscreen,
   isFullscreenActive,
   enterFullscreenButtonClasses,
   exitFullscreenButtonClasses,
+  // Props that were "lifted up" from useDashboardLogic to AppLayout
+  activeTabValue,
+  theme,
+  popupAnchorCoords,
+  chartKeySuffix,
 }) {
-  const {
-    theme,
-    activeTabValue,
-    popupAnchorCoords,
-    handleTabChangeForNavigation,
-    chartKeySuffix,
-  } = useDashboardLogic({
-    isAppFullscreen,
-    isSidebarCollapsed,
-  });
-
-  // Use useSelector to get the data from the Redux state
-  // eslint-disable-next-line no-unused-vars
-  const allPikudim = useSelector((state) => state.corePikudim.items);
-  // eslint-disable-next-line no-unused-vars
-  const allDevices = useSelector((state) => state.devices.items);
-
   const location = useLocation();
 
+  // This function remains here as it's specific to the chart views within the dashboard
   const renderFullscreenToggleButton = () => {
-    // ... (logic remains the same)
     const isLChartBase = location.pathname === "/l-chart";
     const isPChartBase = location.pathname === "/p-chart";
     const isBaseNetworkView = isLChartBase || isPChartBase;
 
     if (!toggleAppFullscreen || !isBaseNetworkView) return null;
-
     const buttonPositionClasses = isAppFullscreen
       ? "top-2 left-2"
       : "top-2 left-2";
@@ -227,6 +197,7 @@ export function DashboardPage({
     }
   };
 
+  // These helpers are still useful for styling the content cards based on fullscreen state
   const getCardClassName = (tabKey) =>
     `flex-1 flex flex-col min-h-0 ${
       isAppFullscreen && activeTabValue === tabKey
@@ -246,194 +217,153 @@ export function DashboardPage({
     } relative`;
 
   return (
+    // The main container for the dashboard content area.
+    // NOTE: The <Tabs> wrapper and <TabsList> have been removed from this file.
     <div
       className={`flex flex-col h-full ${
         isAppFullscreen
           ? "bg-white dark:bg-gray-800"
           : "bg-white dark:bg-gray-800 rounded-lg shadow-md"
-      } ${isAppFullscreen ? "p-0" : ""}`}
+      }`}
     >
-      <Tabs
-        value={activeTabValue}
-        defaultValue="favorites"
-        className="w-full flex flex-col flex-1"
-        onValueChange={handleTabChangeForNavigation}
-      >
-        <TabsList
-          className={`bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-4 ${
-            isAppFullscreen ? "mx-0 mt-0 rounded-none sticky top-0 z-40" : ""
-          }`}
-        >
-          {/* --- REPLACED: "mainlines" tab with "favorites" --- */}
-          <TabsTrigger value="favorites" className="flex items-center gap-1">
-            <Star className="h-4 w-4 text-yellow-500" /> Favorites
-          </TabsTrigger>
-          <TabsTrigger value="all_interfaces">All Interfaces</TabsTrigger>
-          <TabsTrigger value="l_network">L-chart</TabsTrigger>
-          <TabsTrigger value="p_network">P-chart</TabsTrigger>
-          <TabsTrigger value="site">Site</TabsTrigger>
-        </TabsList>
-
-        <div className="flex-1 flex flex-col min-h-0">
-          <Routes>
-            {/* --- REPLACED: /mainlines route with /favorites route --- */}
-            {/* --- FIND THIS ROUTE --- */}
-            <Route
-              path="/favorites"
-              element={
-                // --- AND REPLACE ITS CONTENT ---
-                <Card className={getCardClassName("favorites")}>
-                  <CardContent className={getCardContentClassName("favorites")}>
-                    {/* The inline table is gone, replaced by our new component */}
-                    <FavoritesPage />
-                  </CardContent>
-                </Card>
-              }
-            />
-            <Route
-              path="/all_interfaces"
-              element={
-                <Card className={getCardClassName("all_interfaces")}>
-                  <CardContent
-                    className={getCardContentClassName("all_interfaces")}
-                  >
-                    {/* Simply render the new component */}
-                    <AllInterfacesPage />
-                  </CardContent>
-                </Card>
-              }
-            />
-
-            <Route
-              path="/l-chart/*"
-              element={
-                <Card className={getCardClassName("l_network")}>
-                  <CardContent className={getCardContentClassName("l_network")}>
-                    {location.pathname === "/l-chart" &&
-                      renderFullscreenToggleButton()}
-                    <div className="relative w-full h-full">
-                      <Routes>
-                        <Route
-                          index
-                          element={
-                            <NetworkVisualizerWrapper
-                              key={`l-visualizer-${chartKeySuffix}`}
-                              theme={theme}
-                            />
-                          }
+      <Routes>
+        <Route
+          path="/favorites"
+          element={
+            <Card className={getCardClassName("favorites")}>
+              <CardContent className={getCardContentClassName("favorites")}>
+                <FavoritesPage />
+              </CardContent>
+            </Card>
+          }
+        />
+        <Route
+          path="/all_interfaces"
+          element={
+            <Card className={getCardClassName("all_interfaces")}>
+              <CardContent
+                className={getCardContentClassName("all_interfaces")}
+              >
+                <AllInterfacesPage />
+              </CardContent>
+            </Card>
+          }
+        />
+        <Route
+          path="/l-chart/*"
+          element={
+            <Card className={getCardClassName("l_network")}>
+              <CardContent className={getCardContentClassName("l_network")}>
+                {location.pathname === "/l-chart" &&
+                  renderFullscreenToggleButton()}
+                <div className="relative w-full h-full">
+                  <Routes>
+                    <Route
+                      index
+                      element={
+                        <NetworkVisualizerWrapper
+                          key={`l-visualizer-${chartKeySuffix}`}
+                          theme={theme}
                         />
-                        <Route
-                          path="zone/:zoneId"
-                          element={
-                            <CoreSitePage
-                              theme={theme}
-                              popupAnchor={popupAnchorCoords}
-                              chartType="L"
-                            />
-                          }
+                      }
+                    />
+                    <Route
+                      path="zone/:zoneId"
+                      element={
+                        <CoreSitePage
+                          theme={theme}
+                          popupAnchor={popupAnchorCoords}
+                          chartType="L"
                         />
-                        <Route
-                          path="zone/:zoneId/node/:nodeId"
-                          element={<NodeDetailView chartType="L" />}
+                      }
+                    />
+                    <Route
+                      path="zone/:zoneId/node/:nodeId"
+                      element={<NodeDetailView chartType="L" />}
+                    />
+                  </Routes>
+                </div>
+              </CardContent>
+            </Card>
+          }
+        />
+        <Route
+          path="/p-chart/*"
+          element={
+            <Card className={getCardClassName("p_network")}>
+              <CardContent className={getCardContentClassName("p_network")}>
+                {location.pathname === "/p-chart" &&
+                  renderFullscreenToggleButton()}
+                <div className="relative w-full h-full">
+                  <Routes>
+                    <Route
+                      index
+                      element={
+                        <NetworkVisualizer5Wrapper
+                          key={`p-visualizer-${chartKeySuffix}`}
+                          theme={theme}
                         />
-                      </Routes>
-                    </div>
-                  </CardContent>
-                </Card>
-              }
-            />
-
-            <Route
-              path="/p-chart/*"
-              element={
-                <Card className={getCardClassName("p_network")}>
-                  <CardContent className={getCardContentClassName("p_network")}>
-                    {location.pathname === "/p-chart" &&
-                      renderFullscreenToggleButton()}
-                    <div className="relative w-full h-full">
-                      <Routes>
-                        <Route
-                          index
-                          element={
-                            <NetworkVisualizer5Wrapper
-                              key={`p-visualizer-${chartKeySuffix}`}
-                              theme={theme}
-                            />
-                          }
+                      }
+                    />
+                    <Route
+                      path="zone/:zoneId"
+                      element={
+                        <CoreSitePage
+                          theme={theme}
+                          popupAnchor={popupAnchorCoords}
+                          chartType="P"
                         />
-                        <Route
-                          path="zone/:zoneId"
-                          element={
-                            <CoreSitePage
-                              theme={theme}
-                              popupAnchor={popupAnchorCoords}
-                              chartType="P"
-                            />
-                          }
-                        />
-                        <Route
-                          path="zone/:zoneId/node/:nodeId"
-                          element={<NodeDetailView chartType="P" />}
-                        />
-                      </Routes>
-                    </div>
-                  </CardContent>
-                </Card>
-              }
-            />
-
-            <Route
-              path="/sites/*" // Keep the wildcard to allow for sub-routes
-              element={
-                <Card className={getCardClassName("site")}>
-                  <CardContent className={getCardContentClassName("site")}>
-                    <div className="relative w-full h-full">
-                      <Routes>
-                        {/* The base path `/sites` now renders the index page */}
-                        <Route index element={<EndSiteIndexPage />} />
-
-                        {/* The detail page is now a sub-route */}
-                        <Route
-                          path="site/:siteNavId"
-                          element={<SiteDetailPageRouteElement />}
-                        />
-                      </Routes>
-                    </div>
-                  </CardContent>
-                </Card>
-              }
-            />
-
-            <Route path="/" element={<Navigate to="/favorites" replace />} />
-            <Route path="*" element={<Navigate to="/favorites" replace />} />
-          </Routes>
-        </div>
-      </Tabs>
+                      }
+                    />
+                    <Route
+                      path="zone/:zoneId/node/:nodeId"
+                      element={<NodeDetailView chartType="P" />}
+                    />
+                  </Routes>
+                </div>
+              </CardContent>
+            </Card>
+          }
+        />
+        <Route
+          path="/sites/*"
+          element={
+            <Card className={getCardClassName("site")}>
+              <CardContent className={getCardContentClassName("site")}>
+                <div className="relative w-full h-full">
+                  <Routes>
+                    <Route index element={<EndSiteIndexPage />} />
+                    <Route
+                      path="site/:siteNavId"
+                      element={<SiteDetailPageRouteElement />}
+                    />
+                  </Routes>
+                </div>
+              </CardContent>
+            </Card>
+          }
+        />
+        {/* Default routes to redirect to favorites */}
+        <Route path="/" element={<Navigate to="/favorites" replace />} />
+        <Route path="*" element={<Navigate to="/favorites" replace />} />
+      </Routes>
     </div>
   );
 }
 
-// Find this function at the bottom of your DashboardPage.jsx file
+// This helper component for the sites route remains unchanged.
 function SiteDetailPageRouteElement() {
   const location = useLocation();
-
-  // --- FIX ---
-  // Change `siteData` to `siteGroupData` to match what's being sent.
   const siteGroupFromState = location.state?.siteGroupData;
 
-  // If we have the group data, show the detail page.
-  // Otherwise (e.g., direct URL access), show the index/search page.
   return siteGroupFromState ? (
     <SiteDetailPage
-      // Pass the data down with a more descriptive prop name
       siteGroup={siteGroupFromState}
       initialTheme={
         document.documentElement.classList.contains("dark") ? "dark" : "light"
       }
     />
   ) : (
-    // This fallback is correct. If a user types the URL manually,
-    // they should see the search page.
     <Navigate to="/sites" replace />
   );
 }
