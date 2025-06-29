@@ -148,8 +148,9 @@ function AppLayout() {
               : "shadow-sm p-4 mb-6 rounded-lg"
           }`}
         >
+          {/* [MODIFIED] - The header title now changes based on the fullscreen state. */}
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white shrink-0">
-            {activePageLabel}
+            {isFullscreen ? "SPIDERWEB" : activePageLabel}
           </h1>
 
           {isDashboardActive && (
@@ -208,7 +209,6 @@ function AppLayout() {
                 <DashboardPage
                   isAppFullscreen={isFullscreen}
                   activeTabValue={activeTabValue}
-                  // Pass the new, reactive theme state as a prop.
                   theme={theme}
                   popupAnchorCoords={dashboardLogic.popupAnchorCoords}
                   chartKeySuffix={dashboardLogic.chartKeySuffix}
