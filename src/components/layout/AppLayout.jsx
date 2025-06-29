@@ -1,5 +1,3 @@
-// src/components/layout/AppLayout.jsx
-
 import React, { useState, useEffect, useMemo } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 import { Star } from "lucide-react";
@@ -15,7 +13,7 @@ import { AdminPanelPage } from "../../pages/AdminPanelPage"; // Adjust path if n
 import { AlertsPage } from "../../pages/AlertsPage"; // Adjust path if needed
 import SearchPage from "../../pages/SearchPage"; // Adjust path if needed
 
-// You can keep the Icon components here or move them to their own file
+// Icons used for the fullscreen toggle in the header.
 export const FullscreenIcon = ({ className = "w-5 h-5" }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -49,15 +47,37 @@ export const ExitFullscreenIcon = ({ className = "w-5 h-5" }) => (
   </svg>
 );
 
-/**
- * AppLayout manages the main application structure: Sidebar, Header, and the main content area.
- * It now also manages the Dashboard's tab state because the tab controls
- * have been moved into its header.
- */
 function AppLayout() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const location = useLocation();
+
+  // THEME FIX: Create a reactive state for the theme.
+  const [theme, setTheme] = useState(
+    document.documentElement.classList.contains("dark") ? "dark" : "light"
+  );
+
+  // THEME FIX: Use an effect with a MutationObserver to listen for
+  // class changes on the <html> element and update the theme state.
+  useEffect(() => {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (
+          mutation.type === "attributes" &&
+          mutation.attributeName === "class"
+        ) {
+          const newTheme = document.documentElement.classList.contains("dark")
+            ? "dark"
+            : "light";
+          setTheme(newTheme);
+        }
+      });
+    });
+
+    observer.observe(document.documentElement, { attributes: true });
+
+    return () => observer.disconnect();
+  }, []);
 
   const activePageLabel = useMemo(() => {
     const path = location.pathname;
@@ -71,15 +91,13 @@ function AppLayout() {
 
   const isDashboardActive = activePageLabel === "Dashboard";
 
-  // The logic for tab state and navigation now lives here.
+  // This hook is now only responsible for tab navigation state.
   const dashboardLogic = useDashboardLogic({
     isAppFullscreen: isFullscreen,
     isSidebarCollapsed,
   });
-
   const { activeTabValue, handleTabChangeForNavigation } = dashboardLogic;
 
-  // Fullscreen logic
   const toggleFullscreen = () => {
     if (!isDashboardActive) return;
     setIsFullscreen(!isFullscreen);
@@ -90,6 +108,24 @@ function AppLayout() {
       setIsFullscreen(false);
     }
   }, [isFullscreen, isDashboardActive]);
+
+  const renderFullscreenToggleButton = () => {
+    if (!isDashboardActive) return null;
+
+    const ButtonIcon = isFullscreen ? ExitFullscreenIcon : FullscreenIcon;
+    const buttonTitle = isFullscreen ? "Exit Fullscreen" : "Fullscreen";
+
+    return (
+      <button
+        onClick={toggleFullscreen}
+        title={buttonTitle}
+        aria-label={buttonTitle}
+        className="h-10 w-10 flex-shrink-0 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-200 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors"
+      >
+        <ButtonIcon className="w-5 h-5" />
+      </button>
+    );
+  };
 
   return (
     <div className="flex min-h-[100vh] bg-gray-100 dark:bg-gray-950 text-gray-800 dark:text-gray-100 transition-colors">
@@ -105,37 +141,45 @@ function AppLayout() {
           isFullscreen ? "p-0" : "p-4 md:p-6"
         }`}
       >
-        {!isFullscreen && (
-          <header className="bg-white dark:bg-gray-800 shadow-sm p-4 mb-6 rounded-lg shrink-0 flex items-center justify-between">
-            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-              {activePageLabel}
-            </h1>
+        <header
+          className={`bg-white dark:bg-gray-800 shrink-0 flex flex-col sm:flex-row sm:items-center gap-4 ${
+            isFullscreen
+              ? "p-4 border-b dark:border-gray-700"
+              : "shadow-sm p-4 mb-6 rounded-lg"
+          }`}
+        >
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white shrink-0">
+            {activePageLabel}
+          </h1>
 
-            {/* Conditionally render dashboard tabs here */}
-            {isDashboardActive && (
-              <Tabs
-                value={activeTabValue}
-                onValueChange={handleTabChangeForNavigation}
-                className="flex-shrink-0"
-              >
-                <TabsList className="bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
-                  <TabsTrigger
-                    value="favorites"
-                    className="flex items-center gap-1"
-                  >
-                    <Star className="h-4 w-4 text-yellow-500" /> Favorites
-                  </TabsTrigger>
-                  <TabsTrigger value="all_interfaces">
-                    All Interfaces
-                  </TabsTrigger>
-                  <TabsTrigger value="l_network">L-chart</TabsTrigger>
-                  <TabsTrigger value="p_network">P-chart</TabsTrigger>
-                  <TabsTrigger value="site">Site</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            )}
-          </header>
-        )}
+          {isDashboardActive && (
+            <>
+              <div className="flex-1 flex justify-center">
+                <Tabs
+                  value={activeTabValue}
+                  onValueChange={handleTabChangeForNavigation}
+                  className="w-full md:w-[750px] lg:w-[800px]"
+                >
+                  <TabsList className="grid-cols-5">
+                    <TabsTrigger
+                      value="favorites"
+                      className="flex items-center gap-1.5"
+                    >
+                      <Star className="h-4 w-4 text-yellow-500" /> Favorites
+                    </TabsTrigger>
+                    <TabsTrigger value="all_interfaces">
+                      All Interfaces
+                    </TabsTrigger>
+                    <TabsTrigger value="l_network">L-chart</TabsTrigger>
+                    <TabsTrigger value="p_network">P-chart</TabsTrigger>
+                    <TabsTrigger value="site">Site</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+              {renderFullscreenToggleButton()}
+            </>
+          )}
+        </header>
 
         <div className="flex-1 min-h-0">
           <Routes>
@@ -158,21 +202,16 @@ function AppLayout() {
                 </div>
               }
             />
-
             <Route
               path="/*"
               element={
                 <DashboardPage
                   isAppFullscreen={isFullscreen}
-                  isSidebarCollapsed={isSidebarCollapsed}
-                  toggleAppFullscreen={toggleFullscreen}
-                  isFullscreenActive={isFullscreen}
                   activeTabValue={activeTabValue}
-                  chartKeySuffix={dashboardLogic.chartKeySuffix}
-                  theme={dashboardLogic.theme}
+                  // Pass the new, reactive theme state as a prop.
+                  theme={theme}
                   popupAnchorCoords={dashboardLogic.popupAnchorCoords}
-                  enterFullscreenButtonClasses="text-gray-600 hover:bg-gray-100"
-                  exitFullscreenButtonClasses="bg-gray-200 text-gray-700"
+                  chartKeySuffix={dashboardLogic.chartKeySuffix}
                 />
               }
             />
@@ -183,5 +222,4 @@ function AppLayout() {
   );
 }
 
-// NOTE: We need to export AppLayout as the default export from this file
 export default AppLayout;

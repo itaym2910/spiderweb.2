@@ -39,7 +39,6 @@ const NetworkVisualizerWrapper = ({ theme }) => {
       return { nodes: [], links: [] };
     }
 
-    // 1. Group all devices by their parent site ID
     const devicesByPikudId = allDevicesForType.reduce((acc, device) => {
       const siteId = device.core_pikudim_site_id;
       if (!acc[siteId]) {
@@ -49,17 +48,14 @@ const NetworkVisualizerWrapper = ({ theme }) => {
       return acc;
     }, {});
 
-    // 2. For each group, select the top 2 devices using our priority logic
     const topDevicesPerPikud = Object.values(devicesByPikudId).flatMap(
       (deviceGroup) => selectTopTwoDevices(deviceGroup)
     );
 
-    // 3. Create a set of the visible device hostnames for easy link filtering
     const visibleDeviceHostnames = new Set(
       topDevicesPerPikud.map((d) => d.hostname)
     );
 
-    // 4. Transform the selected devices into NODES for D3
     const pikudimMap = pikudim.reduce((acc, p) => {
       acc[p.id] = p;
       return acc;
@@ -72,7 +68,6 @@ const NetworkVisualizerWrapper = ({ theme }) => {
         "Unknown Zone",
     }));
 
-    // 5. Filter the raw links to only include those between visible nodes
     const transformedLinks = linksRaw
       .filter(
         (link) =>
@@ -145,7 +140,6 @@ const NetworkVisualizerWrapper = ({ theme }) => {
 
   return (
     <div className="w-full h-full flex flex-col">
-      {/* 1. Link Detail Tabs */}
       {openLinkTabs.length > 0 && (
         <div className="flex-shrink-0">
           <LinkDetailTabs
@@ -158,10 +152,12 @@ const NetworkVisualizerWrapper = ({ theme }) => {
         </div>
       )}
 
-      {/* 2. Network Visualizer (passing transformed data) */}
       <div className="flex-grow relative">
         <NetworkVisualizer
-          data={graphData} // Pass the transformed graphData
+          // [MODIFIED] - This is the fix. By changing the key, React will
+          // destroy and recreate the component, forcing it to re-initialize with the new theme.
+          key={theme}
+          data={graphData}
           theme={theme}
           onZoneClick={handleZoneClick}
           onLinkClick={handleLinkClick}

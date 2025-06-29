@@ -91,11 +91,9 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
     [navigate]
   );
 
-  // --- REVERTED handleNodeClick to navigate to the LinkTable page ---
   const handleNodeClick = useCallback(
     (nodeData) => {
       if (nodeData && nodeData.id && nodeData.zone) {
-        // This now navigates to the dedicated page for the node (e.g., LinkTable)
         navigate(`zone/${nodeData.zone}/node/${nodeData.id}`);
       } else {
         console.warn("Node data incomplete for navigation:", nodeData);
@@ -104,7 +102,6 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
     [navigate]
   );
 
-  // --- handleLinkClick remains the same, opening a tab ---
   const handleLinkClick = useCallback(
     (linkDetailPayload) => {
       const { id, sourceNode, targetNode } = linkDetailPayload;
@@ -114,7 +111,7 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
         const newTab = {
           id: id,
           title: `${sourceNode} - ${targetNode}`,
-          type: "link", // This is a link tab
+          type: "link",
           data: linkDetailPayload,
         };
         setOpenLinkTabs((prevTabs) => [...prevTabs, newTab]);
@@ -124,7 +121,6 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
     [openLinkTabs]
   );
 
-  // --- handleCloseTab updated to use link-specific state ---
   const handleCloseTab = useCallback(
     (tabIdToClose) => {
       setOpenLinkTabs((prevTabs) => {
@@ -144,7 +140,6 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
 
   return (
     <div className="w-full h-full flex flex-col">
-      {/* 1. Link Detail Tabs (now only shows link tabs) */}
       {openLinkTabs.length > 0 && (
         <div className="flex-shrink-0">
           <LinkDetailTabs
@@ -153,19 +148,20 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
             onSetActiveTab={setActiveLinkTabId}
             onCloseTab={handleCloseTab}
             theme={theme}
-            // onNavigateToSite is no longer needed here
           />
         </div>
       )}
 
-      {/* 2. Network Visualizer */}
       <div className="flex-grow relative">
         <NetworkVisualizer5
+          // [MODIFIED] - This is the fix. By changing the key, React will
+          // destroy and recreate the component, forcing it to re-initialize with the new theme.
+          key={theme}
           data={graphData}
           theme={theme}
           onZoneClick={handleZoneClick}
           onLinkClick={handleLinkClick}
-          onNodeClick={handleNodeClick} // This now correctly triggers navigation
+          onNodeClick={handleNodeClick}
         />
       </div>
     </div>
