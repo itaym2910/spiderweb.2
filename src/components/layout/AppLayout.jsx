@@ -52,30 +52,20 @@ function AppLayout() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const location = useLocation();
 
-  // THEME FIX: Create a reactive state for the theme.
   const [theme, setTheme] = useState(
     document.documentElement.classList.contains("dark") ? "dark" : "light"
   );
 
-  // THEME FIX: Use an effect with a MutationObserver to listen for
-  // class changes on the <html> element and update the theme state.
   useEffect(() => {
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (
-          mutation.type === "attributes" &&
-          mutation.attributeName === "class"
-        ) {
-          const newTheme = document.documentElement.classList.contains("dark")
-            ? "dark"
-            : "light";
-          setTheme(newTheme);
-        }
-      });
+    const observer = new MutationObserver(() => {
+      setTheme(
+        document.documentElement.classList.contains("dark") ? "dark" : "light"
+      );
     });
-
-    observer.observe(document.documentElement, { attributes: true });
-
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
     return () => observer.disconnect();
   }, []);
 
@@ -91,7 +81,6 @@ function AppLayout() {
 
   const isDashboardActive = activePageLabel === "Dashboard";
 
-  // This hook is now only responsible for tab navigation state.
   const dashboardLogic = useDashboardLogic({
     isAppFullscreen: isFullscreen,
     isSidebarCollapsed,
@@ -102,12 +91,6 @@ function AppLayout() {
     if (!isDashboardActive) return;
     setIsFullscreen(!isFullscreen);
   };
-
-  useEffect(() => {
-    if (isFullscreen && !isDashboardActive) {
-      setIsFullscreen(false);
-    }
-  }, [isFullscreen, isDashboardActive]);
 
   const renderFullscreenToggleButton = () => {
     if (!isDashboardActive) return null;
@@ -128,7 +111,7 @@ function AppLayout() {
   };
 
   return (
-    <div className="flex min-h-[100vh] bg-gray-100 dark:bg-gray-950 text-gray-800 dark:text-gray-100 transition-colors">
+    <div className="flex h-screen bg-gray-100 dark:bg-gray-950 text-gray-800 dark:text-gray-100 transition-colors overflow-hidden">
       {!isFullscreen && (
         <Sidebar
           currentPage={activePageLabel}
@@ -136,19 +119,12 @@ function AppLayout() {
           setCollapsed={setIsSidebarCollapsed}
         />
       )}
-      <main
-        className={`flex-1 flex flex-col overflow-y-auto relative ${
-          isFullscreen ? "p-0" : "p-4 md:p-6"
-        }`}
-      >
+      <main className="flex-1 flex flex-col relative">
         <header
           className={`bg-white dark:bg-gray-800 shrink-0 flex flex-col sm:flex-row sm:items-center gap-4 ${
-            isFullscreen
-              ? "p-4 border-b dark:border-gray-700"
-              : "shadow-sm p-4 mb-6 rounded-lg"
+            isFullscreen ? "p-4 border-b dark:border-gray-700" : "p-4 shadow-sm"
           }`}
         >
-          {/* [MODIFIED] - The header title now changes based on the fullscreen state. */}
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white shrink-0">
             {isFullscreen ? "SPIDERWEB" : activePageLabel}
           </h1>
@@ -182,7 +158,13 @@ function AppLayout() {
           )}
         </header>
 
-        <div className="flex-1 min-h-0">
+        <div
+          className={`flex-1 min-h-0 overflow-y-auto ${
+            theme === "dark"
+              ? "dark-scrollbar dark-scrollbar-firefox"
+              : "light-scrollbar light-scrollbar-firefox"
+          } ${!isFullscreen && "p-4 md:p-6"}`}
+        >
           <Routes>
             <Route path="/admin" element={<AdminPanelPage />} />
             <Route path="/search" element={<SearchPage />} />

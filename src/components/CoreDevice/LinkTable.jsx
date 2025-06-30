@@ -29,11 +29,10 @@ const LinkTable = ({
   coreSiteName = "Unknown Site",
   linksData = [],
   otherDevicesInZone = [],
-  initialTheme = "light",
+  theme = "dark",
 }) => {
   const navigate = useNavigate();
 
-  const [theme, setTheme] = useState(initialTheme);
   const [linkTypeFilter, setLinkTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [filteredLinks, setFilteredLinks] = useState(linksData);
@@ -41,51 +40,28 @@ const LinkTable = ({
 
   useEffect(() => {
     let currentLinks = [...linksData];
-
-    // 1. Filter by Link Type first (no change here)
     if (linkTypeFilter !== "all") {
       currentLinks = currentLinks.filter(
         (link) => link && link.type === linkTypeFilter
       );
     }
-
-    // 2. Apply status filtering with the new logic
     if (statusFilter === "issue") {
-      // SPECIAL CASE: When "Issue" is selected...
-      // First, get all 'down' and 'issue' links.
       const problemLinks = currentLinks.filter(
         (link) => link && (link.status === "down" || link.status === "issue")
       );
-      // Then, sort them to put 'down' links first.
       problemLinks.sort((a, b) => {
-        if (a.status === "down" && b.status !== "down") return -1; // a (down) comes before b
-        if (a.status !== "down" && b.status === "down") return 1; // b (down) comes before a
-        return 0; // maintain original order for links with same status
+        if (a.status === "down" && b.status !== "down") return -1;
+        if (a.status !== "down" && b.status === "down") return 1;
+        return 0;
       });
       currentLinks = problemLinks;
     } else if (statusFilter !== "all") {
-      // Standard filtering for 'up', 'down', or any other status
       currentLinks = currentLinks.filter(
         (link) => link && link.status === statusFilter
       );
     }
-
     setFilteredLinks(currentLinks);
   }, [linksData, linkTypeFilter, statusFilter]);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    const currentHtmlIsDark = root.classList.contains("dark");
-    const currentGlobalTheme = currentHtmlIsDark ? "dark" : "light";
-    if (theme !== currentGlobalTheme) {
-      setTheme(currentGlobalTheme);
-    }
-    const observer = new MutationObserver(() => {
-      setTheme(root.classList.contains("dark") ? "dark" : "light");
-    });
-    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, [theme]);
 
   const isDark = theme === "dark";
 
@@ -93,28 +69,23 @@ const LinkTable = ({
     setExpandedLinkId((prevId) => (prevId === linkId ? null : linkId));
   };
 
-  // --- NEW: Handler for clicking a device button ---
   const handleDeviceButtonClick = (device) => {
-    // Navigate to the detail page for the clicked device
     navigate(`/l-chart/zone/${device.zoneName}/node/${device.hostname}`);
-    // Note: We need to get the zone name onto the device object.
-    // Let's update the hook for this.
   };
 
   const actionButtonBaseClasses =
     "ml-2 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-opacity-50";
-
   const actionButtonSizeClasses = "px-4 py-1.5 text-sm";
-
   const lightActionButtonClasses =
     "bg-blue-100 hover:bg-blue-200 text-blue-700 focus:ring-blue-500";
   const darkActionButtonClasses =
     "bg-blue-700 hover:bg-blue-600 text-blue-100 focus:ring-blue-400";
 
   return (
-    <div className="p-2">
+    // [THE FIX] - The root div now has `min-h-full` to ensure it stretches to fill the viewport,
+    // which allows its parent's scrollbar to activate when this component's content is too tall.
+    <div className="min-h-full">
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg transition-colors duration-300">
-        {/* --- NEW: MAIN SITE TITLE SECTION --- */}
         <div className="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
             {coreSiteName}
@@ -123,15 +94,11 @@ const LinkTable = ({
             Core Site Device Details
           </p>
         </div>
-        {/* Header Section with Title and Buttons */}
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center">
             <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mr-2">
-              {" "}
-              {/* Added mr-2 to title for spacing */}
               Links for: {coreDeviceName || "N/A"}
             </h2>
-            {/* --- MODIFIED: Dynamically render buttons --- */}
             {otherDevicesInZone.length > 0 &&
               otherDevicesInZone.map((device) => (
                 <button
@@ -149,7 +116,6 @@ const LinkTable = ({
           </div>
         </div>
 
-        {/* ... (Filters and Table remain the same) ... */}
         <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label
@@ -233,7 +199,6 @@ const LinkTable = ({
                   const selectedRowBg = isDark
                     ? "bg-slate-700"
                     : "bg-slate-100";
-
                   return (
                     <React.Fragment key={link.id}>
                       <tr
