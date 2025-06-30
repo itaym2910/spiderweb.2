@@ -1,6 +1,8 @@
 // LinkTable.jsx
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import LinkDetailRow from "./LineDetailExtend";
+
 const StatusBulb = ({ status }) => {
   let bgColor = "bg-gray-400 dark:bg-gray-500";
   let title = "Unknown";
@@ -24,10 +26,13 @@ const StatusBulb = ({ status }) => {
 
 const LinkTable = ({
   coreDeviceName,
+  coreSiteName = "Unknown Site",
   linksData = [],
+  otherDevicesInZone = [],
   initialTheme = "light",
 }) => {
-  // ... (state and other functions remain the same) ...
+  const navigate = useNavigate();
+
   const [theme, setTheme] = useState(initialTheme);
   const [linkTypeFilter, setLinkTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -36,16 +41,35 @@ const LinkTable = ({
 
   useEffect(() => {
     let currentLinks = [...linksData];
+
+    // 1. Filter by Link Type first (no change here)
     if (linkTypeFilter !== "all") {
       currentLinks = currentLinks.filter(
         (link) => link && link.type === linkTypeFilter
       );
     }
-    if (statusFilter !== "all") {
+
+    // 2. Apply status filtering with the new logic
+    if (statusFilter === "issue") {
+      // SPECIAL CASE: When "Issue" is selected...
+      // First, get all 'down' and 'issue' links.
+      const problemLinks = currentLinks.filter(
+        (link) => link && (link.status === "down" || link.status === "issue")
+      );
+      // Then, sort them to put 'down' links first.
+      problemLinks.sort((a, b) => {
+        if (a.status === "down" && b.status !== "down") return -1; // a (down) comes before b
+        if (a.status !== "down" && b.status === "down") return 1; // b (down) comes before a
+        return 0; // maintain original order for links with same status
+      });
+      currentLinks = problemLinks;
+    } else if (statusFilter !== "all") {
+      // Standard filtering for 'up', 'down', or any other status
       currentLinks = currentLinks.filter(
         (link) => link && link.status === statusFilter
       );
     }
+
     setFilteredLinks(currentLinks);
   }, [linksData, linkTypeFilter, statusFilter]);
 
@@ -63,32 +87,24 @@ const LinkTable = ({
     return () => observer.disconnect();
   }, [theme]);
 
-  const toggleGlobalTheme = () => {
-    const root = document.documentElement;
-    if (root.classList.contains("dark")) {
-      root.classList.remove("dark");
-    } else {
-      root.classList.add("dark");
-    }
-  };
-
   const isDark = theme === "dark";
 
   const handleLinkRowClick = (linkId) => {
     setExpandedLinkId((prevId) => (prevId === linkId ? null : linkId));
   };
 
-  const handleA2Click = () => console.log("A2 clicked");
-  const handleA3Click = () => console.log("A3 clicked");
-  const handleA4Click = () => console.log("A4 clicked");
+  // --- NEW: Handler for clicking a device button ---
+  const handleDeviceButtonClick = (device) => {
+    // Navigate to the detail page for the clicked device
+    navigate(`/l-chart/zone/${device.zoneName}/node/${device.hostname}`);
+    // Note: We need to get the zone name onto the device object.
+    // Let's update the hook for this.
+  };
 
-  // --- Updated Button Classes for Size ---
   const actionButtonBaseClasses =
     "ml-2 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-opacity-50";
-  // Option 1: Slightly larger (text-sm, more padding)
+
   const actionButtonSizeClasses = "px-4 py-1.5 text-sm";
-  // Option 2: Even larger (text-base, more padding)
-  // const actionButtonSizeClasses = "px-5 py-2 text-base";
 
   const lightActionButtonClasses =
     "bg-blue-100 hover:bg-blue-200 text-blue-700 focus:ring-blue-500";
@@ -98,6 +114,15 @@ const LinkTable = ({
   return (
     <div className="p-2">
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg transition-colors duration-300">
+        {/* --- NEW: MAIN SITE TITLE SECTION --- */}
+        <div className="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+            {coreSiteName}
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Core Site Device Details
+          </p>
+        </div>
         {/* Header Section with Title and Buttons */}
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center">
@@ -106,42 +131,22 @@ const LinkTable = ({
               {/* Added mr-2 to title for spacing */}
               Links for: {coreDeviceName || "N/A"}
             </h2>
-            <button
-              onClick={handleA2Click}
-              className={`${actionButtonBaseClasses} ${actionButtonSizeClasses} ${
-                isDark ? darkActionButtonClasses : lightActionButtonClasses
-              }`}
-              aria-label="Action A2"
-            >
-              A2
-            </button>
-            <button
-              onClick={handleA3Click}
-              className={`${actionButtonBaseClasses} ${actionButtonSizeClasses} ${
-                isDark ? darkActionButtonClasses : lightActionButtonClasses
-              }`}
-              aria-label="Action A3"
-            >
-              A3
-            </button>
-            <button
-              onClick={handleA4Click}
-              className={`${actionButtonBaseClasses} ${actionButtonSizeClasses} ${
-                isDark ? darkActionButtonClasses : lightActionButtonClasses
-              }`}
-              aria-label="Action A4"
-            >
-              A4
-            </button>
+            {/* --- MODIFIED: Dynamically render buttons --- */}
+            {otherDevicesInZone.length > 0 &&
+              otherDevicesInZone.map((device) => (
+                <button
+                  key={device.id}
+                  onClick={() => handleDeviceButtonClick(device)}
+                  className={`${actionButtonBaseClasses} ${actionButtonSizeClasses} ${
+                    isDark ? darkActionButtonClasses : lightActionButtonClasses
+                  }`}
+                  aria-label={`View details for ${device.hostname}`}
+                  title={`View details for ${device.hostname}`}
+                >
+                  {device.hostname}
+                </button>
+              ))}
           </div>
-
-          <button
-            onClick={toggleGlobalTheme}
-            className="p-2 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-            aria-label="Toggle dark mode"
-          >
-            {isDark ? "Light Mode" : "Dark Mode"}
-          </button>
         </div>
 
         {/* ... (Filters and Table remain the same) ... */}

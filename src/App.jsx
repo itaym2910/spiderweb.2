@@ -1,142 +1,23 @@
-// App.js
-import React, { useState, useEffect } from "react";
+// src/App.js
+
+import React from "react";
+import { Provider } from "react-redux";
+import { store } from "./redux/store";
 import { BrowserRouter } from "react-router-dom";
-import { Sidebar } from "./components/ui/sidebar";
-import MainPage from "./MainPage";
+import AppLayout from "./components/layout/AppLayout"; // <-- IMPORT THE NEW COMPONENT
 
-// SVG Icon for Fullscreen (Expand)
-export const FullscreenIcon = (
-  { className = "w-5 h-5" } // Export for use in DashboardPage
-) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-    strokeWidth={1.5}
-    stroke="currentColor"
-    className={className}
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9.75 9.75M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L14.25 9.75M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9.75 14.25m10.5 6.05v-4.5m0 4.5h-4.5m4.5 0L14.25 14.25"
-    />
-  </svg>
-);
-
-// SVG Icon for Exit Fullscreen (Compress)
-export const ExitFullscreenIcon = (
-  { className = "w-5 h-5" } // Export for use in DashboardPage
-) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-    strokeWidth={1.5}
-    stroke="currentColor"
-    className={className}
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9V4.5M15 9h4.5M15 9l5.25-5.25M15 15v4.5M15 15h4.5M15 15l5.25 5.25"
-    />
-  </svg>
-);
-
+/**
+ * The root App component. Its only job is to set up the global providers
+ * for Redux (state management) and React Router (navigation).
+ * The actual visual structure is now handled by AppLayout.
+ */
 function App() {
-  const [currentPage, setCurrentPage] = useState("Dashboard");
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isAppDarkTheme, setIsAppDarkTheme] = useState(
-    document.documentElement.classList.contains("dark")
-  );
-
-  let pageTitle = currentPage;
-  if (currentPage === "Notifications") {
-    pageTitle = "Alerts";
-  }
-
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      setIsAppDarkTheme(document.documentElement.classList.contains("dark"));
-    });
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-    return () => observer.disconnect();
-  }, []);
-
-  const toggleFullscreen = () => {
-    // Keep the logic that fullscreen is only for Dashboard
-    if (currentPage !== "Dashboard") {
-      if (isFullscreen) setIsFullscreen(false); // Exit fullscreen if leaving dashboard
-      return;
-    }
-    setIsFullscreen(!isFullscreen);
-  };
-
-  useEffect(() => {
-    // If navigating away from Dashboard while in fullscreen, exit fullscreen.
-    if (isFullscreen && currentPage !== "Dashboard") {
-      setIsFullscreen(false);
-    }
-  }, [currentPage, isFullscreen]);
-
-  // Button classes can now be defined in DashboardPage if preferred, or passed down.
-  // For simplicity here, we'll keep them, but they could also be reconstructed in DashboardPage.
-  const exitFullscreenButtonClasses = isAppDarkTheme
-    ? "bg-gray-700 text-white hover:bg-gray-600"
-    : "bg-gray-200 text-gray-700 hover:bg-gray-300";
-
-  const enterFullscreenButtonClasses = isAppDarkTheme
-    ? "text-gray-300 hover:bg-gray-700 hover:text-white" // ensure text is visible on hover
-    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"; // ensure text is visible on hover
-
   return (
-    <BrowserRouter>
-      <div className="flex min-h-[100vh] bg-gray-100 dark:bg-gray-950 text-gray-800 dark:text-gray-100 transition-colors">
-        {!isFullscreen && ( // Sidebar is hidden in fullscreen
-          <Sidebar
-            currentPage={currentPage}
-            setCurrentPage={setCurrentPage}
-            collapsed={isSidebarCollapsed}
-            setCollapsed={setIsSidebarCollapsed}
-          />
-        )}
-        <main
-          className={`flex-1 overflow-y-hidden relative ${
-            isFullscreen ? "p-0" : "p-4 md:p-6"
-          }`}
-        >
-          {/* Header is hidden in fullscreen OR only shows page title if not dashboard */}
-          {(!isFullscreen || currentPage !== "Dashboard") && (
-            <header className="bg-white dark:bg-gray-800 shadow-sm p-4 mb-6 rounded-lg flex justify-between items-center">
-              <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-                {pageTitle}
-              </h1>
-              {/* REMOVE Fullscreen button from header */}
-            </header>
-          )}
-
-          {/* REMOVE Absolute positioned Exit Fullscreen button */}
-
-          <MainPage
-            currentPage={currentPage}
-            isFullscreen={isFullscreen}
-            isSidebarCollapsed={isSidebarCollapsed}
-            // --- PASS PROPS FOR FULLSCREEN BUTTON ---
-            toggleFullscreen={toggleFullscreen}
-            isAppDarkTheme={isAppDarkTheme} // To style the button
-            // Pass button classes or let DashboardPage define them
-            enterFullscreenButtonClasses={enterFullscreenButtonClasses}
-            exitFullscreenButtonClasses={exitFullscreenButtonClasses}
-            // --- END PASS PROPS ---
-          />
-        </main>
-      </div>
-    </BrowserRouter>
+    <Provider store={store}>
+      <BrowserRouter>
+        <AppLayout />
+      </BrowserRouter>
+    </Provider>
   );
 }
 

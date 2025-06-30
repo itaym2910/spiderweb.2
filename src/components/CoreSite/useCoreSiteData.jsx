@@ -1,39 +1,71 @@
-// src/components/CoreSite/useCoreSiteData.js
 import {
   useState,
   useEffect,
   useLayoutEffect,
   useRef,
   useCallback,
+  useMemo,
 } from "react";
+import { useSelector } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
 import { useNodeLayout } from "./useNodeLayout";
+import { selectAllSites } from "../../redux/slices/sitesSlice";
+import { selectLinksByTypeId } from "../../redux/slices/tenGigLinksSlice";
+import { selectAllDevices } from "../../redux/slices/devicesSlice";
+import { selectAllPikudim } from "../../redux/slices/corePikudimSlice";
 
-// Add chartType as a parameter to the hook
 export function useCoreSiteData(chartType) {
-  const { zoneId, nodeId: nodeIdFromUrl } = useParams(); // Get nodeId from URL
+  const { zoneId, nodeId: nodeIdFromUrl } = useParams();
   const navigate = useNavigate();
   const containerRef = useRef(null);
 
+  const allPikudim = useSelector(selectAllPikudim);
+  const allDevices = useSelector(selectAllDevices);
+  const allSites = useSelector(selectAllSites);
+  const allLinksForChart = useSelector((state) =>
+    selectLinksByTypeId(state, chartType === "P" ? 2 : 1)
+  );
+
+  const devicesForZone = useMemo(() => {
+    if (!zoneId || !allPikudim.length || !allDevices.length) return [];
+    const currentPikud = allPikudim.find((p) => p.core_site_name === zoneId);
+    if (!currentPikud) return [];
+    return allDevices.filter((d) => d.core_pikudim_site_id === currentPikud.id);
+  }, [zoneId, allDevices, allPikudim]);
+
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [selectedNodeId, setSelectedNodeId] = useState("Node 4");
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [showExtendedNodes, setShowExtendedNodes] = useState(false);
   const [animateExtendedLayoutUp, setAnimateExtendedLayoutUp] = useState(false);
-  const [previousSelectedNodeId, setPreviousSelectedNodeId] =
-    useState("Node 4");
-  const [mainToggleNode1Text, setMainToggleNode1Text] =
-    useState("Node 4 (80 Sites)");
-  const [mainToggleNode2Text, setMainToggleNode2Text] =
-    useState("Node 3 (30 Sites)");
-
-  // --- REPLACED POPUP MANAGER WITH TAB STATE ---
+  const [previousSelectedNodeId, setPreviousSelectedNodeId] = useState(null);
   const [openDetailTabs, setOpenDetailTabs] = useState([]);
   const [activeDetailTabId, setActiveDetailTabId] = useState(null);
 
-  // useEffects for layout, animation, and zone changes remain the same
+  const sitesForFocusedNode = useMemo(() => {
+    // This logic will only re-run if allDevices, selectedNodeId, or allSites changes.
+    if (!selectedNodeId || !allDevices.length || !allSites.length) {
+      return [];
+    }
+
+    // 1. Find the full device object for the selectedNodeId (which is a hostname)
+    const focusedDevice = allDevices.find((d) => d.hostname === selectedNodeId);
+
+    // 2. If we found the device, use its real ID to filter the sites
+    if (focusedDevice) {
+      return allSites.filter((site) => site.device_id === focusedDevice.id);
+    }
+
+    // 3. Otherwise, return an empty array
+    return [];
+  }, [allDevices, selectedNodeId, allSites]);
+
   useEffect(() => {
-    setSelectedNodeId(nodeIdFromUrl || "Node 4");
-  }, [nodeIdFromUrl]);
+    if (devicesForZone.length > 0 && !selectedNodeId) {
+      const initialNodeId = nodeIdFromUrl || devicesForZone[0].hostname;
+      setSelectedNodeId(initialNodeId);
+      setPreviousSelectedNodeId(initialNodeId);
+    }
+  }, [devicesForZone, nodeIdFromUrl, selectedNodeId]);
 
   useEffect(() => {
     if (showExtendedNodes) {
@@ -45,16 +77,8 @@ export function useCoreSiteData(chartType) {
     }
   }, [showExtendedNodes]);
 
-  useEffect(() => {
-    if (zoneId !== "Zone 5" && zoneId !== "Zone 6") {
-      setShowExtendedNodes(false);
-      setSelectedNodeId(previousSelectedNodeId || "Node 4");
-      setMainToggleNode1Text("Node 4 (80 Sites)");
-      setMainToggleNode2Text("Node 3 (30 Sites)");
-    }
-  }, [zoneId, previousSelectedNodeId]);
-
   useLayoutEffect(() => {
+    // This effect can be simplified or removed if not strictly needed
     setShowExtendedNodes(false);
   }, [zoneId]);
 
@@ -67,57 +91,72 @@ export function useCoreSiteData(chartType) {
         });
       }
     };
-    if (containerRef.current) {
-      updateDimensions();
-    }
+    if (containerRef.current) updateDimensions();
     window.addEventListener("resize", updateDimensions);
     return () => window.removeEventListener("resize", updateDimensions);
   }, []);
 
-  const { nodes, links, centerX, centerY } = useNodeLayout(
+  const {
+    nodes: layoutNodes,
+    links: layoutLinks,
+    centerX,
+    centerY,
+  } = useNodeLayout(
     dimensions.width,
     dimensions.height,
     showExtendedNodes,
-    animateExtendedLayoutUp
+    animateExtendedLayoutUp,
+    devicesForZone,
+    allLinksForChart
+  );
+
+  const nodes = layoutNodes.filter((node) => node.id !== "None");
+  const links = layoutLinks.filter(
+    (link) => link.source.id !== "None" && link.target.id !== "None"
   );
 
   const handleToggleExtendedNodes = () => {
     setShowExtendedNodes((prevShowExtended) => {
       const nextShowExtended = !prevShowExtended;
       if (nextShowExtended) {
+        // Switching to extended view
         setPreviousSelectedNodeId(selectedNodeId);
-        setSelectedNodeId("Node 5");
-        setMainToggleNode1Text("Node 5 (80 Sites)");
-        setMainToggleNode2Text("Node 6 (30 Sites)");
+        // Select the first visible node in the new layout (device at index 2)
+        const newSelected = devicesForZone[2]?.hostname;
+        if (newSelected) setSelectedNodeId(newSelected);
       } else {
-        setSelectedNodeId(previousSelectedNodeId);
-        setMainToggleNode1Text("Node 4 (80 Sites)");
-        setMainToggleNode2Text("Node 3 (30 Sites)");
+        // Switching back to initial view
+        // Restore previous selection or default to first device
+        setSelectedNodeId(
+          previousSelectedNodeId || devicesForZone[0]?.hostname
+        );
       }
       return nextShowExtended;
     });
   };
 
-  const handleMainToggleSwitch = () => {
-    if (showExtendedNodes) {
-      setSelectedNodeId((prev) => (prev === "Node 5" ? "Node 6" : "Node 5"));
-    } else {
-      setSelectedNodeId((prev) => (prev === "Node 4" ? "Node 3" : "Node 4"));
+  const onNodeClickInZone = (clickedNodeData) => {
+    if (!clickedNodeData || !clickedNodeData.id) {
+      console.warn("Node data incomplete for action:", clickedNodeData);
+      return;
     }
-  };
 
-  const onNodeClickInZone = (nodeData) => {
-    if (nodeData && nodeData.id) {
-      navigate(`node/${nodeData.id}`);
-    } else {
-      console.warn(
-        "CoreSitePage: Node data incomplete for navigation:",
-        nodeData
+    // --- THIS IS THE CORE LOGIC ---
+    if (clickedNodeData.id === selectedNodeId) {
+      // The user clicked on the node that is ALREADY focused.
+      // This is our trigger to navigate.
+      console.log(
+        `Navigating to details for already-focused node: ${clickedNodeData.id}`
       );
+      navigate(`node/${clickedNodeData.id}`);
+    } else {
+      // The user clicked on a DIFFERENT node.
+      // The action is to change the focus.
+      console.log(`Setting focus to ${clickedNodeData.id}`);
+      setSelectedNodeId(clickedNodeData.id);
     }
   };
 
-  // --- NEW HANDLERS FOR THE TAB UI ---
   const addOrActivateTab = useCallback((payload) => {
     const { id, type } = payload;
     const tabId = `${type}-${id}`;
@@ -155,37 +194,58 @@ export function useCoreSiteData(chartType) {
     [activeDetailTabId]
   );
 
+  // REPLACE THE OLD FUNCTION WITH THIS NEW ONE:
+
   const handleNavigateToSite = useCallback(
-    (siteData) => {
-      if (siteData.navId) {
-        // --- THIS IS THE FIX ---
-        // Add a second argument to navigate() to pass state.
-        navigate(`/sites/site/${siteData.navId}`, {
-          state: { siteData: siteData }, // Pass the data payload here
+    (clickedSiteData) => {
+      // `clickedSiteData` is the single site object from the tab.
+      // It contains the `name` property (e.g., "Site West Pasquale").
+      if (!clickedSiteData || !clickedSiteData.name) {
+        console.error("Navigation failed: No site data provided.");
+        return;
+      }
+
+      // 1. Get the English name of the site. This is our unique key to find the group.
+      const targetSiteName = clickedSiteData.name;
+
+      // 2. Search through the `allSites` array (which you already have in this hook)
+      //    to find every connection that matches this name. This rebuilds the "group".
+      const siteGroup = allSites.filter(
+        (site) => site.site_name_english === targetSiteName
+      );
+
+      // 3. If we found at least one matching site, we can navigate.
+      if (siteGroup.length > 0) {
+        // Create a URL-friendly version of the name.
+        const navId = encodeURIComponent(targetSiteName);
+
+        // 4. THIS IS THE CRITICAL FIX:
+        //    Navigate with the data in the CORRECT format. The router expects an
+        //    object with a `siteGroupData` key, and its value is the array we just built.
+        navigate(`/sites/site/${navId}`, {
+          state: { siteGroupData: siteGroup },
         });
+      } else {
+        // Optional: Handle the case where for some reason the site couldn't be found.
+        console.error(
+          "Could not find a matching site group for:",
+          targetSiteName
+        );
       }
     },
-    [navigate]
-  );
+    [navigate, allSites]
+  ); // <-- Add `allSites` to the dependency array
 
-  // --- MODIFIED CLICK HANDLERS ---
-  const handleSiteClick = (siteIndex, siteName) => {
-    const navigationId = `${zoneId}-Site${siteIndex + 1}`;
+  const handleSiteClick = (siteData) => {
+    // Modified to accept the whole site object
     const siteDetailPayload = {
-      id: navigationId,
-      navId: navigationId,
-      name: siteName,
+      id: siteData.id, // Use the real ID
+      navId: `site-${siteData.id}`,
+      name: siteData.site_name_english, // Use the real name
       type: "site",
       zone: zoneId,
-      // ... same data as before
-      physicalStatus: Math.random() > 0.2 ? "Up" : "Down",
-      protocolStatus: Math.random() > 0.2 ? "Up" : "Down", // Changed to match StatusBulb
-      ospfStatus: "Full",
-      mplsStatus: "Active",
-      description: `Detailed description for ${siteName} in ${zoneId}.`,
-      mediaType: "Fiber",
-      cdpNeighbors: "Core-Router-A",
-      containerName: "Rack 4, Unit 8",
+      // You can add more real data from the site object here if needed
+      description: `Details for ${siteData.site_name_english}`,
     };
     addOrActivateTab(siteDetailPayload);
   };
@@ -200,7 +260,7 @@ export function useCoreSiteData(chartType) {
       linkBandwidth: `${Math.floor(Math.random() * 1000) + 100} Gbps`,
       latency: `${Math.floor(Math.random() * 50) + 1} ms`,
       utilization: `${Math.floor(Math.random() * 100)}%`,
-      status: Math.random() > 0.15 ? "up" : "down", // Changed to match StatusBulb
+      status: Math.random() > 0.15 ? "up" : "down",
       linkId: linkData.id,
       linkDescription: "Core fiber optic interconnect.",
     };
@@ -208,7 +268,7 @@ export function useCoreSiteData(chartType) {
   };
 
   const handleBackToChart = () => {
-    const basePath = chartType === "p-chart" ? "/p-chart" : "/l-chart";
+    const basePath = chartType === "P" ? "/p-chart" : "/l-chart";
     navigate(basePath);
   };
 
@@ -221,19 +281,17 @@ export function useCoreSiteData(chartType) {
     centerX,
     centerY,
     selectedNodeId,
-    handleMainToggleSwitch,
     showExtendedNodes,
     handleToggleExtendedNodes,
-    mainToggleNode1Text,
-    mainToggleNode2Text,
+    devicesInZoneCount: devicesForZone.length,
     handleBackToChart,
+    sitesForFocusedNode,
     onSiteClick: handleSiteClick,
     onLinkClick: handleLinkClick,
     onNodeClickInZone: onNodeClickInZone,
-    // --- EXPORT NEW TAB STATE AND HANDLERS ---
     openDetailTabs,
     activeDetailTabId,
-    setActiveDetailTabId, // Pass the setter directly
+    setActiveDetailTabId,
     handleCloseTab,
     handleNavigateToSite,
   };

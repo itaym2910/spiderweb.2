@@ -8,12 +8,11 @@ export default function SitesBar({
   focusedNodeDataRef, // Renamed from node4Ref, this is the ref object to READ from
   focusedNodeId, // ID of the currently focused node
   siteRefs,
+  sites = [],
   theme = "dark",
   onSiteClick,
   // nodes prop might not be needed if focusedNodeDataRef is sufficient
 }) {
-  const barBgColor = "bg-transparent";
-
   const buttonDefaultBg = theme === "dark" ? "#29c6e0" : "#e0f2fe";
   const buttonDefaultBorder = theme === "dark" ? "#60a5fa" : "#7dd3fc";
   const buttonDefaultText = theme === "dark" ? "text-white" : "text-sky-700";
@@ -79,19 +78,17 @@ export default function SitesBar({
     }
   };
 
-  const numberOfSites = focusedNodeId === "Node 3" ? 30 : 80;
-
   return (
     <div
-      className={`absolute bottom-0 left-0 w-full px-4 py-4 flex flex-wrap justify-center items-center gap-3 ${barBgColor} z-10 shadow-upwards`}
+      className={`absolute bottom-12 left-0 w-full px-4 py-4 flex flex-wrap justify-center items-center gap-3 bg-transparent z-10 shadow-upwards`}
     >
-      {Array.from({ length: numberOfSites }).map((_, i) => (
+      {sites.map((site, i) => (
         <button
-          key={`btn-${i}`}
+          key={site.id} // Use the real, unique site ID for the key
           ref={(el) => (siteRefs.current[i] = el)}
           onClick={() => {
             if (onSiteClick) {
-              onSiteClick(i, `Site ${i + 1} (via ${focusedNodeId || "N/A"})`);
+              onSiteClick(site); // Pass the entire site object to the handler
             }
           }}
           onMouseEnter={(e) => {
@@ -143,7 +140,7 @@ export default function SitesBar({
             border: `2px solid ${buttonDefaultBorder}`,
           }}
         >
-          site {i + 1}
+          {site.site_name_english}
         </button>
       ))}
     </div>

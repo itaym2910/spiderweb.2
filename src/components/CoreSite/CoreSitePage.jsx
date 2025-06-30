@@ -13,16 +13,14 @@ export default function CoreSitePage({ theme = "dark", chartType }) {
     centerX,
     centerY,
     selectedNodeId,
-    handleMainToggleSwitch,
     showExtendedNodes,
     handleToggleExtendedNodes,
-    mainToggleNode1Text,
-    mainToggleNode2Text,
     handleBackToChart,
+    sitesForFocusedNode,
     onSiteClick,
     onLinkClick,
     onNodeClickInZone,
-    // --- NEW TAB STATE FROM HOOK ---
+    devicesInZoneCount,
     openDetailTabs,
     activeDetailTabId,
     setActiveDetailTabId,
@@ -41,16 +39,14 @@ export default function CoreSitePage({ theme = "dark", chartType }) {
       centerX={centerX}
       centerY={centerY}
       selectedNodeId={selectedNodeId}
-      onMainToggleSwitch={handleMainToggleSwitch}
       showExtendedNodes={showExtendedNodes}
       onToggleExtendedNodes={handleToggleExtendedNodes}
-      mainToggleNode1Text={mainToggleNode1Text}
-      mainToggleNode2Text={mainToggleNode2Text}
       onBackToChart={handleBackToChart}
+      sites={sitesForFocusedNode}
       onSiteClick={onSiteClick}
       onLinkClick={onLinkClick}
       onNodeClick={onNodeClickInZone}
-      // --- PASS TAB PROPS TO VIEW ---
+      devicesInZoneCount={devicesInZoneCount}
       openDetailTabs={openDetailTabs}
       activeDetailTabId={activeDetailTabId}
       onSetActiveTab={setActiveDetailTabId}

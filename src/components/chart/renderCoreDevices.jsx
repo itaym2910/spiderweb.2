@@ -143,7 +143,8 @@ export function renderCoreDevices(
     .attr("class", "label")
     .text((d) => d.id)
     .attr("fill", palette.label)
-    .attr("font-size", "14px")
+    .attr("font-size", "18px")
+    //.attr("font-weight", "bold") // Adds boldness
     .attr("text-anchor", "middle")
     .attr("dy", ".35em")
     .style("pointer-events", "none")

@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from "react";
 import * as d3 from "d3";
-import { NODES5, LINKS5 } from "./constants5";
 import { linkPositionFromEdges, getNodeGroups } from "./drawHelpers";
 import { renderCoreDevices } from "./renderCoreDevices";
 import {
@@ -17,24 +16,24 @@ const NetworkVisualizer5 = ({
   onNodeClick,
 }) => {
   const svgRef = useRef();
-  console.log(
-    "[NetworkVisualizer5] Received onZoneClick prop. Type:",
-    typeof onZoneClick
-  );
 
   useEffect(() => {
-    console.log(
-      "[NetworkVisualizer5 useEffect] onZoneClick type:",
-      typeof onZoneClick
-    );
     const svgElement = svgRef.current;
     if (!svgElement) return;
 
     const width = svgElement.clientWidth || window.innerWidth;
     const height = svgElement.clientHeight || window.innerHeight;
 
-    const nodes = structuredClone(NODES5);
-    const links = structuredClone(LINKS5);
+    // --- MODIFIED: Use the data from props instead of constants ---
+    const nodes = structuredClone(data.nodes || []);
+    const links = structuredClone(data.links || []);
+
+    // Guard against running with no data, which could cause errors
+    if (nodes.length === 0) {
+      d3.select(svgElement).selectAll("*").remove(); // Clear SVG if no data
+      return;
+    }
+
     const NODE_GROUPS = getNodeGroups(nodes);
 
     const nodeMap = {};
@@ -56,9 +55,7 @@ const NetworkVisualizer5 = ({
     });
 
     const isDark = theme === "dark";
-    // ===================================================================
-    // MODIFIED: Palette object with new status colors
-    // ===================================================================
+
     const palette = {
       bg: isDark ? "#1f2937" : "#ffffff",
       link: isDark ? "#94a3b8" : "#6b7280",
@@ -74,7 +71,7 @@ const NetworkVisualizer5 = ({
       },
       nodeHoverLink: isDark ? "#fde68a" : "#fef08a",
       nodeHoverLinkStroke: isDark ? "#facc15" : "#f59e0b",
-      // --- NEW STATUS COLORS ---
+
       status: {
         up: isDark ? "#4ade80" : "#22c55e", // Tailwind green-400 / green-500
         down: isDark ? "#f87171" : "#ef4444", // Tailwind red-400 / red-500
@@ -93,9 +90,6 @@ const NetworkVisualizer5 = ({
     const zoomLayer = svg.append("g").attr("class", "main-zoom-layer");
     const tooltipLayer = svg.append("g").attr("class", "tooltip-layer-group"); // APPENDED AFTER zoomLayer
 
-    // ===================================================================
-    // MODIFIED: Zoom Behavior
-    // ===================================================================
     const ZOOM_THRESHOLD = 1.5; // The scale at which detailed links appear
     let parallelLinksAreVisible = false; // State tracker
 

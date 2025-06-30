@@ -10,9 +10,9 @@ export function drawCoreSiteChart(
   {
     nodesData,
     linksData,
-    focusedNodeId, // The ID of the single node to pulse
+    focusedNodeId,
     centerX,
-    centerY, // Y center for the VISUAL ZONE CIRCLE
+    centerY,
     themeColors,
     onLinkClickCallback,
     onNodeClickCallback,
@@ -210,11 +210,10 @@ export function drawCoreSiteChart(
       }
     })
     .on("click.nodeaction", function (event, d_clicked_node) {
-      console.log("CoreSitePage - Node clicked in D3:", d_clicked_node.id);
-      event.stopPropagation();
       if (onNodeClickCallback) {
-        onNodeClickCallback(d_clicked_node);
+        onNodeClickCallback(d_clicked_node); // Just pass the node data
       }
+      event.stopPropagation();
     });
 
   // ----- Link Hover Areas -----

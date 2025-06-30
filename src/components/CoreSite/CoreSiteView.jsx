@@ -34,16 +34,14 @@ export default function CoreSiteView({
   centerX,
   centerY,
   selectedNodeId,
-  onMainToggleSwitch,
   showExtendedNodes,
   onToggleExtendedNodes,
-  mainToggleNode1Text,
-  mainToggleNode2Text,
   onBackToChart,
+  sites,
   onSiteClick,
   onLinkClick,
   onNodeClick,
-  // --- NEW PROPS FOR TABS ---
+  devicesInZoneCount,
   openDetailTabs,
   activeDetailTabId,
   onSetActiveTab,
@@ -143,13 +141,11 @@ export default function CoreSiteView({
         <CoreSiteControls
           theme={theme}
           displayZoneId={displayZoneId}
-          selectedNodeId={selectedNodeId}
-          onToggleSwitch={onMainToggleSwitch}
-          mainToggleOption1Text={mainToggleNode1Text}
-          mainToggleOption2Text={mainToggleNode2Text}
+          //selectedNodeId={selectedNodeId}
           zoneId={zoneId}
           showExtendedNodes={showExtendedNodes}
           onToggleExtendedNodes={onToggleExtendedNodes}
+          devicesInZoneCount={devicesInZoneCount}
         />
 
         {/* The canvas and sites bar also live in this container and are sized relative to it */}
@@ -174,11 +170,10 @@ export default function CoreSiteView({
           focusedNodeId={selectedNodeId}
           siteRefs={siteRefs}
           theme={theme}
+          sites={sites}
           onSiteClick={onSiteClick}
         />
       </div>
-
-      {/* REMOVED: The entire div that used to map over openPopups and render SiteDetailPopup */}
     </div>
   );
 }
