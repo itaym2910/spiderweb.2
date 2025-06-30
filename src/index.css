@@ -1,65 +1,56 @@
-/* src/index.css or your global stylesheet */
+/* src/index.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Custom scrollbar styles for WebKit browsers (Chrome, Safari, Edge, Opera) */
-/* Apply these to elements that you want to have custom scrollbars */
+/* 
+  Custom Global Scrollbar Styles
+  These styles now apply to ALL scrollbars on the page, including <select> dropdowns.
+*/
 
-/* Light Mode Scrollbar */
-.light-scrollbar::-webkit-scrollbar {
-  width: 8px; /* Width of the entire scrollbar */
-  height: 8px; /* Height of the scrollbar (for horizontal scroll) */
+/* --- For WebKit browsers (Chrome, Safari, Edge) --- */
+
+/* The entire scrollbar element */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
 }
 
-.light-scrollbar::-webkit-scrollbar-track {
-  background: #f1f5f9; /* Tailwind gray-100 - Light track background */
-  border-radius: 10px;
+/* The track (the background) */
+::-webkit-scrollbar-track {
+  @apply bg-gray-100; /* Light mode track */
+}
+html.dark ::-webkit-scrollbar-track {
+  @apply bg-gray-800; /* Dark mode track */
 }
 
-.light-scrollbar::-webkit-scrollbar-thumb {
-  background: #94a3b8; /* Tailwind slate-400 - Light thumb color */
-  border-radius: 10px;
+/* The draggable scrolling handle */
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-400 rounded-lg border-2 border-solid border-gray-100; /* Light mode thumb */
+}
+html.dark ::-webkit-scrollbar-thumb {
+  @apply bg-gray-600 rounded-lg border-2 border-solid border-gray-800; /* Dark mode thumb */
 }
 
-.light-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #64748b; /* Tailwind slate-500 - Lighter thumb on hover */
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-500;
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-500;
 }
 
-/* Dark Mode Scrollbar */
-.dark .dark-scrollbar::-webkit-scrollbar {
-  /* Note the '.dark' prefix for dark mode */
-  width: 8px;
-  height: 8px;
+/* --- For Firefox --- */
+/* Firefox uses a simpler standard for scrollbar colors. */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #9ca3af #f3f4f6; /* Light: thumb color, track color */
+}
+html.dark {
+  scrollbar-color: #4b5563 #1f2937; /* Dark: thumb color, track color */
 }
 
-.dark .dark-scrollbar::-webkit-scrollbar-track {
-  background: #1e293b; /* Tailwind slate-800 - Dark track background */
-  border-radius: 10px;
-}
-
-.dark .dark-scrollbar::-webkit-scrollbar-thumb {
-  background: #475569; /* Tailwind slate-600 - Dark thumb color */
-  border-radius: 10px;
-}
-
-.dark .dark-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #64748b; /* Tailwind slate-500 - Darker thumb on hover */
-}
-
-/* Firefox scrollbar styling (more limited) */
-/* You might apply these to a more general selector or the specific scrollable element */
-.custom-scrollbar-firefox {
-  scrollbar-width: thin; /* "auto" or "thin" */
-}
-
-/* Light mode for Firefox */
-.light-scrollbar-firefox {
-  scrollbar-color: #94a3b8 #f1f5f9; /* thumb track */
-}
-
-/* Dark mode for Firefox */
-.dark .dark-scrollbar-firefox {
-  /* Note the '.dark' prefix */
-  scrollbar-color: #475569 #1e293b; /* thumb track */
-}
+/* 
+  [REMOVED] The old, class-based rules are no longer needed.
+  The new global rules above replace them entirely.
+*/

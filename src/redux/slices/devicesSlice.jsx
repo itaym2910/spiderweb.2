@@ -1,4 +1,4 @@
-import { createSlice, createSelector } from "@reduxjs/toolkit"; // Import createSelector
+import { createSlice, createSelector } from "@reduxjs/toolkit";
 import { initialData } from "../initialData";
 
 const { coreDevices, deviceInfo } = initialData;
@@ -10,14 +10,28 @@ const devicesSlice = createSlice({
     deviceInfo: deviceInfo,
     status: "idle",
   },
-  // ... rest of the slice is unchanged
+  // [THE FIX] - Add the missing reducers here.
   reducers: {
-    // ...
+    addCoreDevice: (state, action) => {
+      // Adds a new device to the items array.
+      state.items.push(action.payload);
+    },
+    deleteCoreDevice: (state, action) => {
+      // Filters the items array, removing the device with the matching ID.
+      // The `action.payload` will be the ID of the device to delete.
+      state.items = state.items.filter((item) => item.id !== action.payload);
+    },
+    // You can add other reducers here if needed, like 'refreshInterfacesForDevice'
+    // refreshInterfacesForDevice: (state, action) => {
+    //   // ... logic for refreshing interfaces
+    // }
   },
 });
 
-export const { addCoreDevice, deleteDevice, refreshInterfacesForDevice } =
-  devicesSlice.actions;
+// [THE FIX] - Export the newly created actions with the correct names.
+// Note: The original export had `deleteDevice`, but the import in AdminPanelPage
+// was `deleteCoreDevice`. We'll use `deleteCoreDevice` for consistency.
+export const { addCoreDevice, deleteCoreDevice } = devicesSlice.actions;
 
 // --- Selectors ---
 

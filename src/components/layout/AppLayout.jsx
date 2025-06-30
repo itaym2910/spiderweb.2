@@ -128,7 +128,6 @@ function AppLayout() {
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white shrink-0">
             {isFullscreen ? "SPIDERWEB" : activePageLabel}
           </h1>
-
           {isDashboardActive && (
             <>
               <div className="flex-1 flex justify-center">
@@ -158,6 +157,7 @@ function AppLayout() {
           )}
         </header>
 
+        {/* [THE FIX] - The theme-based scrollbar classes are applied to this scrollable container. */}
         <div
           className={`flex-1 min-h-0 overflow-y-auto ${
             theme === "dark"

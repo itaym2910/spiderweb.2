@@ -1,14 +1,19 @@
-// src/AdminPanelPage.js
 import React, { useState } from "react";
-// --- Redux Imports ---
 import { useDispatch, useSelector } from "react-redux";
-import { addCoreDevice } from "../redux/slices/devicesSlice";
-import { addCorePikudim } from "../redux/slices/corePikudimSlice";
-import { selectAllPikudim } from "../redux/slices/corePikudimSlice";
+import {
+  addCoreDevice,
+  deleteCoreDevice,
+  selectAllDevices,
+} from "../redux/slices/devicesSlice";
+import {
+  addCorePikudim,
+  deleteCorePikudim,
+  selectAllPikudim,
+} from "../redux/slices/corePikudimSlice";
 import { selectAllNetTypes } from "../redux/slices/netTypesSlice";
-import { MdSettings } from "react-icons/md"; // For a placeholder icon
+import { MdSettings, MdDelete } from "react-icons/md";
 
-// --- STYLES UPDATED ---
+// Reusable Input Field Component
 const InputField = ({
   label,
   id,
@@ -38,7 +43,7 @@ const InputField = ({
   </div>
 );
 
-// --- STYLES UPDATED ---
+// Reusable Select Field Component
 const SelectField = ({
   label,
   id,
@@ -72,13 +77,16 @@ const SelectField = ({
   </div>
 );
 
-// --- STYLES UPDATED ---
 export function AdminPanelPage() {
   const dispatch = useDispatch();
   const allPikudim = useSelector(selectAllPikudim);
+  const allDevices = useSelector(selectAllDevices);
   const allNetTypes = useSelector(selectAllNetTypes);
 
-  const [activeSection, setActiveSection] = useState(null);
+  const [activeAddSection, setActiveAddSection] = useState(null);
+  const [activeDeleteSection, setActiveDeleteSection] = useState(null);
+  const [itemToDelete, setItemToDelete] = useState("");
+
   const [coreSiteData, setCoreSiteData] = useState({
     name: "",
     location: "",
@@ -94,6 +102,10 @@ export function AdminPanelPage() {
   const pikudimOptions = allPikudim.map((p) => ({
     value: p.id,
     label: p.core_site_name,
+  }));
+  const deviceOptions = allDevices.map((d) => ({
+    value: d.id,
+    label: d.hostname,
   }));
   const netTypeOptions = allNetTypes.map((nt) => ({
     value: nt.id,
@@ -134,8 +146,53 @@ export function AdminPanelPage() {
     });
   };
 
-  const renderSectionForm = () => {
-    switch (activeSection) {
+  const handlePikudDelete = (e) => {
+    e.preventDefault();
+    if (!itemToDelete) {
+      alert("Please select a Pikud to delete.");
+      return;
+    }
+    const pikudId = parseInt(itemToDelete, 10);
+    const pikudName =
+      pikudimOptions.find((p) => p.value === pikudId)?.label || "Unknown";
+    if (
+      window.confirm(
+        `Are you sure you want to delete the Pikud "${pikudName}"? This action cannot be undone.`
+      )
+    ) {
+      dispatch(deleteCorePikudim(pikudId));
+      alert(`Pikud "${pikudName}" has been deleted.`);
+      setItemToDelete("");
+    }
+  };
+
+  const handleDeviceDelete = (e) => {
+    e.preventDefault();
+    if (!itemToDelete) {
+      alert("Please select a device to delete.");
+      return;
+    }
+    const deviceId = parseInt(itemToDelete, 10);
+    const deviceName =
+      deviceOptions.find((d) => d.value === deviceId)?.label || "Unknown";
+    if (
+      window.confirm(
+        `Are you sure you want to delete the device "${deviceName}"? This action cannot be undone.`
+      )
+    ) {
+      dispatch(deleteCoreDevice(deviceId));
+      alert(`Device "${deviceName}" has been deleted.`);
+      setItemToDelete("");
+    }
+  };
+
+  const handleSetDeleteSection = (section) => {
+    setActiveDeleteSection(section);
+    setItemToDelete(""); // Reset selection when switching sections
+  };
+
+  const renderAddSectionForm = () => {
+    switch (activeAddSection) {
       case "coreSite":
         return (
           <form
@@ -223,7 +280,7 @@ export function AdminPanelPage() {
               <SelectField
                 label="Associated Pikud"
                 id="core_pikudim_site_id"
-                value={coreDeviceData.core_pikudim_site_id}
+                value={coreDeviceData.core_pukudim_site_id}
                 onChange={(e) =>
                   setCoreDeviceData({
                     ...coreDeviceData,
@@ -273,8 +330,79 @@ export function AdminPanelPage() {
     }
   };
 
+  const renderDeleteSectionForm = () => {
+    switch (activeDeleteSection) {
+      case "deletePikud":
+        return (
+          <form
+            onSubmit={handlePikudDelete}
+            className="mt-6 space-y-4 p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg"
+          >
+            <h3 className="text-xl font-semibold text-red-800 dark:text-red-200">
+              Delete Core Pikud
+            </h3>
+            <SelectField
+              label="Select Pikud to Delete"
+              id="delete_pikud_id"
+              value={itemToDelete}
+              onChange={(e) => setItemToDelete(e.target.value)}
+              options={pikudimOptions}
+              required
+            />
+            <button
+              type="submit"
+              className="w-full sm:w-auto px-6 py-2 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 transition-colors"
+            >
+              Delete Pikud
+            </button>
+          </form>
+        );
+      case "deleteDevice":
+        return (
+          <form
+            onSubmit={handleDeviceDelete}
+            className="mt-6 space-y-4 p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg"
+          >
+            <h3 className="text-xl font-semibold text-red-800 dark:text-red-200">
+              Delete Core Device
+            </h3>
+            <SelectField
+              label="Select Device to Delete"
+              id="delete_device_id"
+              value={itemToDelete}
+              onChange={(e) => setItemToDelete(e.target.value)}
+              options={deviceOptions}
+              required
+            />
+            <button
+              type="submit"
+              className="w-full sm:w-auto px-6 py-2 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 transition-colors"
+            >
+              Delete Device
+            </button>
+          </form>
+        );
+      default:
+        return (
+          <div className="text-center py-16 px-4 mt-6 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
+            <MdDelete
+              size={56}
+              className="mx-auto text-gray-400 dark:text-gray-500 mb-4"
+            />
+            <p className="text-xl font-semibold text-gray-600 dark:text-gray-400">
+              Deletion Zone
+            </p>
+            <p className="text-md text-gray-500 dark:text-gray-500 mt-2">
+              Select an item type above to delete an entity. This action is
+              irreversible.
+            </p>
+          </div>
+        );
+    }
+  };
+
   return (
-    <div className="p-6 bg-gray-50 dark:bg-gray-900 min-h-full">
+    <div className="p-6 bg-gray-50 dark:bg-gray-900 min-h-full space-y-8">
       <header className="mb-6">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
           Admin Panel
@@ -285,11 +413,14 @@ export function AdminPanelPage() {
       </header>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-4">
+          Add Entities
+        </h2>
         <div className="flex flex-wrap gap-3">
           <button
-            onClick={() => setActiveSection("coreSite")}
+            onClick={() => setActiveAddSection("coreSite")}
             className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-blue-500 ${
-              activeSection === "coreSite"
+              activeAddSection === "coreSite"
                 ? "bg-blue-600 text-white shadow"
                 : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
             }`}
@@ -297,9 +428,9 @@ export function AdminPanelPage() {
             Add Core Pikud
           </button>
           <button
-            onClick={() => setActiveSection("coreDevice")}
+            onClick={() => setActiveAddSection("coreDevice")}
             className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-blue-500 ${
-              activeSection === "coreDevice"
+              activeAddSection === "coreDevice"
                 ? "bg-blue-600 text-white shadow"
                 : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
             }`}
@@ -307,7 +438,36 @@ export function AdminPanelPage() {
             Add Core Device
           </button>
         </div>
-        {renderSectionForm()}
+        {renderAddSectionForm()}
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <h2 className="text-2xl font-bold text-red-700 dark:text-red-400 mb-4">
+          Delete Entities
+        </h2>
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={() => handleSetDeleteSection("deletePikud")}
+            className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-red-500 ${
+              activeDeleteSection === "deletePikud"
+                ? "bg-red-600 text-white shadow"
+                : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+            }`}
+          >
+            Delete Core Pikud
+          </button>
+          <button
+            onClick={() => handleSetDeleteSection("deleteDevice")}
+            className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-red-500 ${
+              activeDeleteSection === "deleteDevice"
+                ? "bg-red-600 text-white shadow"
+                : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+            }`}
+          >
+            Delete Core Device
+          </button>
+        </div>
+        {renderDeleteSectionForm()}
       </div>
     </div>
   );
