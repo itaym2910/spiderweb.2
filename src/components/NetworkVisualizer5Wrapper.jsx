@@ -1,13 +1,19 @@
 import React, { useCallback, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import NetworkVisualizer5 from "./chart/NetworkVisualizer5";
 import LinkDetailTabs from "./LinkDetailTabs";
 import { selectPikudimByTypeId } from "../redux/slices/corePikudimSlice";
 import { selectDevicesByTypeId } from "../redux/slices/devicesSlice";
 import { selectLinksByTypeId } from "../redux/slices/tenGigLinksSlice";
 import ToggleDetailButton from "./chart/ToggleDetailButton";
+import { fetchInitialData } from "../redux/slices/authSlice";
 
+// Import reusable feedback components
+import { LoadingSpinner } from "./ui/feedback/LoadingSpinner";
+import { ErrorMessage } from "./ui/feedback/ErrorMessage";
+
+// Helper function to select top devices (no changes)
 function selectTopTwoDevices(devices) {
   if (devices.length <= 2) return devices;
   const priorityOrder = [4, 5, 1, 2, 7, 8];
@@ -25,17 +31,26 @@ function selectTopTwoDevices(devices) {
 
 const NetworkVisualizer5Wrapper = ({ theme }) => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
+  // Get data fetching status from Redux
+  const pikudimStatus = useSelector((state) => state.corePikudim.status);
+  const devicesStatus = useSelector((state) => state.devices.status);
+  const linksStatus = useSelector((state) => state.tenGigLinks.status);
+
+  // Local UI state
   const [openLinkTabs, setOpenLinkTabs] = useState([]);
   const [activeLinkTabId, setActiveLinkTabId] = useState(null);
   const [showDetailedLinks, setShowDetailedLinks] = useState(false);
 
+  // Selectors for P-Chart data (typeId: 2)
   const pikudim = useSelector((state) => selectPikudimByTypeId(state, 2));
   const allDevicesForType = useSelector((state) =>
     selectDevicesByTypeId(state, 2)
   );
   const linksRaw = useSelector((state) => selectLinksByTypeId(state, 2));
 
+  // Memoized data transformation for the graph
   const graphData = useMemo(() => {
     if (!pikudim.length || !allDevicesForType.length) {
       return { nodes: [], links: [] };
@@ -86,6 +101,7 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
     return { nodes: transformedNodes, links: transformedLinks };
   }, [pikudim, allDevicesForType, linksRaw]);
 
+  // All event handlers (unchanged)
   const handleZoneClick = useCallback(
     (zoneId) => {
       navigate(`zone/${zoneId}`);
@@ -144,6 +160,42 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
     setShowDetailedLinks((prev) => !prev);
   }, []);
 
+  const handleRetry = () => dispatch(fetchInitialData());
+
+  // --- NEW: Loading, Error, and Empty State Rendering Logic ---
+  const isLoading =
+    pikudimStatus === "loading" ||
+    devicesStatus === "loading" ||
+    linksStatus === "loading";
+  const hasError =
+    pikudimStatus === "failed" ||
+    devicesStatus === "failed" ||
+    linksStatus === "failed";
+
+  const isDataEmpty = !isLoading && !hasError && graphData.nodes.length === 0;
+
+  if (isLoading) {
+    return <LoadingSpinner text="Building P-Chart..." />;
+  }
+
+  if (hasError) {
+    return <ErrorMessage onRetry={handleRetry} />;
+  }
+
+  if (isDataEmpty) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center p-4 text-center">
+        <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300">
+          No Data Available
+        </h3>
+        <p className="mt-2 text-gray-500 dark:text-gray-400">
+          There is no network data available to build the P-Chart.
+        </p>
+      </div>
+    );
+  }
+
+  // --- Original component return for successful data load ---
   return (
     <div className="w-full h-full flex flex-col">
       {openLinkTabs.length > 0 && (

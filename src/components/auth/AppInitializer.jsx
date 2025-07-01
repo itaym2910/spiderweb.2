@@ -1,9 +1,7 @@
-// src/components/auth/AppInitializer.jsx
-
 import React, { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchInitialData } from "../../redux/slices/authSlice"; // The "master" thunk
-import { Loader2 } from "lucide-react"; // A nice loading icon
+import { fetchInitialData } from "../../redux/slices/authSlice";
+import { Loader2, AlertTriangle } from "lucide-react";
 
 // Helper to check the status of all core data slices
 const selectCoreDataStatus = (state) => ({
@@ -16,7 +14,6 @@ const selectCoreDataStatus = (state) => ({
 export function AppInitializer({ children }) {
   const dispatch = useDispatch();
 
-  // We check the status of all key data slices
   const dataStatus = useSelector(selectCoreDataStatus);
 
   // Determine the combined status
@@ -25,50 +22,49 @@ export function AppInitializer({ children }) {
   const hasFailed = Object.values(dataStatus).some((s) => s === "failed");
 
   useEffect(() => {
-    // If ANY of the core data slices are in the 'idle' state,
-    // it means we haven't tried to fetch the data yet in this session.
+    // If we haven't fetched data yet in this session, fetch it.
     if (isIdle) {
       dispatch(fetchInitialData());
     }
   }, [isIdle, dispatch]);
 
   const handleRetry = () => {
-    // Re-dispatch the master fetch thunk
     dispatch(fetchInitialData());
   };
 
-  // --- 1. RENDER LOADING STATE ---
-  // If any data slice is loading, show a full-screen spinner.
-  // This prevents the main UI from trying to render with partial or no data.
+  // --- 1. RENDER GLOBAL LOADING STATE ---
   if (isLoading || isIdle) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-950">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-12 w-12 animate-spin text-blue-500" />
-          <p className="text-lg font-semibold text-gray-700 dark:text-gray-300">
-            Loading Network Data...
+        <div className="flex flex-col items-center gap-4 text-center p-4">
+          <Loader2 className="h-16 w-16 animate-spin text-blue-500" />
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mt-4">
+            Initializing Spiderweb
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Fetching network topology and status...
           </p>
         </div>
       </div>
     );
   }
 
-  // --- 2. RENDER ERROR STATE ---
-  // If any data slice failed to load, show a helpful error message.
+  // --- 2. RENDER GLOBAL ERROR STATE ---
   if (hasFailed) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-950">
         <div className="flex flex-col items-center gap-4 text-center p-4">
-          <h2 className="text-xl font-bold text-red-600 dark:text-red-400">
+          <AlertTriangle className="h-16 w-16 text-red-500" />
+          <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mt-4">
             Failed to Load Application Data
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400">
-            An error occurred while fetching network information. Please check
-            your connection and try again.
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 max-w-md">
+            An error occurred while fetching critical network information.
+            Please check your connection and try again.
           </p>
           <button
             onClick={handleRetry}
-            className="mt-4 px-6 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 transition-colors"
+            className="mt-6 px-6 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 transition-colors"
           >
             Retry
           </button>
@@ -77,7 +73,6 @@ export function AppInitializer({ children }) {
     );
   }
 
-  // --- 3. RENDER SUCCESS STATE ---
-  // Only when all data is successfully loaded, render the actual application.
+  // --- 3. RENDER SUCCESS STATE (The actual app) ---
   return children;
 }

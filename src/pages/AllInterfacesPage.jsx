@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
-import { useInterfaceData } from "./useInterfaceData"; // Hook provides data and filter options
+import { useSelector } from "react-redux";
+import { useInterfaceData } from "./useInterfaceData";
 import { Button } from "../components/ui/button";
 import {
   Table,
@@ -11,7 +12,11 @@ import {
 } from "../components/ui/table";
 import { Star, ArrowUp, ArrowDown, XCircle, Search } from "lucide-react";
 
-// Helper components remain unchanged, styles are good.
+// Import new feedback components
+import { ErrorMessage } from "../components/ui/feedback/ErrorMessage";
+import { TableSkeleton } from "../components/ui/feedback/TableSkeleton";
+
+// Helper components remain unchanged
 const StatusIndicator = ({ status }) => {
   const config = {
     Up: { color: "text-green-500", Icon: ArrowUp, label: "Up" },
@@ -22,7 +27,6 @@ const StatusIndicator = ({ status }) => {
       label: "Admin Down",
     },
   }[status] || { color: "text-gray-500", Icon: XCircle, label: "Unknown" };
-
   return (
     <div className={`flex items-center gap-2 font-medium ${config.color}`}>
       <config.Icon className="h-4 w-4" />
@@ -30,7 +34,6 @@ const StatusIndicator = ({ status }) => {
     </div>
   );
 };
-
 const FavoriteButton = ({ isFavorite, onClick }) => (
   <Button
     variant="ghost"
@@ -48,16 +51,22 @@ const FavoriteButton = ({ isFavorite, onClick }) => (
   </Button>
 );
 
-// --- STYLES UPDATED ---
 export default function AllInterfacesPage() {
   const { interfaces, handleToggleFavorite, deviceFilterOptions } =
     useInterfaceData();
 
+  // Get data fetching status from Redux
+  const sitesStatus = useSelector((state) => state.sites.status);
+  const linksStatus = useSelector((state) => state.tenGigLinks.status);
+  const devicesStatus = useSelector((state) => state.devices.status);
+
+  // Existing state for filters
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [deviceFilter, setDeviceFilter] = useState("all");
 
   const filteredInterfaces = useMemo(() => {
+    // ... same filter logic as before
     return interfaces.filter((iface) => {
       if (statusFilter !== "all" && iface.status !== statusFilter) return false;
       if (deviceFilter !== "all" && !iface.deviceName.includes(deviceFilter))
@@ -75,7 +84,27 @@ export default function AllInterfacesPage() {
   }, [interfaces, searchTerm, statusFilter, deviceFilter]);
 
   const renderContent = () => {
+    const isLoading =
+      sitesStatus === "loading" ||
+      linksStatus === "loading" ||
+      devicesStatus === "loading";
+    const hasError =
+      sitesStatus === "failed" ||
+      linksStatus === "failed" ||
+      devicesStatus === "failed";
+
+    if (isLoading) {
+      // Use the beautiful table skeleton loader
+      return <TableSkeleton rows={10} cols={6} />;
+    }
+
+    if (hasError) {
+      // The onRetry prop is optional; for this page, a refresh might be enough.
+      return <ErrorMessage />;
+    }
+
     if (filteredInterfaces.length > 0) {
+      // Original table rendering logic
       return (
         <div className="overflow-x-auto border dark:border-gray-700/50 rounded-lg">
           <Table>
@@ -128,9 +157,7 @@ export default function AllInterfacesPage() {
                         ? "font-bold text-orange-600 dark:text-orange-400"
                         : "text-gray-600 dark:text-gray-300"
                     }
-                  >
-                    {`${iface.errors.in} / ${iface.errors.out}`}
-                  </TableCell>
+                  >{`${iface.errors.in} / ${iface.errors.out}`}</TableCell>
                   <TableCell className="text-right">
                     <FavoriteButton
                       isFavorite={iface.isFavorite}
@@ -144,7 +171,8 @@ export default function AllInterfacesPage() {
         </div>
       );
     }
-    // Enhanced "No Results" state
+
+    // Enhanced "No Results" state for when filters match nothing
     return (
       <div className="text-center py-16 px-4 mt-6 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
         <Search
@@ -172,10 +200,9 @@ export default function AllInterfacesPage() {
           Search, filter, and manage all interfaces across the network.
         </p>
       </header>
-
-      {/* Filter & Search Bar Card */}
       <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md mb-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* ... filter inputs are unchanged */}
           <div>
             <label
               htmlFor="search-interfaces"
@@ -233,8 +260,6 @@ export default function AllInterfacesPage() {
           </div>
         </div>
       </div>
-
-      {/* Main Content Area */}
       <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md">
         {renderContent()}
       </div>
