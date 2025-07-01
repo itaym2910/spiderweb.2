@@ -179,10 +179,11 @@ function AppLayout() {
           }`}
         >
           <h1
-            className={`text-2xl font-semibold shrink-0 ${
+            className={`text-2xl shrink-0 ${
+              // REMOVED font-semibold from here
               isFullscreen
                 ? "font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 tracking-wide"
-                : "text-gray-900 dark:text-white"
+                : "font-semibold text-gray-900 dark:text-white" // ADDED font-semibold here
             }`}
           >
             {isFullscreen ? "SPIDERWEB" : activePageLabel}

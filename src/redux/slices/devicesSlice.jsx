@@ -1,5 +1,3 @@
-// src/redux/slices/devicesSlice.js
-
 import {
   createSlice,
   createSelector,
@@ -82,10 +80,11 @@ const devicesSlice = createSlice({
 export const { addCoreDevice, deleteCoreDevice } = devicesSlice.actions;
 
 // --- Export Selectors ---
+
 export const selectAllDevices = (state) => state.devices.items;
 export const selectDeviceInfo = (state) => state.devices.deviceInfo;
 
-// --- MEMOIZED SELECTOR ---
+// --- MEMOIZED SELECTOR for filtering devices ---
 const selectDeviceItems = (state) => state.devices.items;
 const selectTypeIdFromDevice = (state, typeId) => typeId;
 
@@ -95,6 +94,25 @@ export const selectDevicesByTypeId = createSelector(
     if (!typeId) return [];
     return devices.filter((d) => d.network_type_id === typeId);
   }
+);
+
+// --- MEMOIZED SELECTOR for the loading/error status ---
+// This selector solves the "returned a different result" warning.
+// It combines `status` and `error` into a single object, but only creates a
+// new object if `status` or `error` themselves have actually changed.
+
+// 1. Input selectors: These grab the raw data without creating new references.
+const selectStatus = (state) => state.devices.status;
+const selectError = (state) => state.devices.error;
+
+// 2. Memoized Selector: This is the one to use in your components.
+export const selectCoreDataStatus = createSelector(
+  [selectStatus, selectError], // An array of the input selectors
+  (status, error) => ({
+    // The "result" function that creates the object
+    status,
+    error,
+  })
 );
 
 // --- Export Reducer ---
