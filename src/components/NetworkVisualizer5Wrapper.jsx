@@ -6,6 +6,7 @@ import LinkDetailTabs from "./LinkDetailTabs";
 import { selectPikudimByTypeId } from "../redux/slices/corePikudimSlice";
 import { selectDevicesByTypeId } from "../redux/slices/devicesSlice";
 import { selectLinksByTypeId } from "../redux/slices/tenGigLinksSlice";
+import ToggleDetailButton from "./chart/ToggleDetailButton";
 
 function selectTopTwoDevices(devices) {
   if (devices.length <= 2) return devices;
@@ -27,6 +28,7 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
 
   const [openLinkTabs, setOpenLinkTabs] = useState([]);
   const [activeLinkTabId, setActiveLinkTabId] = useState(null);
+  const [showDetailedLinks, setShowDetailedLinks] = useState(false);
 
   const pikudim = useSelector((state) => selectPikudimByTypeId(state, 2));
   const allDevicesForType = useSelector((state) =>
@@ -138,6 +140,10 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
     [activeLinkTabId]
   );
 
+  const handleToggleDetailView = useCallback(() => {
+    setShowDetailedLinks((prev) => !prev);
+  }, []);
+
   return (
     <div className="w-full h-full flex flex-col">
       {openLinkTabs.length > 0 && (
@@ -153,12 +159,16 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
       )}
 
       <div className="flex-grow relative">
+        <ToggleDetailButton
+          isDetailed={showDetailedLinks}
+          onToggle={handleToggleDetailView}
+          theme={theme}
+        />
         <NetworkVisualizer5
-          // [MODIFIED] - This is the fix. By changing the key, React will
-          // destroy and recreate the component, forcing it to re-initialize with the new theme.
           key={theme}
           data={graphData}
           theme={theme}
+          showDetailedLinks={showDetailedLinks}
           onZoneClick={handleZoneClick}
           onLinkClick={handleLinkClick}
           onNodeClick={handleNodeClick}

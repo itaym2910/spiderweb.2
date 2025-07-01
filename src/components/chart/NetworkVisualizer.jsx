@@ -8,34 +8,35 @@ import {
   removeAllParallelLinks,
 } from "./handleInteractions";
 
+// +++ ADD `showDetailedLinks` TO THE PROPS
 const NetworkVisualizer = ({
   theme,
   data,
+  showDetailedLinks,
   onZoneClick,
   onLinkClick,
   onNodeClick,
 }) => {
   const svgRef = useRef();
 
+  // +++ ADD `showDetailedLinks` TO THE DEPENDENCY ARRAY
   useEffect(() => {
     const svgElement = svgRef.current;
-    if (!svgElement) return; // Guard if ref not yet available
+    if (!svgElement) return;
 
-    // Use clientWidth/Height for more accurate SVG dimensions
     const width = svgElement.clientWidth || window.innerWidth;
     const height = svgElement.clientHeight || window.innerHeight;
 
-    // MODIFIED: Use the data from props instead of constants
+    // ... (rest of the initial setup logic is unchanged)
     const nodes = structuredClone(data.nodes || []);
     const links = structuredClone(data.links || []);
 
-    // Guard against running with no data
     if (nodes.length === 0) {
-      // Optional: clear the SVG if there's no data
       d3.select(svgElement).selectAll("*").remove();
       return;
     }
 
+    // ... (palette and node/link processing is unchanged)
     const NODE_GROUPS = getNodeGroups(nodes);
 
     const nodeMap = {};
@@ -84,9 +85,9 @@ const NetworkVisualizer = ({
       nodeHoverLinkStroke: isDark ? "#facc15" : "#f59e0b",
 
       status: {
-        up: isDark ? "#4ade80" : "#22c55e", // Tailwind green-400 / green-500
-        down: isDark ? "#f87171" : "#ef4444", // Tailwind red-400 / red-500
-        issue: isDark ? "#facc15" : "#f59e0b", // Tailwind yellow-400 / amber-500
+        up: isDark ? "#4ade80" : "#22c55e",
+        down: isDark ? "#f87171" : "#ef4444",
+        issue: isDark ? "#facc15" : "#f59e0b",
       },
     };
 
@@ -97,12 +98,11 @@ const NetworkVisualizer = ({
       .style("background-color", palette.bg);
 
     svg.selectAll("*").remove();
-    // const tooltipLayer = svg.append("g"); // MOVED
     const zoomLayer = svg.append("g").attr("class", "main-zoom-layer");
-    const tooltipLayer = svg.append("g").attr("class", "tooltip-layer-group"); // APPENDED AFTER zoomLayer
+    const tooltipLayer = svg.append("g").attr("class", "tooltip-layer-group");
 
-    const ZOOM_THRESHOLD = 1.5; // The scale at which detailed links appear
-    let parallelLinksAreVisible = false; // State tracker
+    const ZOOM_THRESHOLD = 1.5;
+    let parallelLinksAreVisible = false;
 
     const zoomBehavior = d3
       .zoom()
@@ -111,14 +111,14 @@ const NetworkVisualizer = ({
         const { transform } = event;
         zoomLayer.attr("transform", transform);
 
-        // Check if we need to change the link display state
-        if (transform.k >= ZOOM_THRESHOLD && !parallelLinksAreVisible) {
-          // --- ZOOMING IN past the threshold ---
+        // +++ MODIFY THE CONDITION TO INCLUDE THE PROP
+        const shouldShowDetailed =
+          transform.k >= ZOOM_THRESHOLD || showDetailedLinks;
+
+        if (shouldShowDetailed && !parallelLinksAreVisible) {
           parallelLinksAreVisible = true;
-          // Hide the summary links
           link.style("display", "none");
           linkHover.style("display", "none");
-          // Draw all detailed links
           drawAllParallelLinks({
             zoomLayer,
             allNodes: node.data(),
@@ -128,13 +128,10 @@ const NetworkVisualizer = ({
             onLinkClick,
             linkSelection: link,
           });
-        } else if (transform.k < ZOOM_THRESHOLD && parallelLinksAreVisible) {
-          // --- ZOOMING OUT past the threshold ---
+        } else if (!shouldShowDetailed && parallelLinksAreVisible) {
           parallelLinksAreVisible = false;
-          // Remove all detailed links
           removeAllParallelLinks(zoomLayer);
-          // Show the summary links again
-          link.style("display", null); // 'null' removes the inline style
+          link.style("display", null);
           linkHover.style("display", null);
         }
       });
@@ -151,14 +148,15 @@ const NetworkVisualizer = ({
       onNodeClick
     );
 
+    // ... (rest of the rendering logic is unchanged)
     link.attr("stroke", palette.link);
     node.attr("fill", palette.node).attr("stroke", palette.stroke);
     label.attr("fill", palette.label);
 
-    const tooltip = tooltipLayer // Tooltip text is added to tooltipLayer
+    const tooltip = tooltipLayer
       .append("text")
       .attr("class", "svg-tooltip")
-      .attr("x", 0) // Positioned relative to screen/SVG, not zoomLayer
+      .attr("x", 0)
       .attr("y", 0)
       .attr("text-anchor", "start")
       .attr("font-size", 14)
@@ -180,71 +178,49 @@ const NetworkVisualizer = ({
       .attr("x2", (d) => linkPositionFromEdges(d).x2)
       .attr("y2", (d) => linkPositionFromEdges(d).y2);
 
-    // --- Calculate and Apply Initial Transform to Center and Adjust Content ---
     if (nodes.length > 0) {
+      // ... (initial transform calculation is unchanged) ...
       let minX = Infinity,
         maxX = -Infinity,
         minY = Infinity,
         maxY = -Infinity;
-
       nodes.forEach((n) => {
         if (n.x < minX) minX = n.x;
         if (n.x > maxX) maxX = n.x;
         if (n.y < minY) minY = n.y;
         if (n.y > maxY) maxY = n.y;
       });
-
       const dataWidth = maxX - minX;
       const dataHeight = maxY - minY;
       const dataCenterX = minX + dataWidth / 2;
       const dataCenterY = minY + dataHeight / 2;
-
-      // --- ADJUSTMENTS FOR ZOOM AND POSITION ---
-      const zoomOutFactor = 0.9; // Zoom out further (e.g., 0.7 = 70% of auto-fit scale)
-      const verticalScreenOffset = 0; // Shift down by 50 pixels from the calculated center
-
-      const paddingFactor = 0.15; // 15% padding around the content
+      const zoomOutFactor = 0.9;
+      const verticalScreenOffset = 0;
+      const paddingFactor = 0.15;
       const padding = Math.min(width, height) * paddingFactor;
       const viewWidth = width - 2 * padding;
       const viewHeight = height - 2 * padding;
-
-      let k = 1; // Default scale
-
+      let k = 1;
       if (dataWidth > 0 && dataHeight > 0) {
         k = Math.min(viewWidth / dataWidth, viewHeight / dataHeight);
       } else if (dataWidth > 0) {
-        // Content is a horizontal line
         k = viewWidth / dataWidth;
       } else if (dataHeight > 0) {
-        // Content is a vertical line
         k = viewHeight / dataHeight;
       }
-      // If dataWidth and dataHeight are 0 (single point), k remains 1
-
-      // Apply the zoom out factor
       k *= zoomOutFactor;
-
-      // Ensure scale is within defined extents
       const [minScale, maxScale] = zoomBehavior.scaleExtent();
       k = Math.max(minScale, Math.min(maxScale, k));
-
-      // Calculate translation to center the content based on its bounding box
       let tx = width / 2 - dataCenterX * k;
       let ty = height / 2 - dataCenterY * k;
-
-      // Apply the vertical offset (shifts the content down on the screen)
       ty += verticalScreenOffset;
-
       const initialTransform = d3.zoomIdentity.translate(tx, ty).scale(k);
       svg.call(zoomBehavior.transform, initialTransform);
 
-      // ===================================================================
-      // NEW: Check initial state after transform is applied
-      // ===================================================================
-      if (k >= ZOOM_THRESHOLD) {
-        // If we start zoomed in, trigger the logic immediately
+      // +++ MODIFY THE INITIAL CHECK TO INCLUDE THE PROP
+      if (k >= ZOOM_THRESHOLD || showDetailedLinks) {
         const event = { transform: initialTransform };
-        zoomBehavior.on("zoom")(event); // Manually fire the zoom handler
+        zoomBehavior.on("zoom")(event);
       }
     } else {
       svg.call(zoomBehavior.transform, d3.zoomIdentity);
@@ -262,7 +238,7 @@ const NetworkVisualizer = ({
         onLinkClick,
       })
     );
-  }, [onZoneClick, data, theme, onLinkClick, onNodeClick]);
+  }, [onZoneClick, data, theme, onLinkClick, onNodeClick, showDetailedLinks]); // <<< Added prop to dependency array
 
   return (
     <div>
