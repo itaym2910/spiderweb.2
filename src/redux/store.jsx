@@ -7,6 +7,7 @@ import tenGigLinksReducer from "./slices/tenGigLinksSlice";
 import corePikudimReducer from "./slices/corePikudimSlice";
 import favoritesReducer from "./slices/favoritesSlice";
 import netTypesReducer from "./slices/netTypesSlice";
+import authReducer from "./slices/authSlice";
 
 export const store = configureStore({
   reducer: {
@@ -16,6 +17,7 @@ export const store = configureStore({
     corePikudim: corePikudimReducer,
     favorites: favoritesReducer,
     netTypes: netTypesReducer,
+    auth: authReducer,
   },
   // This is needed because a `Set` is not serializable, which Redux DevTools prefers.
   // This is safe for this use case.

@@ -1,5 +1,13 @@
 import { faker } from "@faker-js/faker";
 
+// --- 1. ADD DUMMY USERS ARRAY ---
+// This array will act as our user database.
+const dummyUsers = [
+  { username: "admin", password: "password123", role: "admin" },
+  { username: "userg", password: "password123", role: "user" },
+  { username: "viewer", password: "password", role: "viewer" },
+];
+
 // --- Helper to create a number of items ---
 const createItems = (creator, count, ...args) => {
   return Array.from({ length: count }, () => creator(...args));
@@ -204,5 +212,13 @@ export const generateAllDummyData = () => {
     { id: 2, name: "P-Chart Network" },
   ];
 
-  return { corePikudim, coreDevices, sites, deviceInfo, netTypes, tenGigLinks };
+  return {
+    corePikudim,
+    coreDevices,
+    sites,
+    deviceInfo,
+    netTypes,
+    tenGigLinks,
+    dummyUsers,
+  };
 };
