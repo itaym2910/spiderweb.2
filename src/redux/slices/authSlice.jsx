@@ -3,66 +3,82 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import Cookies from "js-cookie";
 
+// Assuming your dummy data is now in a separate file as per your setup
+// Adjust the path if necessary
 import { initialData } from "../initialData";
 const { dummyUsers } = initialData;
 
-// --- The Async Thunk for Logging In ---
+// --- 1. MOCK API: This mimics your real API client for now ---
+// All the logic for checking credentials against the dummy data is moved here.
+// This keeps the Redux Thunk clean and focused on state management.
+const mockApi = {
+  /**
+   * Mock login function that checks against the dummyUsers array.
+   * @param {string} username
+   * @param {string} password
+   * @returns {Promise<string>} A promise that resolves with a token on success.
+   * @throws {Error} An error if credentials are invalid.
+   */
+  login: async (username, password) => {
+    // Simulate network delay for a realistic user experience
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    // Find a user that matches the provided credentials
+    const user = dummyUsers.find(
+      (u) => u.username === username && u.password === password
+    );
+
+    if (user) {
+      // SUCCESS: User found. Create and return a mock token.
+      const mockTokenPayload = {
+        username: user.username,
+        role: user.role,
+        iat: Date.now(),
+      };
+      const mockToken = `fake-header.${btoa(
+        JSON.stringify(mockTokenPayload)
+      )}.fake-signature`;
+      return mockToken;
+    } else {
+      // FAILURE: No user found. Throw an error, just like a real API call would.
+      throw new Error("Invalid credentials. Please try again.");
+    }
+  },
+};
+
+// --- 2. REFACTORED THUNK: Now simpler and ready for the real API ---
 export const loginUser = createAsyncThunk(
   "auth/loginUser",
   async ({ username, password }, { rejectWithValue }) => {
-    // --- MOCK BACKEND LOGIC ---
-    // We replace the fetch call with this mock logic.
     try {
-      // 1. Simulate network delay for realistic UX
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // The thunk now calls our API layer.
+      // LATER: You will switch this line to `await api.login(username, password);`
+      const token = await mockApi.login(username, password);
 
-      // 2. Find a user that matches the provided credentials
-      const user = dummyUsers.find(
-        (u) => u.username === username && u.password === password
-      );
+      // If the API call is successful, set the cookie
+      Cookies.set("authToken", token, {
+        expires: 1,
+        secure: true,
+        sameSite: "strict",
+      });
 
-      // 3. Check if a user was found
-      if (user) {
-        // SUCCESS: User found.
-        // Create a mock JWT token. btoa() creates a Base64-encoded string.
-        const mockTokenPayload = {
-          username: user.username,
-          role: user.role,
-          iat: Date.now(), // "issued at" timestamp
-        };
-        const mockToken = `fake-header.${btoa(
-          JSON.stringify(mockTokenPayload)
-        )}.fake-signature`;
-
-        // Set the cookie
-        Cookies.set("authToken", mockToken, {
-          expires: 1,
-          secure: true,
-          sameSite: "strict",
-        });
-
-        // Return the token on success
-        return mockToken;
-      } else {
-        // FAILURE: No user found.
-        // Reject with a specific error message.
-        return rejectWithValue("Invalid credentials. Please try again.");
-      }
+      // Return the token to be stored in the Redux state
+      return token;
     } catch (error) {
-      // Handle any unexpected errors during the process
+      // If mockApi.login throws an error, we catch it here and
+      // use rejectWithValue to pass a clean error message to our reducer.
       return rejectWithValue(error.message);
     }
-    // --- END MOCK BACKEND LOGIC ---
   }
 );
 
-// --- The Auth Slice ---
-// The rest of the slice remains exactly the same.
+// --- 3. THE SLICE: No changes needed here! ---
+// This part remains the same because it's already decoupled from the login logic.
 const authSlice = createSlice({
   name: "auth",
   initialState: {
     token: Cookies.get("authToken") || null,
-    status: "idle",
+    status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
     error: null,
   },
   reducers: {
@@ -92,6 +108,7 @@ const authSlice = createSlice({
 
 export const { logout } = authSlice.actions;
 
+// Selectors also remain the same
 export const selectAuthToken = (state) => state.auth.token;
 export const selectAuthStatus = (state) => state.auth.status;
 export const selectAuthError = (state) => state.auth.error;
