@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useSelector } from "react-redux";
 import LinkDetailRow from "./LineDetailExtend";
-import StatusBulb from "./StatusBulb";
+import StatusBulb from "../shared/StatusBulb";
 import { selectAllDevices } from "../../redux/slices/devicesSlice";
 
 // Helper function for generating a complex site topology (NO CHANGES)
