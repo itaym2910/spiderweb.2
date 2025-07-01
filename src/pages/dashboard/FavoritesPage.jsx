@@ -1,8 +1,8 @@
 // src/pages/FavoritesPage.jsx
 
 import React, { useMemo } from "react";
-import { useInterfaceData } from "./useInterfaceData"; // The shared "brain"
-import { Button } from "../components/ui/button";
+import { useInterfaceData } from "../useInterfaceData"; // The shared "brain"
+import { Button } from "../../components/ui/button";
 import {
   Table,
   TableHead,
@@ -10,7 +10,7 @@ import {
   TableBody,
   TableRow,
   TableCell,
-} from "../components/ui/table";
+} from "../../components/ui/table";
 import { Star, ArrowUp, ArrowDown, XCircle } from "lucide-react";
 
 // --- Reusable Helper Components (No changes needed, styles are consistent) ---

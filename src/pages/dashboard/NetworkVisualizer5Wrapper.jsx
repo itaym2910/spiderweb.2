@@ -1,17 +1,17 @@
 import React, { useCallback, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
-import NetworkVisualizer5 from "./chart/NetworkVisualizer5";
-import LinkDetailTabs from "./LinkDetailTabs";
-import { selectPikudimByTypeId } from "../redux/slices/corePikudimSlice";
-import { selectDevicesByTypeId } from "../redux/slices/devicesSlice";
-import { selectLinksByTypeId } from "../redux/slices/tenGigLinksSlice";
-import ToggleDetailButton from "./chart/ToggleDetailButton";
-import { fetchInitialData } from "../redux/slices/authSlice";
+import NetworkVisualizer5 from "../../components/chart/NetworkVisualizer5";
+import LinkDetailTabs from "../../components/shared/LinkDetailTabs";
+import { selectPikudimByTypeId } from "../../redux/slices/corePikudimSlice";
+import { selectDevicesByTypeId } from "../../redux/slices/devicesSlice";
+import { selectLinksByTypeId } from "../../redux/slices/tenGigLinksSlice";
+import ToggleDetailButton from "../../components/chart/ToggleDetailButton";
+import { fetchInitialData } from "../../redux/slices/authSlice";
 
 // Import reusable feedback components
-import { LoadingSpinner } from "./ui/feedback/LoadingSpinner";
-import { ErrorMessage } from "./ui/feedback/ErrorMessage";
+import { LoadingSpinner } from "../../components/ui/feedback/LoadingSpinner";
+import { ErrorMessage } from "../../components/ui/feedback/ErrorMessage";
 
 // Helper function to select top devices (no changes)
 function selectTopTwoDevices(devices) {

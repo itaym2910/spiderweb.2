@@ -3,7 +3,7 @@
 import React, { useRef } from "react";
 import CoreSiteCanvas from "./CoreSiteCanvas";
 import SitesBar from "./SitesBar";
-import LinkDetailTabs from "../LinkDetailTabs"; // Import the tab component
+import LinkDetailTabs from "../shared/LinkDetailTabs"; // Import the tab component
 import CoreSiteControls from "./CoreSiteControls";
 
 export default function CoreSiteView({

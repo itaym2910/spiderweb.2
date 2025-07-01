@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from "react";
-import { useInterfaceData } from "./useInterfaceData";
-import { Button } from "../components/ui/button";
+import { useInterfaceData } from "../useInterfaceData";
+import { Button } from "../../components/ui/button";
 import { Star, ArrowUp, ArrowDown, XCircle, Search } from "lucide-react";
 import { useSelector } from "react-redux";
 
 // Import the virtualized table and feedback components
-import { VirtualizedTable } from "../components/ui/VirtualizedTable";
-import { ErrorMessage } from "../components/ui/feedback/ErrorMessage";
+import { VirtualizedTable } from "../../components/ui/VirtualizedTable";
+import { ErrorMessage } from "../../components/ui/feedback/ErrorMessage";
 
 // Helper components (StatusIndicator, FavoriteButton) remain the same
 const StatusIndicator = ({ status }) => {
