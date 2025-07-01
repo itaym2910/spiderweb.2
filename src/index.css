@@ -50,7 +50,17 @@ html.dark {
   scrollbar-color: #4b5563 #1f2937; /* Dark: thumb color, track color */
 }
 
-/* 
-  [REMOVED] The old, class-based rules are no longer needed.
-  The new global rules above replace them entirely.
-*/
+/* When the form is in a loading state, show a 'wait' cursor for the whole area */
+form[data-loading="true"] {
+  cursor: wait;
+}
+
+/* Even when disabled inside a loading form, input fields should show a text cursor */
+form[data-loading="true"] input:disabled {
+  cursor: text;
+}
+
+/* The login button should also show a 'wait' cursor when its parent form is loading */
+form[data-loading="true"] button:disabled {
+  cursor: wait;
+}

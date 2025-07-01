@@ -178,7 +178,13 @@ function AppLayout() {
             isFullscreen ? "p-4 border-b dark:border-gray-700" : "p-4 shadow-sm"
           }`}
         >
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white shrink-0">
+          <h1
+            className={`text-2xl font-semibold shrink-0 ${
+              isFullscreen
+                ? "font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 tracking-wide"
+                : "text-gray-900 dark:text-white"
+            }`}
+          >
             {isFullscreen ? "SPIDERWEB" : activePageLabel}
           </h1>
 
