@@ -1,6 +1,12 @@
+// src/components/layout/AppLayout.jsx
+
 import React, { useState, useEffect, useMemo } from "react";
-import { Routes, Route, useLocation } from "react-router-dom";
-import { Star } from "lucide-react";
+import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { Star, LogOut } from "lucide-react";
+
+// Import the logout action from your auth slice
+import { logout } from "../../redux/slices/authSlice";
 
 // Helper components & hooks
 import { useDashboardLogic } from "../../pages/useDashboardLogic"; // Adjust path if needed
@@ -51,6 +57,8 @@ function AppLayout() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const location = useLocation();
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   const [theme, setTheme] = useState(
     document.documentElement.classList.contains("dark") ? "dark" : "light"
@@ -92,6 +100,11 @@ function AppLayout() {
     setIsFullscreen(!isFullscreen);
   };
 
+  const handleLogout = () => {
+    dispatch(logout()); // Clears Redux state and removes the auth cookie
+    navigate("/login", { replace: true }); // Redirects to login page
+  };
+
   const renderFullscreenToggleButton = () => {
     if (!isDashboardActive) return null;
 
@@ -121,43 +134,56 @@ function AppLayout() {
       )}
       <main className="flex-1 flex flex-col relative">
         <header
-          className={`bg-white dark:bg-gray-800 shrink-0 flex flex-col sm:flex-row sm:items-center gap-4 ${
+          className={`bg-white dark:bg-gray-800 shrink-0 flex items-center gap-4 ${
             isFullscreen ? "p-4 border-b dark:border-gray-700" : "p-4 shadow-sm"
           }`}
         >
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white shrink-0">
             {isFullscreen ? "SPIDERWEB" : activePageLabel}
           </h1>
+
           {isDashboardActive && (
-            <>
-              <div className="flex-1 flex justify-center">
-                <Tabs
-                  value={activeTabValue}
-                  onValueChange={handleTabChangeForNavigation}
-                  className="w-full md:w-[750px] lg:w-[800px]"
-                >
-                  <TabsList className="grid-cols-5">
-                    <TabsTrigger
-                      value="favorites"
-                      className="flex items-center gap-1.5"
-                    >
-                      <Star className="h-4 w-4 text-yellow-500" /> Favorites
-                    </TabsTrigger>
-                    <TabsTrigger value="all_interfaces">
-                      All Interfaces
-                    </TabsTrigger>
-                    <TabsTrigger value="l_network">L-chart</TabsTrigger>
-                    <TabsTrigger value="p_network">P-chart</TabsTrigger>
-                    <TabsTrigger value="site">Site</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
-              {renderFullscreenToggleButton()}
-            </>
+            <div className="flex-1 flex justify-center">
+              <Tabs
+                value={activeTabValue}
+                onValueChange={handleTabChangeForNavigation}
+                className="w-full md:w-[750px] lg:w-[800px]"
+              >
+                <TabsList className="grid-cols-5">
+                  <TabsTrigger
+                    value="favorites"
+                    className="flex items-center gap-1.5"
+                  >
+                    <Star className="h-4 w-4 text-yellow-500" /> Favorites
+                  </TabsTrigger>
+                  <TabsTrigger value="all_interfaces">
+                    All Interfaces
+                  </TabsTrigger>
+                  <TabsTrigger value="l_network">L-chart</TabsTrigger>
+                  <TabsTrigger value="p_network">P-chart</TabsTrigger>
+                  <TabsTrigger value="site">Site</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
           )}
+
+          {/* Wrapper for right-side action buttons */}
+          <div className="flex items-center gap-2 ml-auto">
+            {renderFullscreenToggleButton()}
+
+            {/* Logout Button */}
+            <button
+              onClick={handleLogout}
+              title="Log Out"
+              aria-label="Log Out"
+              className="h-10 w-10 flex-shrink-0 flex items-center justify-center rounded-lg text-gray-500 hover:bg-red-100 hover:text-red-600 dark:text-gray-400 dark:hover:bg-red-900/50 dark:hover:text-red-400 transition-colors"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
         </header>
 
-        {/* [THE FIX] - The theme-based scrollbar classes are applied to this scrollable container. */}
+        {/* Scrollable main content area */}
         <div
           className={`flex-1 min-h-0 overflow-y-auto ${
             theme === "dark"
