@@ -1,40 +1,87 @@
-import { createSlice, createSelector } from "@reduxjs/toolkit";
+// src/redux/slices/devicesSlice.js
+
+import {
+  createSlice,
+  createSelector,
+  createAsyncThunk,
+} from "@reduxjs/toolkit";
 import { initialData } from "../initialData";
 
-const { coreDevices, deviceInfo } = initialData;
+// --- MOCK API: Mimics the real API call using dummy data ---
+// This isolates the data source, preparing it for the real API.
+const mockApi = {
+  getCoreDevices: async () => {
+    // Simulate a network delay
+    await new Promise((resolve) => setTimeout(resolve, 250));
 
+    // The real API might return devices and deviceInfo separately.
+    // For this mock, we'll bundle them to populate the initial state easily.
+    return {
+      devices: initialData.coreDevices,
+      deviceInfo: initialData.deviceInfo,
+    };
+  },
+};
+
+// --- ASYNC THUNK: For fetching the devices and their info ---
+export const fetchDevices = createAsyncThunk(
+  "devices/fetchDevices",
+  async (_, { rejectWithValue }) => {
+    try {
+      // LATER: When you're ready for the real API, you will change this line to:
+      // const response = await api.getCoreDevices();
+      // And you might need another call for deviceInfo if it's a separate endpoint.
+      const response = await mockApi.getCoreDevices();
+      return response;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// --- The Slice Definition ---
 const devicesSlice = createSlice({
   name: "devices",
   initialState: {
-    items: coreDevices,
-    deviceInfo: deviceInfo,
-    status: "idle",
+    items: [], // Start with an empty array for the device list
+    deviceInfo: {}, // Start with an empty object for device info
+    status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
+    error: null,
   },
-  // [THE FIX] - Add the missing reducers here.
+  // Reducers for synchronous, direct state mutations
   reducers: {
     addCoreDevice: (state, action) => {
-      // Adds a new device to the items array.
       state.items.push(action.payload);
     },
     deleteCoreDevice: (state, action) => {
-      // Filters the items array, removing the device with the matching ID.
-      // The `action.payload` will be the ID of the device to delete.
-      state.items = state.items.filter((item) => item.id !== action.payload);
+      const deviceIdToDelete = action.payload;
+      state.items = state.items.filter((item) => item.id !== deviceIdToDelete);
     },
-    // You can add other reducers here if needed, like 'refreshInterfacesForDevice'
-    // refreshInterfacesForDevice: (state, action) => {
-    //   // ... logic for refreshing interfaces
-    // }
+  },
+  // extraReducers handle the lifecycle of the async thunk
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchDevices.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(fetchDevices.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        // Populate the state with the fetched data
+        state.items = action.payload.devices;
+        state.deviceInfo = action.payload.deviceInfo;
+      })
+      .addCase(fetchDevices.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.payload; // Get error message from rejectWithValue
+      });
   },
 });
 
-// [THE FIX] - Export the newly created actions with the correct names.
-// Note: The original export had `deleteDevice`, but the import in AdminPanelPage
-// was `deleteCoreDevice`. We'll use `deleteCoreDevice` for consistency.
+// --- Export Actions ---
 export const { addCoreDevice, deleteCoreDevice } = devicesSlice.actions;
 
-// --- Selectors ---
-
+// --- Export Selectors ---
 export const selectAllDevices = (state) => state.devices.items;
 export const selectDeviceInfo = (state) => state.devices.deviceInfo;
 
@@ -50,4 +97,5 @@ export const selectDevicesByTypeId = createSelector(
   }
 );
 
+// --- Export Reducer ---
 export default devicesSlice.reducer;
