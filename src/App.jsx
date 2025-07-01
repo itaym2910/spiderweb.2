@@ -9,6 +9,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import AppLayout from "./components/layout/AppLayout";
 import LoginPage from "./pages/LoginPage";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import { AppInitializer } from "./components/auth/AppInitializer";
 
 function App() {
   return (
@@ -23,7 +24,10 @@ function App() {
             path="/*"
             element={
               <ProtectedRoute>
-                <AppLayout />
+                {/* The AppInitializer now wraps the main layout */}
+                <AppInitializer>
+                  <AppLayout />
+                </AppInitializer>
               </ProtectedRoute>
             }
           />
