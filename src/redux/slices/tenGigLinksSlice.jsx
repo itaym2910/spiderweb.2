@@ -12,7 +12,7 @@ import { initialData } from "../initialData";
 const mockApi = {
   getTenGigLinks: async () => {
     // Simulate a network delay for a realistic loading experience
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await new Promise((resolve) => setTimeout(resolve, 350));
     return initialData.tenGigLinks;
   },
 };

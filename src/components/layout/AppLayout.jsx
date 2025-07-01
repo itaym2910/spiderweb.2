@@ -1,23 +1,27 @@
-// src/components/layout/AppLayout.jsx
-
 import React, { useState, useEffect, useMemo } from "react";
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { Star, LogOut } from "lucide-react";
 
-// Import the logout action from your auth slice
+// --- Redux Imports ---
 import { logout } from "../../redux/slices/authSlice";
+import {
+  disconnect,
+  selectRealtimeStatus,
+} from "../../redux/slices/realtimeSlice";
 
-// Helper components & hooks
-import { useDashboardLogic } from "../../pages/useDashboardLogic"; // Adjust path if needed
-import { Tabs, TabsList, TabsTrigger } from "../ui/tabs"; // Adjust path if needed
-import { Sidebar } from "../ui/sidebar"; // Adjust path if needed
+// --- Helper Components & Hooks ---
+import { useDashboardLogic } from "../../pages/useDashboardLogic";
+import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
+import { Sidebar } from "../ui/sidebar";
 
-// Page components
-import { DashboardPage } from "../../pages/DashboardPage"; // Adjust path if needed
-import { AdminPanelPage } from "../../pages/AdminPanelPage"; // Adjust path if needed
-import { AlertsPage } from "../../pages/AlertsPage"; // Adjust path if needed
-import SearchPage from "../../pages/SearchPage"; // Adjust path if needed
+// --- Page Components ---
+import { DashboardPage } from "../../pages/DashboardPage";
+import { AdminPanelPage } from "../../pages/AdminPanelPage";
+import { AlertsPage } from "../../pages/AlertsPage";
+import SearchPage from "../../pages/SearchPage";
+
+// --- Local Helper Components for this Layout ---
 
 // Icons used for the fullscreen toggle in the header.
 export const FullscreenIcon = ({ className = "w-5 h-5" }) => (
@@ -36,6 +40,7 @@ export const FullscreenIcon = ({ className = "w-5 h-5" }) => (
     />
   </svg>
 );
+
 export const ExitFullscreenIcon = ({ className = "w-5 h-5" }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -52,6 +57,37 @@ export const ExitFullscreenIcon = ({ className = "w-5 h-5" }) => (
     />
   </svg>
 );
+
+// Real-time status indicator component
+const RealtimeStatusIndicator = () => {
+  const status = useSelector(selectRealtimeStatus);
+
+  const config = {
+    connected: { color: "bg-green-500", text: "Live" },
+    connecting: { color: "bg-yellow-500", text: "Connecting" },
+    disconnected: { color: "bg-red-500", text: "Offline" },
+  }[status] || { color: "bg-gray-500", text: "Unknown" };
+
+  return (
+    <div
+      className="flex items-center gap-2"
+      title={`Real-time updates: ${config.text}`}
+    >
+      <div className={`w-2.5 h-2.5 rounded-full ${config.color} relative`}>
+        {status === "connected" && (
+          <div
+            className={`absolute inset-0 w-full h-full rounded-full ${config.color} animate-ping`}
+          ></div>
+        )}
+      </div>
+      <span className="text-xs font-medium text-gray-500 dark:text-gray-400 hidden sm:inline">
+        {config.text}
+      </span>
+    </div>
+  );
+};
+
+// --- Main AppLayout Component ---
 
 function AppLayout() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -101,8 +137,12 @@ function AppLayout() {
   };
 
   const handleLogout = () => {
-    dispatch(logout()); // Clears Redux state and removes the auth cookie
-    navigate("/login", { replace: true }); // Redirects to login page
+    // First, disconnect the real-time service to clean up the interval.
+    dispatch(disconnect());
+    // Then, clear the user's session data.
+    dispatch(logout());
+    // Finally, navigate back to the login page.
+    navigate("/login", { replace: true });
   };
 
   const renderFullscreenToggleButton = () => {
@@ -168,10 +208,9 @@ function AppLayout() {
           )}
 
           {/* Wrapper for right-side action buttons */}
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-4 ml-auto">
+            <RealtimeStatusIndicator />
             {renderFullscreenToggleButton()}
-
-            {/* Logout Button */}
             <button
               onClick={handleLogout}
               title="Log Out"

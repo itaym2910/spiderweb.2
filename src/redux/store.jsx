@@ -8,6 +8,8 @@ import corePikudimReducer from "./slices/corePikudimSlice";
 import favoritesReducer from "./slices/favoritesSlice";
 import netTypesReducer from "./slices/netTypesSlice";
 import authReducer from "./slices/authSlice";
+import realtimeReducer from "./slices/realtimeSlice";
+import realtimeMiddleware from "./middleware/realtimeMiddleware";
 
 export const store = configureStore({
   reducer: {
@@ -18,11 +20,12 @@ export const store = configureStore({
     favorites: favoritesReducer,
     netTypes: netTypesReducer,
     auth: authReducer,
+    realtime: realtimeReducer,
   },
   // This is needed because a `Set` is not serializable, which Redux DevTools prefers.
   // This is safe for this use case.
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: false,
-    }),
+    }).concat(realtimeMiddleware),
 });

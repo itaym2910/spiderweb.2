@@ -1,9 +1,9 @@
 import React, { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchInitialData } from "../../redux/slices/authSlice";
+import { startConnecting } from "../../redux/slices/realtimeSlice"; // <-- IMPORT
 import { Loader2, AlertTriangle } from "lucide-react";
 
-// Helper to check the status of all core data slices
 const selectCoreDataStatus = (state) => ({
   pikudim: state.corePikudim.status,
   devices: state.devices.status,
@@ -13,26 +13,31 @@ const selectCoreDataStatus = (state) => ({
 
 export function AppInitializer({ children }) {
   const dispatch = useDispatch();
-
   const dataStatus = useSelector(selectCoreDataStatus);
 
-  // Determine the combined status
   const isIdle = Object.values(dataStatus).every((s) => s === "idle");
+  const isSuccessful = Object.values(dataStatus).every(
+    (s) => s === "succeeded"
+  );
   const isLoading = Object.values(dataStatus).some((s) => s === "loading");
   const hasFailed = Object.values(dataStatus).some((s) => s === "failed");
 
   useEffect(() => {
-    // If we haven't fetched data yet in this session, fetch it.
     if (isIdle) {
       dispatch(fetchInitialData());
     }
-  }, [isIdle, dispatch]);
+
+    // --- NEW: Start the real-time connection once data is successfully loaded ---
+    if (isSuccessful) {
+      dispatch(startConnecting());
+    }
+  }, [isIdle, isSuccessful, dispatch]);
 
   const handleRetry = () => {
     dispatch(fetchInitialData());
   };
 
-  // --- 1. RENDER GLOBAL LOADING STATE ---
+  // The rest of the component's rendering logic (loading/error/success states) remains the same.
   if (isLoading || isIdle) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-950">
@@ -49,7 +54,6 @@ export function AppInitializer({ children }) {
     );
   }
 
-  // --- 2. RENDER GLOBAL ERROR STATE ---
   if (hasFailed) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-950">
@@ -73,6 +77,5 @@ export function AppInitializer({ children }) {
     );
   }
 
-  // --- 3. RENDER SUCCESS STATE (The actual app) ---
   return children;
 }
