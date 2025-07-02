@@ -150,4 +150,21 @@ export const api = {
    */
   getAllAlertsSeverity: () =>
     handleApiCall(apiClient.get("/get_all_alerts_severity")),
+
+  /**
+   * Fetches the favorite link IDs for the currently authenticated user.
+   * @returns {Promise<Array<string>>} A promise that resolves to an array of link IDs.
+   */
+  getFavoriteLinks: () =>
+    handleApiCall(apiClient.get("/users/me/favorites/links")),
+
+  /**
+   * Replaces the user's list of favorite links on the server.
+   * @param {Array<string>} linkIds - The complete new array of favorite link IDs.
+   * @returns {Promise<object>} A promise that resolves to the server's confirmation response.
+   */
+  updateFavoriteLinks: (linkIds) =>
+    handleApiCall(
+      apiClient.put("/users/me/favorites/links", { link_ids: linkIds })
+    ),
 };

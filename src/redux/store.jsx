@@ -9,10 +9,12 @@ import favoritesReducer from "./slices/favoritesSlice";
 import netTypesReducer from "./slices/netTypesSlice";
 import authReducer from "./slices/authSlice";
 import realtimeReducer from "./slices/realtimeSlice";
+import alertsReducer from "./slices/alertsSlice";
 import realtimeMiddleware from "./middleware/realtimeMiddleware";
 
 export const store = configureStore({
   reducer: {
+    // Existing reducers
     sites: sitesReducer,
     devices: devicesReducer,
     tenGigLinks: tenGigLinksReducer,
@@ -21,6 +23,7 @@ export const store = configureStore({
     netTypes: netTypesReducer,
     auth: authReducer,
     realtime: realtimeReducer,
+    alerts: alertsReducer,
   },
   // This is needed because a `Set` is not serializable, which Redux DevTools prefers.
   // This is safe for this use case.
