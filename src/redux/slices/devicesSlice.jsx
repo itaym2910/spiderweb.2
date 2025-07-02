@@ -3,62 +3,34 @@ import {
   createSelector,
   createAsyncThunk,
 } from "@reduxjs/toolkit";
-// --- 1. Import your REAL API service and the logout action ---
-import { api } from "../../services/apiService"; // Adjust path if needed
-import { logout } from "./authSlice"; // Import logout to reset state
+import { initialData } from "../initialData";
 
-// Define the initial state structure for clarity and reuse
-const initialState = {
-  items: [], // Holds the list of core devices
-  deviceInfo: {}, // Holds detailed info for devices, keyed by device ID
-  status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
-  error: null,
+// --- MOCK API: Mimics the real API call using dummy data ---
+// This isolates the data source, preparing it for the real API.
+const mockApi = {
+  getCoreDevices: async () => {
+    // Simulate a network delay
+    await new Promise((resolve) => setTimeout(resolve, 250));
+
+    // The real API might return devices and deviceInfo separately.
+    // For this mock, we'll bundle them to populate the initial state easily.
+    return {
+      devices: initialData.coreDevices,
+      deviceInfo: initialData.deviceInfo,
+    };
+  },
 };
 
-// --- ASYNC THUNKS ---
-
-// Thunk for fetching initial data
+// --- ASYNC THUNK: For fetching the devices and their info ---
 export const fetchDevices = createAsyncThunk(
   "devices/fetchDevices",
   async (_, { rejectWithValue }) => {
     try {
-      // This now calls the real API.
-      // We assume getCoreDevices returns the list and getDeviceInfo is separate.
-      // For simplicity, we'll fetch both, though you might fetch deviceInfo on demand.
-      const devices = await api.getCoreDevices();
-      // In a real app, you might fetch info for specific devices as needed,
-      // but for this example, we'll assume we don't fetch all info at once.
-      return devices; // The thunk now returns only the device list
-    } catch (error) {
-      return rejectWithValue(error.message);
-    }
-  }
-);
-
-// Thunk for ADDING a new device
-export const addCoreDevice = createAsyncThunk(
-  "devices/addCoreDevice",
-  async (deviceData, { rejectWithValue }) => {
-    try {
-      // 1. Call the API to create the device on the server
-      const newDevice = await api.addCoreDevice(deviceData);
-      // 2. Return the new device object from the server (it will have the final ID)
-      return newDevice;
-    } catch (error) {
-      return rejectWithValue(error.message);
-    }
-  }
-);
-
-// Thunk for DELETING a device
-export const deleteCoreDevice = createAsyncThunk(
-  "devices/deleteCoreDevice",
-  async (deviceId, { rejectWithValue }) => {
-    try {
-      // 1. Call the API to delete the device on the server
-      await api.deleteDevice(deviceId);
-      // 2. Return the ID of the device that was successfully deleted
-      return deviceId;
+      // LATER: When you're ready for the real API, you will change this line to:
+      // const response = await api.getCoreDevices();
+      // And you might need another call for deviceInfo if it's a separate endpoint.
+      const response = await mockApi.getCoreDevices();
+      return response;
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -68,59 +40,51 @@ export const deleteCoreDevice = createAsyncThunk(
 // --- The Slice Definition ---
 const devicesSlice = createSlice({
   name: "devices",
-  initialState,
-  // Synchronous reducers are removed from here as they are now async thunks.
-  // You could keep reducers for purely client-side state changes if needed.
-  reducers: {},
-  // extraReducers handle actions from outside the slice, including our thunks
+  initialState: {
+    items: [], // Start with an empty array for the device list
+    deviceInfo: {}, // Start with an empty object for device info
+    status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
+    error: null,
+  },
+  // Reducers for synchronous, direct state mutations
+  reducers: {
+    addCoreDevice: (state, action) => {
+      state.items.push(action.payload);
+    },
+    deleteCoreDevice: (state, action) => {
+      const deviceIdToDelete = action.payload;
+      state.items = state.items.filter((item) => item.id !== deviceIdToDelete);
+    },
+  },
+  // extraReducers handle the lifecycle of the async thunk
   extraReducers: (builder) => {
     builder
-      // --- Cases for fetching devices ---
       .addCase(fetchDevices.pending, (state) => {
         state.status = "loading";
         state.error = null;
       })
       .addCase(fetchDevices.fulfilled, (state, action) => {
         state.status = "succeeded";
-        state.items = action.payload; // Populate the device list
+        // Populate the state with the fetched data
+        state.items = action.payload.devices;
+        state.deviceInfo = action.payload.deviceInfo;
       })
       .addCase(fetchDevices.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.payload;
-      })
-
-      // --- Cases for adding a device ---
-      .addCase(addCoreDevice.fulfilled, (state, action) => {
-        // Add the new device returned from the API to the state
-        state.items.push(action.payload);
-      })
-      // You can also add .pending and .rejected cases for addCoreDevice
-      // to show loading spinners or error messages on the form.
-
-      // --- Cases for deleting a device ---
-      .addCase(deleteCoreDevice.fulfilled, (state, action) => {
-        const deletedDeviceId = action.payload;
-        // Filter out the deleted device from the state
-        state.items = state.items.filter((item) => item.id !== deletedDeviceId);
-      })
-      // You can also add .pending and .rejected cases for deleteCoreDevice.
-
-      // --- Case for handling user logout ---
-      .addCase(logout, () => {
-        // When the user logs out, reset this slice to its initial state
-        return initialState;
+        state.error = action.payload; // Get error message from rejectWithValue
       });
   },
 });
 
-// --- Export Actions (No synchronous actions to export from here now) ---
-// Note: The async thunks (fetchDevices, addCoreDevice, etc.) are exported directly.
+// --- Export Actions ---
+export const { addCoreDevice, deleteCoreDevice } = devicesSlice.actions;
 
 // --- Export Selectors ---
+
 export const selectAllDevices = (state) => state.devices.items;
 export const selectDeviceInfo = (state) => state.devices.deviceInfo;
 
-// Memoized selector for filtering devices by network type ID
+// --- MEMOIZED SELECTOR for filtering devices ---
 const selectDeviceItems = (state) => state.devices.items;
 const selectTypeIdFromDevice = (state, typeId) => typeId;
 
@@ -132,13 +96,23 @@ export const selectDevicesByTypeId = createSelector(
   }
 );
 
-// Memoized selector for the loading/error status of the slice
+// --- MEMOIZED SELECTOR for the loading/error status ---
+// This selector solves the "returned a different result" warning.
+// It combines `status` and `error` into a single object, but only creates a
+// new object if `status` or `error` themselves have actually changed.
+
+// 1. Input selectors: These grab the raw data without creating new references.
 const selectStatus = (state) => state.devices.status;
 const selectError = (state) => state.devices.error;
 
-export const selectDevicesStatus = createSelector(
-  [selectStatus, selectError],
-  (status, error) => ({ status, error })
+// 2. Memoized Selector: This is the one to use in your components.
+export const selectCoreDataStatus = createSelector(
+  [selectStatus, selectError], // An array of the input selectors
+  (status, error) => ({
+    // The "result" function that creates the object
+    status,
+    error,
+  })
 );
 
 // --- Export Reducer ---

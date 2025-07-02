@@ -1,121 +1,95 @@
+// src/redux/slices/tenGigLinksSlice.js
+
 import {
   createSlice,
   createSelector,
   createAsyncThunk,
 } from "@reduxjs/toolkit";
-import { api } from "../../services/apiService";
-import { logout } from "./authSlice";
+import { initialData } from "../initialData";
 
-// --- ASYNC THUNKS ---
+// --- MOCK API: Mimics the real API call using dummy data ---
+// This isolates the data source, making it easy to swap for the real API later.
+const mockApi = {
+  getTenGigLinks: async () => {
+    // Simulate a network delay for a realistic loading experience
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    return initialData.tenGigLinks;
+  },
+};
 
+// --- ASYNC THUNK: For fetching the 10-Gigabit links ---
+// This function is dispatched to start the data fetching process.
 export const fetchTenGigLinks = createAsyncThunk(
-  "tenGigLinks/fetchAll",
+  "tenGigLinks/fetchTenGigLinks",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await api.getTenGigLines();
+      // LATER: When you switch to the real API, you will change this one line to:
+      // const response = await api.getTenGigLinks();
+      const response = await mockApi.getTenGigLinks();
       return response;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || error.message);
-    }
-  }
-);
-
-// CHANGED: Added `export` here to declare and export at the same time.
-export const addTenGigLink = createAsyncThunk(
-  "tenGigLinks/addOne",
-  async (linkData, { rejectWithValue }) => {
-    try {
-      const newLink = await api.addTenGigLink(linkData);
-      return newLink;
-    } catch (error) {
-      return rejectWithValue(error.response?.data?.message || error.message);
-    }
-  }
-);
-
-// CHANGED: Added `export` here.
-export const deleteTenGigLink = createAsyncThunk(
-  "tenGigLinks/deleteOne",
-  async (linkId, { rejectWithValue }) => {
-    try {
-      await api.deleteTenGigLink(linkId);
-      return linkId;
-    } catch (error) {
-      return rejectWithValue(error.response?.data?.message || error.message);
-    }
-  }
-);
-
-// CHANGED: Added `export` here.
-export const updateTenGigLink = createAsyncThunk(
-  "tenGigLinks/updateOne",
-  async (linkUpdateData, { rejectWithValue }) => {
-    try {
-      const updatedLink = await api.updateTenGigLink(linkUpdateData);
-      return updatedLink;
-    } catch (error) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(error.message);
     }
   }
 );
 
 // --- The Slice Definition ---
-const initialState = {
-  items: [],
-  status: "idle",
-  error: null,
-};
-
 const tenGigLinksSlice = createSlice({
   name: "tenGigLinks",
-  initialState,
-  reducers: {},
+  initialState: {
+    items: [], // Start with an empty array for the links
+    status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
+    error: null,
+  },
+  // Reducers for synchronous actions
+  reducers: {
+    // These reducers are for manually adding/deleting links after the initial fetch,
+    // for example, in an admin panel.
+    addTenGigLink: (state, action) => {
+      state.items.push(action.payload);
+    },
+    deleteTenGigLink: (state, action) => {
+      const linkIdToRemove = action.payload;
+      state.items = state.items.filter((link) => link.id !== linkIdToRemove);
+    },
+    updateTenGigLink: (state, action) => {
+      const { id, ...updatedFields } = action.payload;
+      const linkIndex = state.items.findIndex((link) => link.id === id);
+      if (linkIndex !== -1) {
+        state.items[linkIndex] = {
+          ...state.items[linkIndex],
+          ...updatedFields,
+        };
+      }
+    },
+  },
+  // extraReducers handle the lifecycle of the `fetchTenGigLinks` async thunk
   extraReducers: (builder) => {
     builder
-      // Cases for fetching all links
       .addCase(fetchTenGigLinks.pending, (state) => {
         state.status = "loading";
         state.error = null;
       })
       .addCase(fetchTenGigLinks.fulfilled, (state, action) => {
         state.status = "succeeded";
+        // Populate the state with the fetched link data
         state.items = action.payload;
       })
       .addCase(fetchTenGigLinks.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.payload;
-      })
-      // Case for successfully adding a new link
-      .addCase(addTenGigLink.fulfilled, (state, action) => {
-        state.items.push(action.payload);
-      })
-      // Case for successfully deleting a link
-      .addCase(deleteTenGigLink.fulfilled, (state, action) => {
-        const deletedLinkId = action.payload;
-        state.items = state.items.filter((link) => link.id !== deletedLinkId);
-      })
-      // Case for successfully updating a link
-      .addCase(updateTenGigLink.fulfilled, (state, action) => {
-        const updatedLink = action.payload;
-        const index = state.items.findIndex(
-          (link) => link.id === updatedLink.id
-        );
-        if (index !== -1) {
-          state.items[index] = updatedLink;
-        }
-      })
-      // Case for handling LOGOUT
-      .addCase(logout, () => {
-        return initialState;
+        state.error = action.payload; // Get error message from rejectWithValue
       });
   },
 });
 
-// --- REMOVED: The redundant export block that caused the error is gone. ---
+// --- Export Actions ---
+export const { addTenGigLink, deleteTenGigLink, updateTenGigLink } =
+  tenGigLinksSlice.actions;
 
-// --- Export Selectors (These remain the same) ---
+// --- Export Selectors ---
 export const selectAllTenGigLinks = (state) => state.tenGigLinks.items;
 
+// --- MEMOIZED SELECTOR ---
 const selectLinkItems = (state) => state.tenGigLinks.items;
 const selectTypeIdFromLink = (state, typeId) => typeId;
 
