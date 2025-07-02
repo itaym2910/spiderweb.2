@@ -64,7 +64,7 @@ export function Sidebar({ currentPage, collapsed, setCollapsed }) {
       <div className="flex items-center justify-between p-4 border-b dark:border-gray-700 shrink-0">
         {!collapsed && (
           // The plain text div is replaced with this styled h1
-          <h1 className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 tracking-wide">
+          <h1 className="text-2xl font-extrabold text-white tracking-wide">
             SPIDERWEB
           </h1>
         )}

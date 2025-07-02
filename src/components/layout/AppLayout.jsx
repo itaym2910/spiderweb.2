@@ -180,10 +180,9 @@ function AppLayout() {
         >
           <h1
             className={`text-2xl shrink-0 ${
-              // REMOVED font-semibold from here
               isFullscreen
-                ? "font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 tracking-wide"
-                : "font-semibold text-gray-900 dark:text-white" // ADDED font-semibold here
+                ? "font-extrabold text-white tracking-wide" // <-- This line is changed
+                : "font-semibold text-gray-900 dark:text-white"
             }`}
           >
             {isFullscreen ? "SPIDERWEB" : activePageLabel}
