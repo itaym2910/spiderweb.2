@@ -146,11 +146,10 @@ export default function EndSiteIndexPage() {
     }
 
     return (
-      <div
-        ref={parentRef}
-        className="w-full h-full overflow-y-auto pr-2" // This container will now correctly fill its parent and scroll internally
-      >
+      <div ref={parentRef} className="w-full h-full overflow-y-auto pr-2">
         <div
+          // Add the key here!
+          key={columnCount}
           className="relative w-full"
           style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
         >
