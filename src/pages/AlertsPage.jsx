@@ -1,14 +1,16 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   MdErrorOutline,
   MdWarningAmber,
   MdInfoOutline,
   MdNotifications,
   MdClose,
+  MdSearch,
+  MdFilterListOff,
 } from "react-icons/md";
 
-// --- MOCK DATA & MODAL (No style changes needed, they are self-contained) ---
-
+// --- MOCK DATA & HELPER COMPONENTS (Unchanged, but now fully included) ---
 const generateMockAlerts = () => {
   const alerts = [];
   const now = new Date();
@@ -26,7 +28,7 @@ const generateMockAlerts = () => {
     "Backup job 'DailySystemBackup' finished successfully.",
   ];
 
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 2000; i++) {
     const randomMinutesAgo = Math.floor(Math.random() * 7 * 24 * 60 * 1.5);
     alerts.push({
       id: `alert-${i + 1}-${Date.now()}`,
@@ -45,7 +47,6 @@ const generateMockAlerts = () => {
   }
   return alerts.sort((a, b) => b.timestamp - a.timestamp);
 };
-
 const AlertIcon = ({ type, size = 24 }) => {
   if (type === "error")
     return (
@@ -58,6 +59,7 @@ const AlertIcon = ({ type, size = 24 }) => {
   return <MdInfoOutline className="text-blue-500 flex-shrink-0" size={size} />;
 };
 
+// --- THIS COMPONENT IS NOW FULLY RESTORED ---
 const AlertModal = ({ alert, onClose }) => {
   if (!alert) return null;
 
@@ -96,6 +98,8 @@ const AlertModal = ({ alert, onClose }) => {
             </p>
           </div>
         </div>
+
+        {/* --- THIS SECTION WAS MISSING AND IS NOW RESTORED --- */}
         <div className="space-y-3 text-sm">
           <p>
             <strong className="text-gray-700 dark:text-gray-300">
@@ -164,34 +168,36 @@ const AlertModal = ({ alert, onClose }) => {
     </div>
   );
 };
+// --- END OF RESTORED COMPONENT ---
 
-// --- STYLES UPDATED ---
-const AlertCard = ({ alert, onClick }) => (
-  <div
-    onClick={onClick}
-    className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer border border-transparent dark:hover:border-blue-500 hover:border-blue-400"
-  >
-    <div className="flex items-start space-x-4">
-      <AlertIcon type={alert.type} size={28} />
-      <div className="flex-1 min-w-0">
-        <p
-          className="font-semibold text-gray-800 dark:text-white truncate"
-          title={alert.message}
-        >
-          {alert.message}
-        </p>
-        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs space-y-1">
-          <p className="text-gray-600 dark:text-gray-300">
-            <strong>Network Line:</strong> {alert.networkLine}
+const AlertCard = ({ alert, onClick }) => {
+  return (
+    <div
+      onClick={onClick}
+      className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer border border-transparent dark:hover:border-blue-500 hover:border-blue-400 flex flex-col h-full"
+    >
+      <div className="flex items-start space-x-4 flex-grow">
+        <AlertIcon type={alert.type} size={28} />
+        <div className="flex-1 min-w-0">
+          <p
+            className="font-semibold text-gray-800 dark:text-white truncate"
+            title={alert.message}
+          >
+            {alert.message}
           </p>
-          <p className="text-gray-500 dark:text-gray-400">
-            {alert.timestamp.toLocaleString()}
-          </p>
+          <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs space-y-1">
+            <p className="text-gray-600 dark:text-gray-300">
+              <strong>Network Line:</strong> {alert.networkLine}
+            </p>
+            <p className="text-gray-500 dark:text-gray-400">
+              {alert.timestamp.toLocaleString()}
+            </p>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const timePeriods = [
   { label: "1 Hour", value: "1h" },
@@ -200,110 +206,294 @@ const timePeriods = [
   { label: "1 Week", value: "1w" },
   { label: "All Time", value: "all" },
 ];
+const alertTypes = [
+  { value: "error", label: "Errors", color: "red" },
+  { value: "warning", label: "Warnings", color: "yellow" },
+  { value: "info", label: "Info", color: "blue" },
+];
+const initialTypeState = { error: true, warning: true, info: true };
 
-// --- STYLES UPDATED ---
+const TypeFilterButton = ({ typeInfo, count, isActive, onClick }) => {
+  const colors = {
+    red: {
+      active: "bg-red-500 text-white shadow-md",
+      inactive:
+        "bg-gray-100 dark:bg-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700",
+    },
+    yellow: {
+      active: "bg-yellow-500 text-white shadow-md",
+      inactive:
+        "bg-gray-100 dark:bg-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700",
+    },
+    blue: {
+      active: "bg-blue-500 text-white shadow-md",
+      inactive:
+        "bg-gray-100 dark:bg-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700",
+    },
+  };
+  const countColors = {
+    red: { active: "bg-white/20", inactive: "bg-black/10 dark:bg-white/10" },
+    yellow: { active: "bg-white/20", inactive: "bg-black/10 dark:bg-white/10" },
+    blue: { active: "bg-white/20", inactive: "bg-black/10 dark:bg-white/10" },
+  };
+  return (
+    <button
+      onClick={onClick}
+      className={`flex-1 text-center px-4 py-2 text-sm font-semibold transition-all duration-200 ease-in-out flex items-center justify-center gap-2 ${
+        isActive
+          ? colors[typeInfo.color].active
+          : colors[typeInfo.color].inactive
+      }`}
+    >
+      <span>{typeInfo.label}</span>
+      <span
+        className={`px-2 py-0.5 rounded-full text-xs font-mono transition-colors duration-200 ${
+          isActive
+            ? countColors[typeInfo.color].active
+            : countColors[typeInfo.color].inactive
+        }`}
+      >
+        {count}
+      </span>
+    </button>
+  );
+};
+
 export function AlertsPage() {
   const [allAlerts, setAllAlerts] = useState([]);
-  const [selectedPeriod, setSelectedPeriod] = useState("1h");
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState("1w");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedTypes, setSelectedTypes] = useState(initialTypeState);
+  const parentRef = useRef(null);
+  const [columnCount, setColumnCount] = useState(3);
 
   useEffect(() => {
     setAllAlerts(generateMockAlerts());
   }, []);
+  useEffect(() => {
+    const updateColumnCount = () => {
+      if (window.innerWidth >= 1024) setColumnCount(3);
+      else if (window.innerWidth >= 768) setColumnCount(2);
+      else setColumnCount(1);
+    };
+    updateColumnCount();
+    window.addEventListener("resize", updateColumnCount);
+    return () => window.removeEventListener("resize", updateColumnCount);
+  }, []);
 
-  const filteredAlerts = useMemo(() => {
-    // ... filtering logic remains the same
-    if (!allAlerts.length) return [];
+  const timeFilteredAlerts = useMemo(() => {
     const now = new Date();
-    let startTime;
     switch (selectedPeriod) {
       case "1h":
-        startTime = new Date(now.getTime() - 1 * 60 * 60 * 1000);
-        break;
+        return allAlerts.filter(
+          (a) => a.timestamp >= new Date(now.getTime() - 1 * 60 * 60 * 1000)
+        );
       case "10h":
-        startTime = new Date(now.getTime() - 10 * 60 * 60 * 1000);
-        break;
+        return allAlerts.filter(
+          (a) => a.timestamp >= new Date(now.getTime() - 10 * 60 * 60 * 1000)
+        );
       case "24h":
-        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        break;
+        return allAlerts.filter(
+          (a) => a.timestamp >= new Date(now.getTime() - 24 * 60 * 60 * 1000)
+        );
       case "1w":
-        startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      case "all":
+        return allAlerts.filter(
+          (a) =>
+            a.timestamp >= new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+        );
       default:
         return allAlerts;
     }
-    return allAlerts.filter((alert) => alert.timestamp >= startTime);
   }, [allAlerts, selectedPeriod]);
 
+  const alertCountsByType = useMemo(() => {
+    return timeFilteredAlerts.reduce(
+      (acc, alert) => {
+        acc[alert.type] = (acc[alert.type] || 0) + 1;
+        return acc;
+      },
+      { error: 0, warning: 0, info: 0 }
+    );
+  }, [timeFilteredAlerts]);
+
+  const filteredAlerts = useMemo(() => {
+    const lowercasedTerm = searchTerm.toLowerCase();
+    return timeFilteredAlerts.filter((alert) => {
+      if (!selectedTypes[alert.type]) return false;
+      if (
+        lowercasedTerm &&
+        !alert.message.toLowerCase().includes(lowercasedTerm) &&
+        !alert.networkLine.toLowerCase().includes(lowercasedTerm)
+      )
+        return false;
+      return true;
+    });
+  }, [timeFilteredAlerts, searchTerm, selectedTypes]);
+
+  const rowVirtualizer = useVirtualizer({
+    count: Math.ceil(filteredAlerts.length / columnCount),
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 140,
+    overscan: 5,
+  });
+
+  const handleTypeChange = (type) =>
+    setSelectedTypes((prev) => ({ ...prev, [type]: !prev[type] }));
+  const handleResetFilters = () => {
+    setSearchTerm("");
+    setSelectedTypes(initialTypeState);
+  };
   const handleAlertClick = (alert) => {
     setSelectedAlert(alert);
     setIsModalOpen(true);
   };
-
   const handleCloseModal = () => {
     setIsModalOpen(false);
-    setSelectedAlert(null); // Good practice to clear after close
+    setSelectedAlert(null);
   };
 
-  return (
-    <>
-      <div className="p-6 bg-gray-50 dark:bg-gray-900 min-h-full">
-        <header className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
-            System Alerts
-          </h1>
-          <p className="text-md text-gray-600 dark:text-gray-400 mt-1">
-            Review real-time alerts from the network infrastructure.
-          </p>
-        </header>
-
-        <div className="mb-8">
-          <div className="flex flex-wrap gap-3 p-3 rounded-lg bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 max-w-lg">
-            {timePeriods.map((period) => (
-              <button
-                key={period.value}
-                onClick={() => setSelectedPeriod(period.value)}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-blue-500
-                  ${
-                    selectedPeriod === period.value
-                      ? "bg-blue-600 text-white shadow"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
-                  }`}
-              >
-                {period.label}
-              </button>
-            ))}
+  const renderContent = () => {
+    if (filteredAlerts.length === 0) {
+      return (
+        <div className="flex-grow flex items-center justify-center text-center px-4">
+          <div>
+            <MdNotifications
+              size={56}
+              className="mx-auto text-gray-400 dark:text-gray-500 mb-4"
+            />
+            <p className="text-xl font-semibold text-gray-600 dark:text-gray-400">
+              No Matching Alerts
+            </p>
+            <p className="text-md text-gray-500 dark:text-gray-500 mt-2">
+              Try adjusting your filters.
+            </p>
           </div>
         </div>
-
-        <div>
-          {filteredAlerts.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filteredAlerts.map((alert) => (
+      );
+    }
+    return (
+      <div ref={parentRef} className="w-full h-full overflow-y-auto pr-2">
+        <div
+          key={columnCount}
+          className="relative w-full"
+          style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
+        >
+          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+            const cardsInRow = [];
+            const startIndex = virtualRow.index * columnCount;
+            const endIndex = Math.min(
+              startIndex + columnCount,
+              filteredAlerts.length
+            );
+            for (let i = startIndex; i < endIndex; i++) {
+              const alert = filteredAlerts[i];
+              cardsInRow.push(
                 <AlertCard
                   key={alert.id}
                   alert={alert}
                   onClick={() => handleAlertClick(alert)}
                 />
+              );
+            }
+            return (
+              <div
+                key={virtualRow.key}
+                className="absolute top-0 left-0 w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 p-1"
+                style={{
+                  height: `${virtualRow.size}px`,
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                {cardsInRow}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <div className="p-6 bg-gray-50 dark:bg-gray-900 h-full flex flex-col">
+        <header className="mb-6 flex-shrink-0">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
+            System Alerts
+          </h1>
+          <p className="text-md text-gray-600 dark:text-gray-400 mt-1">
+            Review and filter real-time alerts from the network infrastructure.
+          </p>
+        </header>
+
+        <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 mb-8 flex-shrink-0">
+          <div className="mb-4">
+            <label className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2 block">
+              Time Period
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {timePeriods.map((period) => (
+                <button
+                  key={period.value}
+                  onClick={() => setSelectedPeriod(period.value)}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-blue-500 ${
+                    selectedPeriod === period.value
+                      ? "bg-blue-600 text-white shadow"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  {period.label}
+                </button>
               ))}
             </div>
-          ) : (
-            <div className="text-center py-16 px-4">
-              <MdNotifications
-                size={56}
-                className="mx-auto text-gray-400 dark:text-gray-500 mb-4"
-              />
-              <p className="text-xl font-semibold text-gray-600 dark:text-gray-400">
-                All Clear!
-              </p>
-              <p className="text-md text-gray-500 dark:text-gray-500 mt-2">
-                No alerts found for the selected period. Try a wider time range.
-              </p>
+          </div>
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4" />
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-4 pt-2">
+            <div className="flex-shrink-0">
+              <label className="text-sm font-semibold text-gray-500 dark:text-gray-400 block mb-2">
+                Type
+              </label>
+              <div className="flex w-full sm:w-auto rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                {alertTypes.map((typeInfo) => (
+                  <TypeFilterButton
+                    key={typeInfo.value}
+                    typeInfo={typeInfo}
+                    count={alertCountsByType[typeInfo.value] || 0}
+                    isActive={selectedTypes[typeInfo.value]}
+                    onClick={() => handleTypeChange(typeInfo.value)}
+                  />
+                ))}
+              </div>
             </div>
-          )}
+            <div className="flex-grow"></div>
+            <div className="flex items-center gap-4 flex-shrink-0">
+              <div className="relative">
+                <MdSearch
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  size={20}
+                />
+                <input
+                  id="search"
+                  type="text"
+                  placeholder="Search message or line..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full sm:w-64 p-2 pl-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+              <button
+                onClick={handleResetFilters}
+                title="Reset filters"
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                <MdFilterListOff />
+              </button>
+            </div>
+          </div>
         </div>
+
+        <div className="flex-grow min-h-0">{renderContent()}</div>
       </div>
 
       {isModalOpen && selectedAlert && (
