@@ -165,8 +165,6 @@ export default function AllInterfacesPage() {
   );
 
   return (
-    // --- THE FIX IS HERE ---
-    // The root div now has its own padding and uses a flex column layout to fill the full height.
     <div className="p-6 bg-gray-50 dark:bg-gray-900 h-full flex flex-col gap-6">
       <header className="flex-shrink-0">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">

@@ -39,7 +39,7 @@ export function VirtualizedTable({ data, columns, isLoading, emptyMessage }) {
     <div
       ref={parentRef}
       role="grid"
-      className="h-[600px] w-full overflow-auto border dark:border-gray-700/50 rounded-lg" // A fixed height container is required for virtualization
+      className="h-full w-full overflow-auto border dark:border-gray-700/50 rounded-lg" // A fixed height container is required for virtualization
     >
       {/* Header */}
       <div
