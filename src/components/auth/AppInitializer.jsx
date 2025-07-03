@@ -1,18 +1,39 @@
 import React, { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
+// NEW: Import createSelector
+import { createSelector } from "@reduxjs/toolkit";
 import { fetchInitialData } from "../../redux/slices/authSlice";
-import { startConnecting } from "../../redux/slices/realtimeSlice"; // <-- IMPORT
+import { startConnecting } from "../../redux/slices/realtimeSlice";
 import { Loader2, AlertTriangle } from "lucide-react";
 
-const selectCoreDataStatus = (state) => ({
-  pikudim: state.corePikudim.status,
-  devices: state.devices.status,
-  links: state.tenGigLinks.status,
-  sites: state.sites.status,
-});
+// --- THE FIX ---
+// 1. Define the "input selectors" that grab the raw data.
+const selectPikudimStatus = (state) => state.corePikudim.status;
+const selectDevicesStatus = (state) => state.devices.status;
+const selectLinksStatus = (state) => state.tenGigLinks.status;
+const selectSitesStatus = (state) => state.sites.status;
+
+// 2. Use createSelector to combine them.
+// This selector will only return a new object if one of the input status strings changes.
+const selectCoreDataStatus = createSelector(
+  [
+    selectPikudimStatus,
+    selectDevicesStatus,
+    selectLinksStatus,
+    selectSitesStatus,
+  ],
+  (pikudim, devices, links, sites) => ({
+    pikudim,
+    devices,
+    links,
+    sites,
+  })
+);
+// --- END FIX ---
 
 export function AppInitializer({ children }) {
   const dispatch = useDispatch();
+  // This now uses the memoized selector
   const dataStatus = useSelector(selectCoreDataStatus);
 
   const isIdle = Object.values(dataStatus).every((s) => s === "idle");
@@ -27,7 +48,6 @@ export function AppInitializer({ children }) {
       dispatch(fetchInitialData());
     }
 
-    // --- NEW: Start the real-time connection once data is successfully loaded ---
     if (isSuccessful) {
       dispatch(startConnecting());
     }
@@ -37,7 +57,7 @@ export function AppInitializer({ children }) {
     dispatch(fetchInitialData());
   };
 
-  // The rest of the component's rendering logic (loading/error/success states) remains the same.
+  // The rest of the component's rendering logic remains the same.
   if (isLoading || isIdle) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-950">
