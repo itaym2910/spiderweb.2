@@ -3,6 +3,7 @@ import { useSelector } from "react-redux";
 import LinkDetailRow from "./LineDetailExtend";
 import StatusBulb from "../shared/StatusBulb";
 import { selectAllDevices } from "../../redux/slices/devicesSlice";
+//import { api } from "../../services/api";
 
 // Helper function for generating a complex site topology (NO CHANGES)
 const createSiteInternalTopology = () => {
@@ -55,11 +56,41 @@ const createSiteInternalTopology = () => {
   return { nodes, links };
 };
 
+const TopologyLoader = () => (
+  <div className="flex flex-col items-center justify-center h-full text-gray-500 dark:text-gray-400">
+    <svg
+      className="animate-spin h-8 w-8 text-blue-500"
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      ></circle>
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      ></path>
+    </svg>
+    <p className="mt-2 text-sm">Loading Topology...</p>
+  </div>
+);
+
 const SiteDetailPage = ({ siteGroup, initialTheme = "light" }) => {
   // All state and memoization hooks remain unchanged
   const [theme, setTheme] = useState(initialTheme);
   const [expandedLinkId, setExpandedLinkId] = useState(null);
   const allDevices = useSelector(selectAllDevices);
+
+  const [topologyData, setTopologyData] = useState({ nodes: [], links: [] });
+  const [topologyStatus, setTopologyStatus] = useState("loading"); // 'loading', 'succeeded', 'failed'
+
   const deviceMap = useMemo(
     () => new Map(allDevices.map((d) => [d.id, d])),
     [allDevices]
@@ -76,6 +107,43 @@ const SiteDetailPage = ({ siteGroup, initialTheme = "light" }) => {
     });
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    if (!siteGroup || siteGroup.length === 0) {
+      setTopologyStatus("idle"); // Not loading if there's no site data
+      return;
+    }
+
+    const fetchTopology = async () => {
+      setTopologyStatus("loading");
+      try {
+        const primarySite = siteGroup[0];
+        const device = deviceMap.get(primarySite.device_id);
+
+        // IMPORTANT: The backend needs `management_segment` and `sda_site_id`.
+        // You must source `management_segment` from your data. Here we assume
+        // it's a property on the device object. Adjust if needed.
+        const networkData = {
+          sda_site_id: primarySite.id,
+          // TODO: Replace this with the actual management segment from your device data
+          management_segment: device?.management_segment || "default-segment",
+        };
+
+        // eslint-disable-next-line no-undef
+        const data = await api.getWanConnection(networkData);
+        // Assuming the API returns an object with { nodes: [], links: [] }
+        setTopologyData(data);
+        setTopologyStatus("succeeded");
+      } catch (error) {
+        console.error("Failed to fetch site topology:", error);
+        setTopologyStatus("failed");
+        // As a fallback on error, we can use the mock data function
+        setTopologyData(createSiteInternalTopology());
+      }
+    };
+
+    fetchTopology();
+  }, [siteGroup, deviceMap]);
 
   const siteTopology = useMemo(() => createSiteInternalTopology(), []);
 
@@ -149,67 +217,76 @@ const SiteDetailPage = ({ siteGroup, initialTheme = "light" }) => {
             </p>
           </header>
 
-          {/* Right Side: Site Topology */}
           <section className="md:col-span-1">
             <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-2 text-center md:text-left">
               Site Topology
+              {topologyStatus === "failed" && (
+                <span className="text-xs text-amber-500 ml-2">(Fallback)</span>
+              )}
             </h2>
             <div className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg shadow-md flex items-center justify-center min-h-[200px]">
-              <svg
-                viewBox="0 0 400 300"
-                className="w-full h-auto"
-                role="img"
-                aria-label={`Internal topology diagram for ${primarySite.site_name_english}`}
-              >
-                {siteTopology.links.map((link) => {
-                  const sourceNode = nodeMap.get(link.source);
-                  const targetNode = nodeMap.get(link.target);
-                  if (!sourceNode || !targetNode) return null;
-                  const strokeColor =
-                    link.status === "up"
-                      ? isDark
-                        ? "stroke-green-400"
-                        : "stroke-green-500"
-                      : isDark
-                      ? "stroke-red-400"
-                      : "stroke-red-500";
-                  return (
-                    <line
-                      key={link.id}
-                      x1={sourceNode.x}
-                      y1={sourceNode.y}
-                      x2={targetNode.x}
-                      y2={targetNode.y}
-                      className={`${strokeColor} transition-colors`}
-                      strokeWidth="2"
-                    />
-                  );
-                })}
-                {siteTopology.nodes.map((node) => (
-                  <g
-                    key={node.id}
-                    transform={`translate(${node.x}, ${node.y})`}
-                  >
-                    <circle
-                      r="15"
-                      className={`${
-                        nodeColorMap[node.type] || "fill-gray-400"
-                      } stroke-2 ${
-                        isDark ? "stroke-gray-200" : "stroke-gray-900"
-                      } transition-colors`}
-                    />
-                    <text
-                      textAnchor="middle"
-                      y="5"
-                      className={`text-xs font-semibold ${
-                        isDark ? "fill-gray-900" : "fill-white"
-                      }`}
+              {topologyStatus === "loading" && <TopologyLoader />}
+
+              {(topologyStatus === "succeeded" ||
+                topologyStatus === "failed") && (
+                <svg
+                  viewBox="0 0 400 300"
+                  className="w-full h-auto"
+                  role="img"
+                  aria-label={`Internal topology diagram for ${primarySite.site_name_english}`}
+                >
+                  {/* Use topologyData from state */}
+                  {topologyData.links.map((link) => {
+                    const sourceNode = nodeMap.get(link.source);
+                    const targetNode = nodeMap.get(link.target);
+                    if (!sourceNode || !targetNode) return null;
+                    const strokeColor =
+                      link.status === "up"
+                        ? isDark
+                          ? "stroke-green-400"
+                          : "stroke-green-500"
+                        : isDark
+                        ? "stroke-red-400"
+                        : "stroke-red-500";
+                    return (
+                      <line
+                        key={link.id}
+                        x1={sourceNode.x}
+                        y1={sourceNode.y}
+                        x2={targetNode.x}
+                        y2={targetNode.y}
+                        className={`${strokeColor} transition-colors`}
+                        strokeWidth="2"
+                      />
+                    );
+                  })}
+                  {/* Use topologyData from state */}
+                  {topologyData.nodes.map((node) => (
+                    <g
+                      key={node.id}
+                      transform={`translate(${node.x}, ${node.y})`}
                     >
-                      {node.name.split("-")[0].substring(0, 2)}
-                    </text>
-                  </g>
-                ))}
-              </svg>
+                      <circle
+                        r="15"
+                        className={`${
+                          nodeColorMap[node.type] || "fill-gray-400"
+                        } stroke-2 ${
+                          isDark ? "stroke-gray-200" : "stroke-gray-900"
+                        } transition-colors`}
+                      />
+                      <text
+                        textAnchor="middle"
+                        y="5"
+                        className={`text-xs font-semibold ${
+                          isDark ? "fill-gray-900" : "fill-white"
+                        }`}
+                      >
+                        {node.name.split("-")[0].substring(0, 2)}
+                      </text>
+                    </g>
+                  ))}
+                </svg>
+              )}
             </div>
           </section>
         </div>
