@@ -10,15 +10,19 @@ import {
   MdFilterListOff,
   MdAutorenew,
   MdRefresh,
+  MdStar,
+  MdStarBorder,
 } from "react-icons/md";
 import { useDispatch, useSelector } from "react-redux";
 import {
   fetchAllAlerts,
+  deleteAlert,
+  favoriteAlert,
   selectAllAlerts,
   selectAlertsStatus,
 } from "../redux/slices/alertsSlice";
 
-// --- HELPER COMPONENTS (Unchanged) ---
+// --- HELPER COMPONENTS ---
 
 const AlertIcon = ({ type, size = 24 }) => {
   if (type === "error")
@@ -33,7 +37,25 @@ const AlertIcon = ({ type, size = 24 }) => {
 };
 
 const AlertModal = ({ alert, onClose }) => {
+  const dispatch = useDispatch();
+
   if (!alert) return null;
+
+  const handleDelete = () => {
+    if (
+      window.confirm(
+        "Are you sure you want to delete this alert? This action cannot be undone."
+      )
+    ) {
+      dispatch(deleteAlert(alert.id));
+      onClose(); // Close the modal after the action is dispatched
+    }
+  };
+
+  const handleFavorite = () => {
+    dispatch(favoriteAlert(alert.id));
+  };
+
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
@@ -83,7 +105,7 @@ const AlertModal = ({ alert, onClose }) => {
               Timestamp:
             </strong>
             <span className="text-gray-600 dark:text-gray-400 ml-1">
-              {alert.timestamp.toLocaleString()}
+              {new Date(alert.timestamp).toLocaleString()}
             </span>
           </p>
           <p>
@@ -125,13 +147,35 @@ const AlertModal = ({ alert, onClose }) => {
             </span>
           </p>
         </div>
-        <div className="mt-6 text-right">
+        <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
           <button
-            onClick={onClose}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors"
+            onClick={handleFavorite}
+            title={
+              alert.isFavorite ? "Remove from favorites" : "Add to favorites"
+            }
+            className="p-2 rounded-full text-gray-500 hover:bg-yellow-100 dark:hover:bg-yellow-900/40 transition-colors"
           >
-            Close
+            {alert.isFavorite ? (
+              <MdStar size={24} className="text-yellow-500" />
+            ) : (
+              <MdStarBorder size={24} className="hover:text-yellow-600" />
+            )}
           </button>
+
+          <div className="space-x-3">
+            <button
+              onClick={handleDelete}
+              className="px-4 py-2 bg-red-600 text-white font-semibold text-sm rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 transition-colors"
+            >
+              Delete Alert
+            </button>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-blue-600 text-white font-semibold text-sm rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -142,8 +186,17 @@ const AlertCard = ({ alert, onClick }) => {
   return (
     <div
       onClick={onClick}
-      className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer border border-transparent dark:hover:border-blue-500 hover:border-blue-400 flex flex-col h-full"
+      className="relative bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer border border-transparent dark:hover:border-blue-500 hover:border-blue-400 flex flex-col h-full"
     >
+      {/* NEW: Conditionally render the favorite star */}
+      {alert.isFavorite && (
+        <div
+          className="absolute top-2 right-2 text-yellow-400"
+          title="Favorited"
+        >
+          <MdStar size={20} />
+        </div>
+      )}
       <div className="flex items-start space-x-4 flex-grow">
         <AlertIcon type={alert.type} size={28} />
         <div className="flex-1 min-w-0">
@@ -227,14 +280,11 @@ const TypeFilterButton = ({ typeInfo, count, isActive, onClick }) => {
   );
 };
 
-// --- MAIN COMPONENT ---
 export function AlertsPage() {
-  // --- REDUX STATE HOOKS ---
   const dispatch = useDispatch();
   const allAlerts = useSelector(selectAllAlerts);
   const status = useSelector(selectAlertsStatus);
 
-  // --- LOCAL UI STATE HOOKS ---
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState("1w");
@@ -243,15 +293,12 @@ export function AlertsPage() {
   const parentRef = useRef(null);
   const [columnCount, setColumnCount] = useState(3);
 
-  // --- DATA FETCHING EFFECT ---
-  // Fetch initial data if the store is empty. Subsequent updates are handled by the global polling.
   useEffect(() => {
     if (status === "idle") {
       dispatch(fetchAllAlerts());
     }
   }, [status, dispatch]);
 
-  // --- RESPONSIVE LAYOUT EFFECT ---
   useEffect(() => {
     const updateColumnCount = () => {
       if (window.innerWidth >= 1024) setColumnCount(3);
@@ -263,13 +310,44 @@ export function AlertsPage() {
     return () => window.removeEventListener("resize", updateColumnCount);
   }, []);
 
-  // --- MEMOIZED FILTERING LOGIC ---
+  // --- CORRECTED EFFECT ---
+  useEffect(() => {
+    // Only run the logic if there is a selected alert
+    if (selectedAlert) {
+      // Find the latest version of this alert in the main Redux store list
+      const updatedAlert = allAlerts.find((a) => a.id === selectedAlert.id);
+
+      if (updatedAlert) {
+        // If the alert still exists, update our local state to match it.
+        // This is important for seeing the "favorite" star change instantly.
+        setSelectedAlert(updatedAlert);
+      } else {
+        // If the alert is not found, it means it was deleted.
+        // We should close the modal automatically.
+        handleCloseModal();
+      }
+    }
+  }, [allAlerts, selectedAlert]); // <-- The corrected dependency array
+
+  // NEW: Step 1 - Sort the alerts first
+  const sortedAlerts = useMemo(() => {
+    if (!Array.isArray(allAlerts)) return [];
+    // Create a shallow copy to avoid mutating the original state
+    return [...allAlerts].sort((a, b) => {
+      // Prioritize favorited items
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+
+      // For items with the same favorite status, sort by newest first
+      return new Date(b.timestamp) - new Date(a.timestamp);
+    });
+  }, [allAlerts]);
+
+  // MODIFIED: Step 2 - Filter the *sorted* list by time
   const timeFilteredAlerts = useMemo(() => {
     const now = new Date();
-    // Ensure allAlerts is an array and items have a valid timestamp
-    if (!Array.isArray(allAlerts)) return [];
-
-    const alertsWithDate = allAlerts.map((a) => ({
+    // Use the newly created sortedAlerts list
+    const alertsWithDate = sortedAlerts.map((a) => ({
       ...a,
       timestamp: new Date(a.timestamp),
     }));
@@ -295,7 +373,7 @@ export function AlertsPage() {
       default:
         return alertsWithDate;
     }
-  }, [allAlerts, selectedPeriod]);
+  }, [sortedAlerts, selectedPeriod]); // Depends on the sorted list now
 
   const alertCountsByType = useMemo(() => {
     return timeFilteredAlerts.reduce(
@@ -321,15 +399,13 @@ export function AlertsPage() {
     });
   }, [timeFilteredAlerts, searchTerm, selectedTypes]);
 
-  // --- VIRTUALIZATION HOOK ---
   const rowVirtualizer = useVirtualizer({
     count: Math.ceil(filteredAlerts.length / columnCount),
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 140, // Height of one card + gap
+    estimateSize: () => 140,
     overscan: 5,
   });
 
-  // --- EVENT HANDLERS ---
   const handleTypeChange = (type) =>
     setSelectedTypes((prev) => ({ ...prev, [type]: !prev[type] }));
   const handleResetFilters = () => {
@@ -344,12 +420,10 @@ export function AlertsPage() {
     setIsModalOpen(false);
     setSelectedAlert(null);
   };
-
   const handleRefresh = () => {
     dispatch(fetchAllAlerts());
   };
 
-  // --- DYNAMIC CONTENT RENDERING ---
   const renderContent = () => {
     if (status === "loading" && allAlerts.length === 0) {
       return (
@@ -366,7 +440,6 @@ export function AlertsPage() {
         </div>
       );
     }
-
     if (filteredAlerts.length === 0) {
       return (
         <div className="flex-grow flex items-center justify-center text-center px-4">
@@ -385,11 +458,10 @@ export function AlertsPage() {
         </div>
       );
     }
-
     return (
       <div ref={parentRef} className="w-full h-full overflow-y-auto pr-2">
         <div
-          key={columnCount} // Re-keying on columnCount change helps reset internal state if needed
+          key={columnCount}
           className="relative w-full"
           style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
         >
@@ -439,7 +511,6 @@ export function AlertsPage() {
             Review and filter real-time alerts from the network infrastructure.
           </p>
         </header>
-
         <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 mb-8 flex-shrink-0">
           <div className="mb-4">
             <label className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2 block">
@@ -518,10 +589,8 @@ export function AlertsPage() {
             </div>
           </div>
         </div>
-
         <div className="flex-grow min-h-0">{renderContent()}</div>
       </div>
-
       {isModalOpen && selectedAlert && (
         <AlertModal alert={selectedAlert} onClose={handleCloseModal} />
       )}
