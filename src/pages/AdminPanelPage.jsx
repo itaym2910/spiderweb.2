@@ -95,7 +95,6 @@ export function AdminPanelPage() {
 
   const [coreSiteData, setCoreSiteData] = useState({
     name: "",
-    location: "",
     type_id: "",
   });
   const [coreDeviceData, setCoreDeviceData] = useState({
@@ -183,12 +182,12 @@ export function AdminPanelPage() {
                 e,
                 addCoreSite,
                 {
-                  core_site_name: coreSiteData.name,
-                  location: coreSiteData.location,
-                  type_id: parseInt(coreSiteData.type_id, 10),
+                  name: coreSiteData.name, // Changed from core_site_name
+                  site_type_id: parseInt(coreSiteData.type_id, 10), // Changed from type_id
+                  // "location" is removed as it's not in the backend spec
                 },
                 `Core Site "${coreSiteData.name}" submitted!`,
-                () => setCoreSiteData({ name: "", location: "", type_id: "" })
+                () => setCoreSiteData({ name: "", type_id: "" })
               )
             }
             className="mt-6 space-y-4 p-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg"
@@ -203,15 +202,6 @@ export function AdminPanelPage() {
                 value={coreSiteData.name}
                 onChange={(e) =>
                   setCoreSiteData({ ...coreSiteData, name: e.target.value })
-                }
-                required
-              />
-              <InputField
-                label="Location"
-                id="location"
-                value={coreSiteData.location}
-                onChange={(e) =>
-                  setCoreSiteData({ ...coreSiteData, location: e.target.value })
                 }
                 required
               />
@@ -247,12 +237,9 @@ export function AdminPanelPage() {
                 addCoreDevice,
                 {
                   hostname: coreDeviceData.hostname,
-                  ip_address: coreDeviceData.ip_address,
-                  network_type_id: parseInt(coreDeviceData.network_type_id, 10),
-                  core_pikudim_site_id: parseInt(
-                    coreDeviceData.core_pikudim_site_id,
-                    10
-                  ),
+                  ip: coreDeviceData.ip_address, // Changed from ip_address
+                  device_net_type: parseInt(coreDeviceData.network_type_id, 10), // Changed from network_type_id
+                  site_id: parseInt(coreDeviceData.core_pikudim_site_id, 10), // Changed from core_pikudim_site_id
                 },
                 `Device "${coreDeviceData.hostname}" submitted!`,
                 () =>
