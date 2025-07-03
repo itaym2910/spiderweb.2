@@ -1,54 +1,151 @@
-// src/redux/slices/netTypesSlice.js
+import {
+  createSlice,
+  createAsyncThunk,
+  createEntityAdapter,
+} from "@reduxjs/toolkit";
+// import { api } from "../../services/api"; // LATER: Uncomment for real API
+import { initialData } from "../initialData";
+import { logout } from "./authSlice";
 
-import { createSlice } from "@reduxjs/toolkit";
-import { generateAllDummyData } from "../dummyData";
+// --- MOCK API: Simulates the backend API calls for NetTypes ---
+const mockApi = {
+  // Simulates fetching all network types.
+  getNetTypes: async () => {
+    await new Promise((resolve) => setTimeout(resolve, 50)); // Fast fetch
+    return initialData.netTypes;
+  },
+  // Simulates adding a new network type.
+  addNetType: async (netTypeData) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    console.log("Mock API: Adding NetType...", netTypeData);
+    // In a real API, the backend would assign and return the new ID.
+    const newNetType = { ...netTypeData, id: Date.now() };
+    return newNetType;
+  },
+  // Simulates deleting a network type.
+  deleteNetType: async (netTypeId) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    console.log("Mock API: Deleting NetType with ID:", netTypeId);
+    return { success: true };
+  },
+};
 
-// Generate the initial set of data
-const { netTypes } = generateAllDummyData();
+// --- ENTITY ADAPTER for efficient state management ---
+const netTypesAdapter = createEntityAdapter({
+  // We expect each netType to have a unique `id`
+  selectId: (netType) => netType.id,
+});
 
+const initialState = netTypesAdapter.getInitialState({
+  status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
+  error: null,
+});
+
+// --- ASYNC THUNKS ---
+
+// 1. THUNK for FETCHING all network types
+export const fetchNetTypes = createAsyncThunk(
+  "netTypes/fetchNetTypes",
+  async (_, { rejectWithValue }) => {
+    try {
+      // LATER: Replace with real API call: const response = await api.getNetTypes();
+      const response = await mockApi.getNetTypes();
+      return response;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// 2. THUNK for ADDING a new network type
+export const addNetType = createAsyncThunk(
+  "netTypes/addNetType",
+  async (netTypeData, { rejectWithValue }) => {
+    // `netTypeData` would be an object like { name: 'Guest Network' }
+    try {
+      // The API should return the newly created object, including its new ID.
+      // LATER: Replace with: const newNetType = await api.addNetType(netTypeData);
+      const newNetType = await mockApi.addNetType(netTypeData);
+      return newNetType;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// 3. THUNK for DELETING a network type
+export const deleteNetType = createAsyncThunk(
+  "netTypes/deleteNetType",
+  async (netTypeId, { rejectWithValue }) => {
+    try {
+      // LATER: Replace with: await api.deleteNetType(netTypeId);
+      await mockApi.deleteNetType(netTypeId);
+      // On success, return the ID of the deleted item so the reducer can remove it.
+      return netTypeId;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// --- THE SLICE DEFINITION ---
 const netTypesSlice = createSlice({
   name: "netTypes",
-  initialState: {
-    items: netTypes,
-    status: "idle",
-    error: null,
-  },
-  reducers: {
-    /**
-     * Adds a new network type.
-     * @param {object} state - The current state.
-     * @param {object} action - The action containing the new network type payload.
-     * action.payload should be an object like { id: 4, name: 'Guest Network' }
-     */
-    addNetType: (state, action) => {
-      const existingType = state.items.find(
-        (type) => type.id === action.payload.id
-      );
-      if (!existingType) {
-        state.items.push(action.payload);
-      }
-    },
+  initialState,
+  reducers: {},
+  extraReducers: (builder) => {
+    builder
+      // --- Reducers for Fetching ---
+      .addCase(fetchNetTypes.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(fetchNetTypes.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        // Use the adapter to efficiently set all items
+        netTypesAdapter.setAll(state, action.payload);
+      })
+      .addCase(fetchNetTypes.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.payload;
+      })
 
-    /**
-     * Deletes a network type by its ID.
-     * @param {object} state - The current state.
-     * @param {object} action - The action containing the network type ID payload.
-     * action.payload should be the id of the network type to remove.
-     */
-    deleteNetType: (state, action) => {
-      const typeIdToRemove = action.payload;
-      state.items = state.items.filter((type) => type.id !== typeIdToRemove);
-    },
+      // --- Reducers for Adding (Pessimistic Update) ---
+      .addCase(addNetType.fulfilled, (state, action) => {
+        // Add the new item to the state after the API call succeeds
+        netTypesAdapter.addOne(state, action.payload);
+      })
+      // You can add .pending and .rejected cases for addNetType if you need to show specific UI feedback
+
+      // --- Reducers for Deleting (Pessimistic Update) ---
+      .addCase(deleteNetType.fulfilled, (state, action) => {
+        // Remove the item from the state after the API call succeeds
+        netTypesAdapter.removeOne(state, action.payload); // payload is the netTypeId
+      })
+      // You can add .pending and .rejected cases for deleteNetType for UI feedback
+
+      // --- Reducer for Logout ---
+      .addCase(logout, () => {
+        // Reset the slice to its initial empty state on logout
+        return initialState;
+      });
   },
 });
 
-// --- Export Actions ---
-export const { addNetType, deleteNetType } = netTypesSlice.actions;
+// --- EXPORT ACTIONS ---
+// The async thunks `fetchNetTypes`, `addNetType`, and `deleteNetType` are the primary actions to be dispatched from the UI.
 
-// --- Export Selectors ---
-export const selectAllNetTypes = (state) => state.netTypes.items;
-export const selectNetTypeById = (state, typeId) =>
-  state.netTypes.items.find((type) => type.id === typeId);
+// --- EXPORT SELECTORS ---
+// The adapter provides memoized selectors for free!
+export const {
+  selectAll: selectAllNetTypes,
+  selectById: selectNetTypeById,
+  selectIds: selectNetTypeIds,
+} = netTypesAdapter.getSelectors((state) => state.netTypes);
 
-// --- Export Reducer ---
+// Also export status and error selectors for the UI to use
+export const selectNetTypesStatus = (state) => state.netTypes.status;
+export const selectNetTypesError = (state) => state.netTypes.error;
+
+// --- EXPORT REDUCER ---
 export default netTypesSlice.reducer;
