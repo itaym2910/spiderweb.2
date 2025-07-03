@@ -1,34 +1,81 @@
-// src/redux/slices/corePikudimSlice.js
-
 import {
   createSlice,
   createSelector,
   createAsyncThunk,
 } from "@reduxjs/toolkit";
+// Assuming an apiService file exists to handle the actual HTTP requests
+// import { apiService } from "../../services/apiService";
 import { initialData } from "../initialData";
 
-// --- MOCK API: Mimics the real API call using dummy data ---
-// This part isolates the data source, making it easy to swap later.
+// --- MOCK API ---
 const mockApi = {
   getCorePikudim: async () => {
-    // Simulate a network delay to make loading states visible
     await new Promise((resolve) => setTimeout(resolve, 200));
     return initialData.corePikudim;
   },
+  // Mocks for the new operations
+  addCoreSite: async (siteData) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    console.log("Mock API: Adding site...", siteData);
+    // In a real API, you'd get the newly created object back
+    return { ...siteData, id: Date.now(), timestamp: new Date().toISOString() };
+  },
+  deleteCoreSite: async (siteId) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    console.log("Mock API: Deleting site with ID:", siteId);
+    return { success: true };
+  },
 };
 
-// --- ASYNC THUNK: For fetching the data ---
-// This function will be dispatched to initiate the data fetching process.
+// --- ASYNC THUNKS ---
+
+// 1. For FETCHING the initial list of Pikudim (Core Sites)
 export const fetchCorePikudim = createAsyncThunk(
   "corePikudim/fetchCorePikudim",
   async (_, { rejectWithValue }) => {
     try {
-      // LATER: When you're ready for the real API, you will change this one line to:
-      // const response = await api.getCorePikudim();
+      // const response = await apiService.getCorePikudim();
       const response = await mockApi.getCorePikudim();
       return response;
     } catch (error) {
-      // Handle potential errors from the API call
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// 2. For ADDING a new Core Site
+export const addCoreSite = createAsyncThunk(
+  "corePikudim/addCoreSite",
+  async (siteData, { dispatch, rejectWithValue }) => {
+    try {
+      // This is where you call your real backend API
+      // await apiService.addCorePikudim(siteData);
+      await mockApi.addCoreSite(siteData);
+
+      // On success, re-fetch the entire list to ensure data consistency
+      dispatch(fetchCorePikudim());
+
+      return siteData; // Return the original data for potential UI feedback
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// 3. For DELETING a Core Site
+export const deleteCoreSite = createAsyncThunk(
+  "corePikudim/deleteCoreSite",
+  async (siteId, { dispatch, rejectWithValue }) => {
+    try {
+      // This is where you call your real backend API
+      // await apiService.deleteCorePikudim(siteId);
+      await mockApi.deleteCoreSite(siteId);
+
+      // On success, re-fetch the list to reflect the deletion
+      dispatch(fetchCorePikudim());
+
+      return siteId; // Return the deleted ID for potential UI feedback
+    } catch (error) {
       return rejectWithValue(error.message);
     }
   }
@@ -38,20 +85,14 @@ export const fetchCorePikudim = createAsyncThunk(
 const corePikudimSlice = createSlice({
   name: "corePikudim",
   initialState: {
-    items: [], // The slice now starts with an empty array
+    items: [],
     status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
     error: null,
   },
-  // Standard reducers for synchronous actions (like adding/deleting one item)
-  reducers: {
-    addCorePikudim: (state, action) => {
-      state.items.push(action.payload);
-    },
-    deleteCorePikudim: (state, action) => {
-      state.items = state.items.filter((item) => item.id !== action.payload);
-    },
-  },
-  // extraReducers handle actions from outside the slice, like our async thunk
+  // Synchronous reducers are no longer needed for add/delete
+  reducers: {},
+  // This handles the state changes for the FETCH thunk.
+  // We don't need to handle add/delete here because the re-fetch takes care of it.
   extraReducers: (builder) => {
     builder
       .addCase(fetchCorePikudim.pending, (state) => {
@@ -60,26 +101,21 @@ const corePikudimSlice = createSlice({
       })
       .addCase(fetchCorePikudim.fulfilled, (state, action) => {
         state.status = "succeeded";
-        // Replace the items array with the data fetched from the API
         state.items = action.payload;
       })
       .addCase(fetchCorePikudim.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.payload; // Use payload from rejectWithValue
+        state.error = action.payload;
       });
   },
 });
 
-// --- Export Actions ---
-export const { addCorePikudim, deleteCorePikudim } = corePikudimSlice.actions;
-
-// --- Export Selectors ---
+// --- Export Selectors (Unchanged) ---
 export const selectAllPikudim = (state) => state.corePikudim.items;
 
 export const selectPikudimById = (state, pikudimId) =>
   state.corePikudim.items.find((p) => p.id === pikudimId);
 
-// --- MEMOIZED SELECTOR ---
 const selectPikudimItems = (state) => state.corePikudim.items;
 const selectTypeId = (state, typeId) => typeId;
 
