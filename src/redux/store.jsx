@@ -1,5 +1,3 @@
-// src/redux/store.js
-
 import { configureStore } from "@reduxjs/toolkit";
 import sitesReducer from "./slices/sitesSlice";
 import devicesReducer from "./slices/devicesSlice";
@@ -9,10 +7,13 @@ import favoritesReducer from "./slices/favoritesSlice";
 import netTypesReducer from "./slices/netTypesSlice";
 import authReducer from "./slices/authSlice";
 import realtimeReducer from "./slices/realtimeSlice";
+import alertsReducer from "./slices/alertsSlice"; // <-- 1. IMPORT the alerts reducer
+
 import realtimeMiddleware from "./middleware/realtimeMiddleware";
 
 export const store = configureStore({
   reducer: {
+    // These are the "keys" that become state.sites, state.devices, etc.
     sites: sitesReducer,
     devices: devicesReducer,
     tenGigLinks: tenGigLinksReducer,
@@ -21,9 +22,8 @@ export const store = configureStore({
     netTypes: netTypesReducer,
     auth: authReducer,
     realtime: realtimeReducer,
+    alerts: alertsReducer, // <-- 2. ADD the alerts reducer to the store
   },
-  // This is needed because a `Set` is not serializable, which Redux DevTools prefers.
-  // This is safe for this use case.
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: false,

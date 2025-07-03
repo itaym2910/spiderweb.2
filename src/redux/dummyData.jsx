@@ -1,5 +1,46 @@
 import { faker } from "@faker-js/faker";
 
+// --- NEW: Add the mock alert generator here ---
+export const generateMockAlerts = () => {
+  const alerts = [];
+  const now = new Date();
+  const types = ["error", "warning", "info"];
+  const messages = [
+    "Network line Alpha-01 experiencing high latency.",
+    "Router Gamma-03 offline.",
+    "Firewall policy update successful on Delta-Cluster.",
+    "Network segment Beta-West approaching capacity.",
+    "Unusual traffic pattern detected from IP 192.168.1.100.",
+    "VPN connection dropped for user 'johndoe'.",
+    "Server Epsilon-db CPU utilization at 95%.",
+    "New device connected: IOT-Sensor-7B on VLAN 10.",
+    "Security scan completed: 0 vulnerabilities found.",
+    "Backup job 'DailySystemBackup' finished successfully.",
+  ];
+
+  // Let's generate a smaller, more dynamic number of alerts each time
+  const alertCount = faker.number.int({ min: 1950, max: 2050 });
+
+  for (let i = 0; i < alertCount; i++) {
+    const randomMinutesAgo = Math.floor(Math.random() * 7 * 24 * 60 * 1.5);
+    alerts.push({
+      id: `alert-${i + 1}-${faker.string.uuid()}`, // Use UUID for more unique IDs
+      type: types[Math.floor(Math.random() * types.length)],
+      message: messages[Math.floor(Math.random() * messages.length)],
+      timestamp: new Date(now.getTime() - randomMinutesAgo * 60000),
+      networkLine: `Line-${String.fromCharCode(65 + Math.floor(i / 10))}-${
+        (i % 10) + 1
+      }`,
+      details: `This is a more detailed description for alert ${
+        i + 1
+      }. It might include diagnostic information, affected systems, or suggested actions.`,
+      source: `SourceSystem-${Math.floor(Math.random() * 5) + 1}`,
+      severityScore: Math.floor(Math.random() * 10) + 1,
+    });
+  }
+  return alerts.sort((a, b) => b.timestamp - a.timestamp);
+};
+
 // --- 1. ADD DUMMY USERS ARRAY ---
 // This array will act as our user database.
 const dummyUsers = [

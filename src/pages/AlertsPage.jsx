@@ -8,45 +8,17 @@ import {
   MdClose,
   MdSearch,
   MdFilterListOff,
+  MdAutorenew, // <-- NEW: For loading state
 } from "react-icons/md";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  fetchAllAlerts,
+  selectAllAlerts,
+  selectAlertsStatus,
+} from "../redux/slices/alertsSlice";
 
-// --- MOCK DATA & HELPER COMPONENTS (Unchanged, but now fully included) ---
-const generateMockAlerts = () => {
-  const alerts = [];
-  const now = new Date();
-  const types = ["error", "warning", "info"];
-  const messages = [
-    "Network line Alpha-01 experiencing high latency.",
-    "Router Gamma-03 offline.",
-    "Firewall policy update successful on Delta-Cluster.",
-    "Network segment Beta-West approaching capacity.",
-    "Unusual traffic pattern detected from IP 192.168.1.100.",
-    "VPN connection dropped for user 'johndoe'.",
-    "Server Epsilon-db CPU utilization at 95%.",
-    "New device connected: IOT-Sensor-7B on VLAN 10.",
-    "Security scan completed: 0 vulnerabilities found.",
-    "Backup job 'DailySystemBackup' finished successfully.",
-  ];
+// --- HELPER COMPONENTS (Unchanged) ---
 
-  for (let i = 0; i < 2000; i++) {
-    const randomMinutesAgo = Math.floor(Math.random() * 7 * 24 * 60 * 1.5);
-    alerts.push({
-      id: `alert-${i + 1}-${Date.now()}`,
-      type: types[Math.floor(Math.random() * types.length)],
-      message: messages[Math.floor(Math.random() * messages.length)],
-      timestamp: new Date(now.getTime() - randomMinutesAgo * 60000),
-      networkLine: `Line-${String.fromCharCode(65 + Math.floor(i / 10))}-${
-        (i % 10) + 1
-      }`,
-      details: `This is a more detailed description for alert ${
-        i + 1
-      }. It might include diagnostic information, affected systems, or suggested actions. For example, if it's a latency issue, this might show traceroute results or specific metrics. If it's a security alert, it might link to an incident report.`,
-      source: `SourceSystem-${Math.floor(Math.random() * 5) + 1}`,
-      severityScore: Math.floor(Math.random() * 10) + 1,
-    });
-  }
-  return alerts.sort((a, b) => b.timestamp - a.timestamp);
-};
 const AlertIcon = ({ type, size = 24 }) => {
   if (type === "error")
     return (
@@ -59,10 +31,8 @@ const AlertIcon = ({ type, size = 24 }) => {
   return <MdInfoOutline className="text-blue-500 flex-shrink-0" size={size} />;
 };
 
-// --- THIS COMPONENT IS NOW FULLY RESTORED ---
 const AlertModal = ({ alert, onClose }) => {
   if (!alert) return null;
-
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
@@ -98,8 +68,6 @@ const AlertModal = ({ alert, onClose }) => {
             </p>
           </div>
         </div>
-
-        {/* --- THIS SECTION WAS MISSING AND IS NOW RESTORED --- */}
         <div className="space-y-3 text-sm">
           <p>
             <strong className="text-gray-700 dark:text-gray-300">
@@ -168,7 +136,6 @@ const AlertModal = ({ alert, onClose }) => {
     </div>
   );
 };
-// --- END OF RESTORED COMPONENT ---
 
 const AlertCard = ({ alert, onClick }) => {
   return (
@@ -190,7 +157,7 @@ const AlertCard = ({ alert, onClick }) => {
               <strong>Network Line:</strong> {alert.networkLine}
             </p>
             <p className="text-gray-500 dark:text-gray-400">
-              {alert.timestamp.toLocaleString()}
+              {new Date(alert.timestamp).toLocaleString()}
             </p>
           </div>
         </div>
@@ -259,8 +226,14 @@ const TypeFilterButton = ({ typeInfo, count, isActive, onClick }) => {
   );
 };
 
+// --- MAIN COMPONENT ---
 export function AlertsPage() {
-  const [allAlerts, setAllAlerts] = useState([]);
+  // --- REDUX STATE HOOKS ---
+  const dispatch = useDispatch();
+  const allAlerts = useSelector(selectAllAlerts);
+  const status = useSelector(selectAlertsStatus);
+
+  // --- LOCAL UI STATE HOOKS ---
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState("1w");
@@ -269,9 +242,15 @@ export function AlertsPage() {
   const parentRef = useRef(null);
   const [columnCount, setColumnCount] = useState(3);
 
+  // --- DATA FETCHING EFFECT ---
+  // Fetch initial data if the store is empty. Subsequent updates are handled by the global polling.
   useEffect(() => {
-    setAllAlerts(generateMockAlerts());
-  }, []);
+    if (status === "idle") {
+      dispatch(fetchAllAlerts());
+    }
+  }, [status, dispatch]);
+
+  // --- RESPONSIVE LAYOUT EFFECT ---
   useEffect(() => {
     const updateColumnCount = () => {
       if (window.innerWidth >= 1024) setColumnCount(3);
@@ -283,28 +262,37 @@ export function AlertsPage() {
     return () => window.removeEventListener("resize", updateColumnCount);
   }, []);
 
+  // --- MEMOIZED FILTERING LOGIC ---
   const timeFilteredAlerts = useMemo(() => {
     const now = new Date();
+    // Ensure allAlerts is an array and items have a valid timestamp
+    if (!Array.isArray(allAlerts)) return [];
+
+    const alertsWithDate = allAlerts.map((a) => ({
+      ...a,
+      timestamp: new Date(a.timestamp),
+    }));
+
     switch (selectedPeriod) {
       case "1h":
-        return allAlerts.filter(
+        return alertsWithDate.filter(
           (a) => a.timestamp >= new Date(now.getTime() - 1 * 60 * 60 * 1000)
         );
       case "10h":
-        return allAlerts.filter(
+        return alertsWithDate.filter(
           (a) => a.timestamp >= new Date(now.getTime() - 10 * 60 * 60 * 1000)
         );
       case "24h":
-        return allAlerts.filter(
+        return alertsWithDate.filter(
           (a) => a.timestamp >= new Date(now.getTime() - 24 * 60 * 60 * 1000)
         );
       case "1w":
-        return allAlerts.filter(
+        return alertsWithDate.filter(
           (a) =>
             a.timestamp >= new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
         );
       default:
-        return allAlerts;
+        return alertsWithDate;
     }
   }, [allAlerts, selectedPeriod]);
 
@@ -332,13 +320,15 @@ export function AlertsPage() {
     });
   }, [timeFilteredAlerts, searchTerm, selectedTypes]);
 
+  // --- VIRTUALIZATION HOOK ---
   const rowVirtualizer = useVirtualizer({
     count: Math.ceil(filteredAlerts.length / columnCount),
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 140,
+    estimateSize: () => 140, // Height of one card + gap
     overscan: 5,
   });
 
+  // --- EVENT HANDLERS ---
   const handleTypeChange = (type) =>
     setSelectedTypes((prev) => ({ ...prev, [type]: !prev[type] }));
   const handleResetFilters = () => {
@@ -354,7 +344,24 @@ export function AlertsPage() {
     setSelectedAlert(null);
   };
 
+  // --- DYNAMIC CONTENT RENDERING ---
   const renderContent = () => {
+    if (status === "loading" && allAlerts.length === 0) {
+      return (
+        <div className="flex-grow flex items-center justify-center text-center px-4">
+          <div>
+            <MdAutorenew
+              size={56}
+              className="mx-auto text-blue-500 animate-spin mb-4"
+            />
+            <p className="text-xl font-semibold text-gray-600 dark:text-gray-400">
+              Loading Alerts...
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     if (filteredAlerts.length === 0) {
       return (
         <div className="flex-grow flex items-center justify-center text-center px-4">
@@ -367,16 +374,17 @@ export function AlertsPage() {
               No Matching Alerts
             </p>
             <p className="text-md text-gray-500 dark:text-gray-500 mt-2">
-              Try adjusting your filters.
+              Try adjusting your time or type filters.
             </p>
           </div>
         </div>
       );
     }
+
     return (
       <div ref={parentRef} className="w-full h-full overflow-y-auto pr-2">
         <div
-          key={columnCount}
+          key={columnCount} // Re-keying on columnCount change helps reset internal state if needed
           className="relative w-full"
           style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
         >

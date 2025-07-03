@@ -1,13 +1,18 @@
-// src/redux/slices/alertsSlice.js
+// src/redux/slices/alertsSlice.js  <-- Note the .js extension
+
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { api } from "../../services/apiService"; // Assuming your api file is here
+import { generateMockAlerts } from "../dummyData";
 
 // --- ASYNC THUNKS for Alerts ---
 export const fetchAllAlerts = createAsyncThunk(
   "alerts/fetchAll",
   async (_, { rejectWithValue }) => {
     try {
-      return await api.getAllAlerts();
+      // MOCK IMPLEMENTATION
+      console.log("Fetching new mock alerts...");
+      await new Promise((resolve) => setTimeout(resolve, 750));
+      const mockAlerts = generateMockAlerts();
+      return mockAlerts;
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -18,8 +23,8 @@ export const deleteAlert = createAsyncThunk(
   "alerts/delete",
   async (alertId, { rejectWithValue }) => {
     try {
-      await api.deleteAlert(alertId);
-      return alertId; // Return the ID for removal from state
+      // await api.deleteAlert(alertId); // This would be the real API call
+      return alertId;
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -30,8 +35,8 @@ export const favoriteAlert = createAsyncThunk(
   "alerts/favorite",
   async (alertId, { rejectWithValue }) => {
     try {
-      await api.favoriteAlert(alertId);
-      return alertId; // Return the ID to toggle its favorite status
+      // await api.favoriteAlert(alertId); // This would be the real API call
+      return alertId;
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -42,7 +47,7 @@ const alertsSlice = createSlice({
   name: "alerts",
   initialState: {
     items: [],
-    status: "idle",
+    status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
     error: null,
   },
   reducers: {},
@@ -72,11 +77,15 @@ const alertsSlice = createSlice({
         const alertIdToFavorite = action.payload;
         const alert = state.items.find((a) => a.id === alertIdToFavorite);
         if (alert) {
-          alert.isFavorite = !alert.isFavorite; // Assuming a boolean property
+          alert.isFavorite = !alert.isFavorite;
         }
       });
   },
 });
 
+// --- FIX: ADD THE MISSING EXPORTS HERE ---
 export const selectAllAlerts = (state) => state.alerts.items;
+export const selectAlertsStatus = (state) => state.alerts.status; // This was missing
+export const selectAlertsError = (state) => state.alerts.error; // Also good to have
+
 export default alertsSlice.reducer;

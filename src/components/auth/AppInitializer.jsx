@@ -1,20 +1,17 @@
 import React, { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-// NEW: Import createSelector
 import { createSelector } from "@reduxjs/toolkit";
 import { fetchInitialData } from "../../redux/slices/authSlice";
 import { startConnecting } from "../../redux/slices/realtimeSlice";
+import { fetchAllAlerts } from "../../redux/slices/alertsSlice"; // <-- NEW: Import alert thunk
 import { Loader2, AlertTriangle } from "lucide-react";
 
-// --- THE FIX ---
-// 1. Define the "input selectors" that grab the raw data.
+// Memoized selector to prevent unnecessary re-renders
 const selectPikudimStatus = (state) => state.corePikudim.status;
 const selectDevicesStatus = (state) => state.devices.status;
 const selectLinksStatus = (state) => state.tenGigLinks.status;
 const selectSitesStatus = (state) => state.sites.status;
 
-// 2. Use createSelector to combine them.
-// This selector will only return a new object if one of the input status strings changes.
 const selectCoreDataStatus = createSelector(
   [
     selectPikudimStatus,
@@ -29,13 +26,12 @@ const selectCoreDataStatus = createSelector(
     sites,
   })
 );
-// --- END FIX ---
 
 export function AppInitializer({ children }) {
   const dispatch = useDispatch();
-  // This now uses the memoized selector
   const dataStatus = useSelector(selectCoreDataStatus);
 
+  // Derived state to determine the overall status
   const isIdle = Object.values(dataStatus).every((s) => s === "idle");
   const isSuccessful = Object.values(dataStatus).every(
     (s) => s === "succeeded"
@@ -43,6 +39,7 @@ export function AppInitializer({ children }) {
   const isLoading = Object.values(dataStatus).some((s) => s === "loading");
   const hasFailed = Object.values(dataStatus).some((s) => s === "failed");
 
+  // Effect for fetching initial data and starting real-time connection
   useEffect(() => {
     if (isIdle) {
       dispatch(fetchInitialData());
@@ -53,11 +50,35 @@ export function AppInitializer({ children }) {
     }
   }, [isIdle, isSuccessful, dispatch]);
 
+  // --- NEW: Effect for periodic alert polling ---
+  useEffect(() => {
+    let intervalId;
+
+    // Start polling only when the core application data has successfully loaded.
+    if (isSuccessful) {
+      // Set up the interval to dispatch the fetch action every 30 seconds.
+      intervalId = setInterval(() => {
+        dispatch(fetchAllAlerts());
+      }, 30000); // 30,000 milliseconds = 30 seconds
+    }
+
+    // This is a cleanup function. React runs it when the component unmounts
+    // or when the 'isSuccessful' dependency changes before re-running the effect.
+    // This prevents memory leaks and duplicate intervals.
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [isSuccessful, dispatch]); // This effect depends on the success state and dispatch function
+
   const handleRetry = () => {
     dispatch(fetchInitialData());
   };
 
-  // The rest of the component's rendering logic remains the same.
+  // --- RENDERING LOGIC ---
+
+  // Display a loading screen while fetching initial data
   if (isLoading || isIdle) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-950">
@@ -74,6 +95,7 @@ export function AppInitializer({ children }) {
     );
   }
 
+  // Display an error screen if any of the initial fetches fail
   if (hasFailed) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-950">
@@ -97,5 +119,6 @@ export function AppInitializer({ children }) {
     );
   }
 
+  // Once everything is loaded, render the main application
   return children;
 }
