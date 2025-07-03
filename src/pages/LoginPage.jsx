@@ -131,7 +131,7 @@ function LoginPage() {
                   Created by
                 </p>
                 <h2 className="text-4xl lg:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-red-500 to-yellow-500 mt-1">
-                  LifeStyle
+                  LIFeStyle
                 </h2>
               </div>
             </div>
