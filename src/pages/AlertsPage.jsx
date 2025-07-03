@@ -8,7 +8,8 @@ import {
   MdClose,
   MdSearch,
   MdFilterListOff,
-  MdAutorenew, // <-- NEW: For loading state
+  MdAutorenew,
+  MdRefresh,
 } from "react-icons/md";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -344,6 +345,10 @@ export function AlertsPage() {
     setSelectedAlert(null);
   };
 
+  const handleRefresh = () => {
+    dispatch(fetchAllAlerts());
+  };
+
   // --- DYNAMIC CONTENT RENDERING ---
   const renderContent = () => {
     if (status === "loading" && allAlerts.length === 0) {
@@ -475,7 +480,7 @@ export function AlertsPage() {
               </div>
             </div>
             <div className="flex-grow"></div>
-            <div className="flex items-center gap-4 flex-shrink-0">
+            <div className="flex items-center gap-4 flex-wrap">
               <div className="relative">
                 <MdSearch
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
@@ -490,6 +495,19 @@ export function AlertsPage() {
                   className="w-full sm:w-64 p-2 pl-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent focus:ring-2 focus:ring-blue-500 outline-none"
                 />
               </div>
+              <button
+                onClick={handleRefresh}
+                disabled={status === "loading"}
+                title="Refresh Alerts"
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <MdRefresh
+                  className={status === "loading" ? "animate-spin" : ""}
+                />
+                <span>
+                  {status === "loading" ? "Refreshing..." : "Refresh"}
+                </span>
+              </button>
               <button
                 onClick={handleResetFilters}
                 title="Reset filters"

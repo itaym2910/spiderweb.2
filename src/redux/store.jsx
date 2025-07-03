@@ -7,8 +7,7 @@ import favoritesReducer from "./slices/favoritesSlice";
 import netTypesReducer from "./slices/netTypesSlice";
 import authReducer from "./slices/authSlice";
 import realtimeReducer from "./slices/realtimeSlice";
-import alertsReducer from "./slices/alertsSlice"; // <-- 1. IMPORT the alerts reducer
-
+import alertsReducer from "./slices/alertsSlice";
 import realtimeMiddleware from "./middleware/realtimeMiddleware";
 
 export const store = configureStore({
@@ -22,7 +21,7 @@ export const store = configureStore({
     netTypes: netTypesReducer,
     auth: authReducer,
     realtime: realtimeReducer,
-    alerts: alertsReducer, // <-- 2. ADD the alerts reducer to the store
+    alerts: alertsReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
