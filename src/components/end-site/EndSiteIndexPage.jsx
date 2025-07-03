@@ -124,8 +124,10 @@ export default function EndSiteIndexPage() {
   const rowVirtualizer = useVirtualizer({
     count: Math.ceil(filteredSiteGroups.length / columnCount),
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 200, // Estimate row height (card height + gap)
+    estimateSize: () => 200, // Still important for initial render and scrollbar size
     overscan: 5,
+    // Add measurement options for more stable measuring
+    measureElement: (element) => element.getBoundingClientRect().height,
   });
 
   const renderContent = () => {
@@ -148,7 +150,6 @@ export default function EndSiteIndexPage() {
     return (
       <div ref={parentRef} className="w-full h-full overflow-y-auto pr-2">
         <div
-          // Add the key here!
           key={columnCount}
           className="relative w-full"
           style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
@@ -175,15 +176,20 @@ export default function EndSiteIndexPage() {
             }
 
             return (
+              // --- THIS IS THE CORRECTED STRUCTURE ---
               <div
                 key={virtualRow.key}
-                className="absolute top-0 left-0 w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5 p-1"
+                ref={rowVirtualizer.measureElement}
+                data-index={virtualRow.index}
+                className="absolute top-0 left-0 w-full"
                 style={{
-                  height: `${virtualRow.size}px`,
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
               >
-                {cardsInRow}
+                {/* This inner div handles the grid layout and its height determines the parent's height */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5 p-1">
+                  {cardsInRow}
+                </div>
               </div>
             );
           })}
@@ -193,8 +199,6 @@ export default function EndSiteIndexPage() {
   };
 
   return (
-    // --- THIS IS THE MAIN LAYOUT FIX ---
-    // The root element is now a flex container that fills the height of its parent.
     <div className="p-6 bg-gray-50 dark:bg-gray-900 h-full flex flex-col">
       <header className="mb-6 flex-shrink-0">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
@@ -215,7 +219,6 @@ export default function EndSiteIndexPage() {
         />
       </div>
 
-      {/* This wrapper div will grow to fill the remaining space */}
       <div className="flex-grow min-h-0">{renderContent()}</div>
     </div>
   );
