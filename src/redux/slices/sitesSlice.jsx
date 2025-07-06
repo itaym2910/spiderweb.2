@@ -7,6 +7,8 @@ import {
 } from "@reduxjs/toolkit";
 import { initialData } from "../initialData";
 
+//import { api } from "../../services/apiServices"; // <-- 1. Import the real api
+
 // --- MOCK API: Mimics the real API call using dummy data ---
 // This isolates the data source, making it easy to swap for the real API later.
 const mockApi = {
@@ -24,6 +26,7 @@ export const fetchSites = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await mockApi.getSites();
+      //const response = await api.getSites(); // <-- 2. Import the real api
       return response;
     } catch (error) {
       return rejectWithValue(error.message);

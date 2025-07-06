@@ -13,6 +13,8 @@ import { fetchTenGigLinks } from "./tenGigLinksSlice";
 // Get dummy users for the mock login
 const { dummyUsers } = initialData;
 
+//import { api } from "../../services/apiServices"; // <-- 1. Import the real api
+
 // --- MOCK API: This object simulates your backend's login endpoint ---
 const mockApi = {
   login: async (username, password) => {
@@ -56,6 +58,8 @@ export const loginUser = createAsyncThunk(
     try {
       // LATER: You will change this line to `await api.login(username, password);`
       const token = await mockApi.login(username, password);
+
+      //const token = await api.login(username, password); // <-- 2. Use the real api call
 
       // Set the token in a cookie for session persistence
       Cookies.set("authToken", token, {

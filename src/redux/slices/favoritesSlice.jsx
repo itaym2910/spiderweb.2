@@ -2,6 +2,8 @@
 
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
+//import { api } from "../../services/apiServices"; // <-- 1. Import the real api
+
 // --- MOCK API: Simulates fetching/updating favorites on the server ---
 // This will be replaced by the real `api` calls.
 const mockApi = {
@@ -33,6 +35,7 @@ export const fetchFavoriteLinks = createAsyncThunk(
     try {
       // LATER: Change this to `const response = await api.getFavoriteLinks();`
       const response = await mockApi.getFavoriteLinks();
+      //const response = await api.getFavoriteLinks(); // <-- 2. Import the real api
       return response;
     } catch (error) {
       return rejectWithValue(error.message);
@@ -62,6 +65,7 @@ export const toggleFavoriteLink = createAsyncThunk(
       // LATER: Change this to `await api.updateFavoriteLinks(newIds);`
       await mockApi.updateFavoriteLinks(newIds);
       // Return the successfully updated array to the `fulfilled` reducer.
+      //await api.updateFavoriteLinks(newIds); // <-- 3. Import the real api
       return newIds;
     } catch (error) {
       // If the API call fails, rejectWithValue will pass the error to the `rejected` reducer.

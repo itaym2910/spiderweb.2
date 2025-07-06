@@ -5,6 +5,8 @@ import {
 } from "@reduxjs/toolkit";
 import { initialData } from "../initialData";
 
+//import { api } from "../../services/apiServices"; // <-- 1. Import the real api
+
 // --- MOCK API: Mimics the real API call using dummy data ---
 // This isolates the data source, preparing it for the real API.
 const mockApi = {
@@ -31,6 +33,25 @@ export const fetchDevices = createAsyncThunk(
       // And you might need another call for deviceInfo if it's a separate endpoint.
       const response = await mockApi.getCoreDevices();
       return response;
+
+      // Step 1: Fetch the list of all core devices
+      //const devices = await api.getCoreDevices();
+
+      /*// Step 2: For each device, fetch its detailed interface info
+      const deviceInfoPromises = devices.map(device =>
+        api.getDeviceInfo(device.id)
+      );
+      const allDeviceInfoArrays = await Promise.all(deviceInfoPromises);
+      
+      // Step 3: Combine the device info arrays into a single map object
+      const deviceInfo = allDeviceInfoArrays.reduce((acc, infoArray, index) => {
+        const deviceId = devices[index].id;
+        acc[deviceId] = infoArray;
+        return acc;
+      }, {});
+
+      // Step 4: Return the combined payload, matching the slice's expected shape
+      return { devices, deviceInfo };*/
     } catch (error) {
       return rejectWithValue(error.message);
     }

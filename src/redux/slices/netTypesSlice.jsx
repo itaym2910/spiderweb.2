@@ -5,6 +5,7 @@ import {
 } from "@reduxjs/toolkit";
 // import { api } from "../../services/api"; // LATER: Uncomment for real API
 import { initialData } from "../initialData";
+//import { api } from "../../services/api"; // <-- 1. Import the real api
 import { logout } from "./authSlice";
 
 // --- MOCK API: Simulates the backend API calls for NetTypes ---
@@ -50,6 +51,7 @@ export const fetchNetTypes = createAsyncThunk(
     try {
       // LATER: Replace with real API call: const response = await api.getNetTypes();
       const response = await mockApi.getNetTypes();
+      //const response = await api.getNetTypes(); // <-- 2. Import the real api
       return response;
     } catch (error) {
       return rejectWithValue(error.message);
@@ -66,6 +68,7 @@ export const addNetType = createAsyncThunk(
       // The API should return the newly created object, including its new ID.
       // LATER: Replace with: const newNetType = await api.addNetType(netTypeData);
       const newNetType = await mockApi.addNetType(netTypeData);
+      //const newNetType = await api.addNetType(netTypeData); // <-- 3. Import the real api
       return newNetType;
     } catch (error) {
       return rejectWithValue(error.message);
@@ -81,6 +84,7 @@ export const deleteNetType = createAsyncThunk(
       // LATER: Replace with: await api.deleteNetType(netTypeId);
       await mockApi.deleteNetType(netTypeId);
       // On success, return the ID of the deleted item so the reducer can remove it.
+      //await api.deleteNetType(netTypeId);  // <-- 4. Import the real api
       return netTypeId;
     } catch (error) {
       return rejectWithValue(error.message);

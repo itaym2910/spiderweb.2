@@ -7,6 +7,8 @@ import {
 // import { apiService } from "../../services/apiService";
 import { initialData } from "../initialData";
 
+//import { api } from "../../services/apiServices"; // <-- 1. Import the real api
+
 // --- MOCK API ---
 const mockApi = {
   getCorePikudim: async () => {
@@ -36,6 +38,7 @@ export const fetchCorePikudim = createAsyncThunk(
     try {
       // const response = await apiService.getCorePikudim();
       const response = await mockApi.getCorePikudim();
+      //const response = await api.getCorePikudim(); // <-- 2. Use real api
       return response;
     } catch (error) {
       return rejectWithValue(error.message);
@@ -51,6 +54,8 @@ export const addCoreSite = createAsyncThunk(
       // This is where you call your real backend API
       // await apiService.addCorePikudim(siteData);
       await mockApi.addCoreSite(siteData);
+
+      //await api.addCorePikudim(siteData); // <-- 3. Use real api
 
       // On success, re-fetch the entire list to ensure data consistency
       dispatch(fetchCorePikudim());
@@ -70,6 +75,8 @@ export const deleteCoreSite = createAsyncThunk(
       // This is where you call your real backend API
       // await apiService.deleteCorePikudim(siteId);
       await mockApi.deleteCoreSite(siteId);
+
+      //await api.deleteCorePikudim(siteId); // <-- 4. Use real api
 
       // On success, re-fetch the list to reflect the deletion
       dispatch(fetchCorePikudim());

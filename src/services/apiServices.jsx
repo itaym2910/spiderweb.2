@@ -5,6 +5,8 @@ import Cookies from "js-cookie";
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
+//REACT_APP_API_URL=http://your-backend-api.com/api (instead of VITE_API_URL || "http://localhost:8000/api";)
+
 // --- Create a Centralized Axios Instance ---
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -61,6 +63,7 @@ export const api = {
 
   // --- GET Endpoints ---
   getTenGigLines: () => handleApiCall(apiClient.get("/get_ten_gig_lines")),
+  getNetTypes: () => handleApiCall(apiClient.get("/get_net_types")),
   getCorePikudim: () => handleApiCall(apiClient.get("/get_core_pikudim")),
   getCoreDevices: () => handleApiCall(apiClient.get("/get_core_devices")),
   getSites: () => handleApiCall(apiClient.get("/get_sites")),

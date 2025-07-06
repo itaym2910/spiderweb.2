@@ -3,6 +3,8 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { generateMockAlerts } from "../dummyData";
 
+//import { api } from "../../services/apiServices"; // <-- 1. Import the real api
+
 // --- ASYNC THUNKS for Alerts ---
 export const fetchAllAlerts = createAsyncThunk(
   "alerts/fetchAll",
@@ -13,6 +15,9 @@ export const fetchAllAlerts = createAsyncThunk(
       await new Promise((resolve) => setTimeout(resolve, 750));
       const mockAlerts = generateMockAlerts();
       return mockAlerts;
+
+      //const alerts = await api.getAllAlerts(); // <-- 2. Use the real api call
+      //return alerts;
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -24,6 +29,8 @@ export const deleteAlert = createAsyncThunk(
   async (alertId, { rejectWithValue }) => {
     try {
       // await api.deleteAlert(alertId); // This would be the real API call
+
+      //await api.deleteAlert(alertId); // <-- 3. Use the real api call
       return alertId;
     } catch (error) {
       return rejectWithValue(error.message);
@@ -36,6 +43,7 @@ export const favoriteAlert = createAsyncThunk(
   async (alertId, { rejectWithValue }) => {
     try {
       // await api.favoriteAlert(alertId); // This would be the real API call
+      //await api.favoriteAlert(alertId); // <-- 4. Use the real api call
       return alertId;
     } catch (error) {
       return rejectWithValue(error.message);
