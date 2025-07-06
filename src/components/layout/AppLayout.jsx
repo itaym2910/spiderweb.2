@@ -1,17 +1,27 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Routes, Route, useLocation } from "react-router-dom";
-import { Star } from "lucide-react";
+import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { Star, LogOut } from "lucide-react";
 
-// Helper components & hooks
-import { useDashboardLogic } from "../../pages/useDashboardLogic"; // Adjust path if needed
-import { Tabs, TabsList, TabsTrigger } from "../ui/tabs"; // Adjust path if needed
-import { Sidebar } from "../ui/sidebar"; // Adjust path if needed
+// --- Redux Imports ---
+import { logout } from "../../redux/slices/authSlice";
+import {
+  disconnect,
+  selectRealtimeStatus,
+} from "../../redux/slices/realtimeSlice";
 
-// Page components
-import { DashboardPage } from "../../pages/DashboardPage"; // Adjust path if needed
-import { AdminPanelPage } from "../../pages/AdminPanelPage"; // Adjust path if needed
-import { AlertsPage } from "../../pages/AlertsPage"; // Adjust path if needed
-import SearchPage from "../../pages/SearchPage"; // Adjust path if needed
+// --- Helper Components & Hooks ---
+import { useDashboardLogic } from "../../pages/useDashboardLogic";
+import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
+import { Sidebar } from "../ui/sidebar";
+
+// --- Page Components ---
+import { DashboardPage } from "../../pages/DashboardPage";
+import { AdminPanelPage } from "../../pages/AdminPanelPage";
+import { AlertsPage } from "../../pages/AlertsPage";
+import SearchPage from "../../pages/SearchPage";
+
+// --- Local Helper Components for this Layout ---
 
 // Icons used for the fullscreen toggle in the header.
 export const FullscreenIcon = ({ className = "w-5 h-5" }) => (
@@ -30,6 +40,7 @@ export const FullscreenIcon = ({ className = "w-5 h-5" }) => (
     />
   </svg>
 );
+
 export const ExitFullscreenIcon = ({ className = "w-5 h-5" }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -47,35 +58,58 @@ export const ExitFullscreenIcon = ({ className = "w-5 h-5" }) => (
   </svg>
 );
 
+// Real-time status indicator component
+const RealtimeStatusIndicator = () => {
+  const status = useSelector(selectRealtimeStatus);
+
+  const config = {
+    connected: { color: "bg-green-500", text: "Live" },
+    connecting: { color: "bg-yellow-500", text: "Connecting" },
+    disconnected: { color: "bg-red-500", text: "Offline" },
+  }[status] || { color: "bg-gray-500", text: "Unknown" };
+
+  return (
+    <div
+      className="flex items-center gap-2"
+      title={`Real-time updates: ${config.text}`}
+    >
+      <div className={`w-2.5 h-2.5 rounded-full ${config.color} relative`}>
+        {status === "connected" && (
+          <div
+            className={`absolute inset-0 w-full h-full rounded-full ${config.color} animate-ping`}
+          ></div>
+        )}
+      </div>
+      <span className="text-xs font-medium text-gray-500 dark:text-gray-400 hidden sm:inline">
+        {config.text}
+      </span>
+    </div>
+  );
+};
+
+// --- Main AppLayout Component ---
+
 function AppLayout() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const location = useLocation();
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
 
-  // THEME FIX: Create a reactive state for the theme.
   const [theme, setTheme] = useState(
     document.documentElement.classList.contains("dark") ? "dark" : "light"
   );
 
-  // THEME FIX: Use an effect with a MutationObserver to listen for
-  // class changes on the <html> element and update the theme state.
   useEffect(() => {
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (
-          mutation.type === "attributes" &&
-          mutation.attributeName === "class"
-        ) {
-          const newTheme = document.documentElement.classList.contains("dark")
-            ? "dark"
-            : "light";
-          setTheme(newTheme);
-        }
-      });
+    const observer = new MutationObserver(() => {
+      setTheme(
+        document.documentElement.classList.contains("dark") ? "dark" : "light"
+      );
     });
-
-    observer.observe(document.documentElement, { attributes: true });
-
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
     return () => observer.disconnect();
   }, []);
 
@@ -91,7 +125,6 @@ function AppLayout() {
 
   const isDashboardActive = activePageLabel === "Dashboard";
 
-  // This hook is now only responsible for tab navigation state.
   const dashboardLogic = useDashboardLogic({
     isAppFullscreen: isFullscreen,
     isSidebarCollapsed,
@@ -103,11 +136,14 @@ function AppLayout() {
     setIsFullscreen(!isFullscreen);
   };
 
-  useEffect(() => {
-    if (isFullscreen && !isDashboardActive) {
-      setIsFullscreen(false);
-    }
-  }, [isFullscreen, isDashboardActive]);
+  const handleLogout = () => {
+    // First, disconnect the real-time service to clean up the interval.
+    dispatch(disconnect());
+    // Then, clear the user's session data.
+    dispatch(logout());
+    // Finally, navigate back to the login page.
+    navigate("/login", { replace: true });
+  };
 
   const renderFullscreenToggleButton = () => {
     if (!isDashboardActive) return null;
@@ -128,7 +164,7 @@ function AppLayout() {
   };
 
   return (
-    <div className="flex min-h-[100vh] bg-gray-100 dark:bg-gray-950 text-gray-800 dark:text-gray-100 transition-colors">
+    <div className="flex h-screen bg-gray-100 dark:bg-gray-950 text-gray-800 dark:text-gray-100 transition-colors overflow-hidden">
       {!isFullscreen && (
         <Sidebar
           currentPage={activePageLabel}
@@ -136,53 +172,70 @@ function AppLayout() {
           setCollapsed={setIsSidebarCollapsed}
         />
       )}
-      <main
-        className={`flex-1 flex flex-col overflow-y-auto relative ${
-          isFullscreen ? "p-0" : "p-4 md:p-6"
-        }`}
-      >
+      <main className="flex-1 flex flex-col relative">
         <header
-          className={`bg-white dark:bg-gray-800 shrink-0 flex flex-col sm:flex-row sm:items-center gap-4 ${
-            isFullscreen
-              ? "p-4 border-b dark:border-gray-700"
-              : "shadow-sm p-4 mb-6 rounded-lg"
+          className={`bg-white dark:bg-gray-800 shrink-0 flex items-center gap-4 ${
+            isFullscreen ? "p-4 border-b dark:border-gray-700" : "p-4 shadow-sm"
           }`}
         >
-          {/* [MODIFIED] - The header title now changes based on the fullscreen state. */}
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white shrink-0">
+          <h1
+            className={`text-2xl shrink-0 ${
+              isFullscreen
+                ? "font-extrabold text-white tracking-wide" // <-- This line is changed
+                : "font-semibold text-gray-900 dark:text-white"
+            }`}
+          >
             {isFullscreen ? "SPIDERWEB" : activePageLabel}
           </h1>
 
           {isDashboardActive && (
-            <>
-              <div className="flex-1 flex justify-center">
-                <Tabs
-                  value={activeTabValue}
-                  onValueChange={handleTabChangeForNavigation}
-                  className="w-full md:w-[750px] lg:w-[800px]"
-                >
-                  <TabsList className="grid-cols-5">
-                    <TabsTrigger
-                      value="favorites"
-                      className="flex items-center gap-1.5"
-                    >
-                      <Star className="h-4 w-4 text-yellow-500" /> Favorites
-                    </TabsTrigger>
-                    <TabsTrigger value="all_interfaces">
-                      All Interfaces
-                    </TabsTrigger>
-                    <TabsTrigger value="l_network">L-chart</TabsTrigger>
-                    <TabsTrigger value="p_network">P-chart</TabsTrigger>
-                    <TabsTrigger value="site">Site</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
-              {renderFullscreenToggleButton()}
-            </>
+            <div className="flex-1 flex justify-center">
+              <Tabs
+                value={activeTabValue}
+                onValueChange={handleTabChangeForNavigation}
+                className="w-full md:w-[750px] lg:w-[800px]"
+              >
+                <TabsList className="grid-cols-5">
+                  <TabsTrigger
+                    value="favorites"
+                    className="flex items-center gap-1.5"
+                  >
+                    <Star className="h-4 w-4 text-yellow-500" /> Favorites
+                  </TabsTrigger>
+                  <TabsTrigger value="all_interfaces">
+                    All Interfaces
+                  </TabsTrigger>
+                  <TabsTrigger value="l_network">L-chart</TabsTrigger>
+                  <TabsTrigger value="p_network">P-chart</TabsTrigger>
+                  <TabsTrigger value="site">Site</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
           )}
+
+          {/* Wrapper for right-side action buttons */}
+          <div className="flex items-center gap-4 ml-auto">
+            <RealtimeStatusIndicator />
+            {renderFullscreenToggleButton()}
+            <button
+              onClick={handleLogout}
+              title="Log Out"
+              aria-label="Log Out"
+              className="h-10 w-10 flex-shrink-0 flex items-center justify-center rounded-lg text-gray-500 hover:bg-red-100 hover:text-red-600 dark:text-gray-400 dark:hover:bg-red-900/50 dark:hover:text-red-400 transition-colors"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
         </header>
 
-        <div className="flex-1 min-h-0">
+        {/* Scrollable main content area */}
+        <div
+          className={`flex-1 min-h-0 overflow-y-auto ${
+            theme === "dark"
+              ? "dark-scrollbar dark-scrollbar-firefox"
+              : "light-scrollbar light-scrollbar-firefox"
+          } ${!isFullscreen && "p-4 md:p-6"}`}
+        >
           <Routes>
             <Route path="/admin" element={<AdminPanelPage />} />
             <Route path="/search" element={<SearchPage />} />

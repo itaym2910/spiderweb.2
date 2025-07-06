@@ -15,7 +15,6 @@ export default function CoreSitePage({ theme = "dark", chartType }) {
     selectedNodeId,
     showExtendedNodes,
     handleToggleExtendedNodes,
-    handleBackToChart,
     sitesForFocusedNode,
     onSiteClick,
     onLinkClick,
@@ -41,7 +40,6 @@ export default function CoreSitePage({ theme = "dark", chartType }) {
       selectedNodeId={selectedNodeId}
       showExtendedNodes={showExtendedNodes}
       onToggleExtendedNodes={handleToggleExtendedNodes}
-      onBackToChart={handleBackToChart}
       sites={sitesForFocusedNode}
       onSiteClick={onSiteClick}
       onLinkClick={onLinkClick}

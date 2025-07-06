@@ -1,12 +1,21 @@
+// src/components/NetworkVisualizerWrapper.jsx
+
 import React, { useCallback, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useSelector } from "react-redux";
-import NetworkVisualizer from "./chart/NetworkVisualizer";
-import LinkDetailTabs from "./LinkDetailTabs";
-import { selectPikudimByTypeId } from "../redux/slices/corePikudimSlice";
-import { selectDevicesByTypeId } from "../redux/slices/devicesSlice";
-import { selectLinksByTypeId } from "../redux/slices/tenGigLinksSlice";
+import { useSelector, useDispatch } from "react-redux";
+import NetworkVisualizer from "../../components/chart/NetworkVisualizer";
+import LinkDetailTabs from "../../components/shared/LinkDetailTabs";
+import { selectPikudimByTypeId } from "../../redux/slices/corePikudimSlice";
+import { selectDevicesByTypeId } from "../../redux/slices/devicesSlice";
+import { selectLinksByTypeId } from "../../redux/slices/tenGigLinksSlice";
+import ToggleDetailButton from "../../components/chart/ToggleDetailButton";
+import { fetchInitialData } from "../../redux/slices/authSlice";
 
+// Import feedback components
+import { LoadingSpinner } from "../../components/ui/feedback/LoadingSpinner";
+import { ErrorMessage } from "../../components/ui/feedback/ErrorMessage";
+
+// Helper function to select top devices (no changes)
 function selectTopTwoDevices(devices) {
   if (devices.length <= 2) return devices;
   const priorityOrder = [4, 5, 1, 2, 7, 8];
@@ -24,16 +33,26 @@ function selectTopTwoDevices(devices) {
 
 const NetworkVisualizerWrapper = ({ theme }) => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
+  // Get data fetching status from Redux
+  const pikudimStatus = useSelector((state) => state.corePikudim.status);
+  const devicesStatus = useSelector((state) => state.devices.status);
+  const linksStatus = useSelector((state) => state.tenGigLinks.status);
+
+  // Existing state and selectors...
   const [openLinkTabs, setOpenLinkTabs] = useState([]);
   const [activeLinkTabId, setActiveLinkTabId] = useState(null);
+  const [showDetailedLinks, setShowDetailedLinks] = useState(false);
 
+  // --- These selectors correctly get the filtered data ---
   const pikudim = useSelector((state) => selectPikudimByTypeId(state, 1));
   const allDevicesForType = useSelector((state) =>
     selectDevicesByTypeId(state, 1)
   );
   const linksRaw = useSelector((state) => selectLinksByTypeId(state, 1));
 
+  // The `useMemo` for graphData is unchanged and correct
   const graphData = useMemo(() => {
     if (!pikudim.length || !allDevicesForType.length) {
       return { nodes: [], links: [] };
@@ -84,6 +103,7 @@ const NetworkVisualizerWrapper = ({ theme }) => {
     return { nodes: transformedNodes, links: transformedLinks };
   }, [pikudim, allDevicesForType, linksRaw]);
 
+  // All handlers are unchanged
   const handleZoneClick = useCallback(
     (zoneId) => {
       navigate(`zone/${zoneId}`);
@@ -138,6 +158,47 @@ const NetworkVisualizerWrapper = ({ theme }) => {
     [activeLinkTabId]
   );
 
+  const handleToggleDetailView = useCallback(() => {
+    setShowDetailedLinks((prev) => !prev);
+  }, []);
+
+  const handleRetry = () => dispatch(fetchInitialData());
+
+  // --- Loading and Error Rendering Logic ---
+  const isLoading =
+    pikudimStatus === "loading" ||
+    devicesStatus === "loading" ||
+    linksStatus === "loading";
+  const hasError =
+    pikudimStatus === "failed" ||
+    devicesStatus === "failed" ||
+    linksStatus === "failed";
+
+  // This state is derived after loading/errors are handled
+  const isDataEmpty = !isLoading && !hasError && graphData.nodes.length === 0;
+
+  if (isLoading) {
+    return <LoadingSpinner text="Building L-Chart..." />;
+  }
+
+  if (hasError) {
+    return <ErrorMessage onRetry={handleRetry} />;
+  }
+
+  if (isDataEmpty) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center p-4 text-center">
+        <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300">
+          No Data Available
+        </h3>
+        <p className="mt-2 text-gray-500 dark:text-gray-400">
+          There is no network data available to build the L-Chart.
+        </p>
+      </div>
+    );
+  }
+
+  // --- Original component return ---
   return (
     <div className="w-full h-full flex flex-col">
       {openLinkTabs.length > 0 && (
@@ -153,12 +214,16 @@ const NetworkVisualizerWrapper = ({ theme }) => {
       )}
 
       <div className="flex-grow relative">
+        <ToggleDetailButton
+          isDetailed={showDetailedLinks}
+          onToggle={handleToggleDetailView}
+          theme={theme}
+        />
         <NetworkVisualizer
-          // [MODIFIED] - This is the fix. By changing the key, React will
-          // destroy and recreate the component, forcing it to re-initialize with the new theme.
           key={theme}
           data={graphData}
           theme={theme}
+          showDetailedLinks={showDetailedLinks}
           onZoneClick={handleZoneClick}
           onLinkClick={handleLinkClick}
           onNodeClick={handleNodeClick}

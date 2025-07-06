@@ -84,13 +84,21 @@ export default function SitesBar({
     >
       {sites.map((site, i) => (
         <button
-          key={site.id} // Use the real, unique site ID for the key
+          key={site.id}
           ref={(el) => (siteRefs.current[i] = el)}
-          onClick={() => {
+          // --- THIS IS THE MODIFIED SECTION ---
+          onClick={(e) => {
+            // 1. Manually trigger the cleanup logic to remove hover effects IMMEDIATELY.
+            //    We pass `false` to revert the styles and provide the button element.
+            handleHover(false, e.currentTarget);
+            d3.select("#active-connector-line").remove();
+
+            // 2. Perform the original action: open the detail tab.
             if (onSiteClick) {
               onSiteClick(site); // Pass the entire site object to the handler
             }
           }}
+          // --- END OF MODIFICATION ---
           onMouseEnter={(e) => {
             handleHover(true, e.currentTarget);
             const svg = d3.select(svgRef.current);
@@ -101,7 +109,6 @@ export default function SitesBar({
             const btnY = btnBox.top + btnBox.height / 2 - svgBox.top;
 
             if (!focusedNodeDataRef.current) {
-              // Check the ref holding the D3 node data
               console.warn(
                 "[SitesBar] focusedNodeDataRef.current is not set on hover."
               );
@@ -109,13 +116,7 @@ export default function SitesBar({
             }
 
             const nodeData = focusedNodeDataRef.current;
-            const edge = getEdgePoint(
-              nodeData.x, // Use coordinates from the D3 node data
-              nodeData.y,
-              btnX,
-              btnY,
-              60 // Assuming node radius is 60
-            );
+            const edge = getEdgePoint(nodeData.x, nodeData.y, btnX, btnY, 60);
 
             svg
               .append("line")
@@ -129,6 +130,7 @@ export default function SitesBar({
               .lower();
           }}
           onMouseLeave={(e) => {
+            // This remains to handle cases where the user hovers but does NOT click.
             handleHover(false, e.currentTarget);
             d3.select("#active-connector-line").remove();
           }}

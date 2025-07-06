@@ -10,19 +10,19 @@ import {
 import { ArrowUp, ArrowDown, XCircle } from "lucide-react";
 
 // Page Components for each tab
-import FavoritesPage from "./FavoritesPage";
-import AllInterfacesPage from "./AllInterfacesPage";
+import FavoritesPage from "./dashboard/FavoritesPage";
+import AllInterfacesPage from "./dashboard/AllInterfacesPage";
 
 // Chart and Site specific components
-import NetworkVisualizerWrapper from "../components/NetworkVisualizerWrapper";
-import NetworkVisualizer5Wrapper from "../components/NetworkVisualizer5Wrapper";
+import NetworkVisualizerWrapper from "./dashboard/NetworkVisualizerWrapper";
+import NetworkVisualizer5Wrapper from "./dashboard/NetworkVisualizer5Wrapper";
 import CoreSitePage from "../components/CoreSite/CoreSitePage";
 import SiteDetailPage from "../components/end-site/SiteDetailPage";
 import EndSiteIndexPage from "../components/end-site/EndSiteIndexPage";
 import LinkTable from "../components/CoreDevice/LinkTable";
 
 // Helper hooks and Redux selectors
-import { useRelatedDevices } from "./useRelatedDevices";
+import { useRelatedDevices } from "../hooks/useRelatedDevices";
 import { selectAllDevices } from "../redux/slices/devicesSlice";
 import { selectAllSites } from "../redux/slices/sitesSlice";
 import { selectAllTenGigLinks } from "../redux/slices/tenGigLinksSlice";
@@ -47,8 +47,8 @@ function StatusIndicator({ status }) {
   );
 }
 
-// This component is used for nested routing within the charts.
-function NodeDetailView({ chartType }) {
+// This component now correctly receives the theme prop to pass down.
+function NodeDetailView({ chartType, theme }) {
   const { nodeId: deviceHostname, zoneId } = useParams();
   const allDevices = useSelector(selectAllDevices);
   const allSites = useSelector(selectAllSites);
@@ -124,18 +124,15 @@ function NodeDetailView({ chartType }) {
     return [...interCoreLinks, ...coreToSiteLinks];
   }, [deviceHostname, chartType, allDevices, allSites, allLinks]);
 
-  const currentTheme = document.documentElement.classList.contains("dark")
-    ? "dark"
-    : "light";
-
   return (
+    // The simple wrapper is correct. LinkTable will handle its own height.
     <div className="p-1">
       <LinkTable
         coreDeviceName={deviceHostname}
         coreSiteName={zoneId}
         linksData={linksForTable}
         otherDevicesInZone={otherDevicesInZone}
-        initialTheme={currentTheme}
+        theme={theme}
       />
     </div>
   );
@@ -152,94 +149,95 @@ export function DashboardPage({
       <Route path="/favorites" element={<FavoritesPage />} />
       <Route path="/all_interfaces" element={<AllInterfacesPage />} />
 
+      {/* THE FIX: The chart routes are restructured to separate layouts for each sub-route. */}
       <Route
         path="/l-chart/*"
         element={
-          <div
-            className={`relative w-full h-full ${
-              !isAppFullscreen && "rounded-lg shadow-sm"
-            } overflow-hidden bg-white dark:bg-gray-900`}
-          >
-            <Routes>
-              <Route
-                index
-                element={
+          <Routes>
+            {/* The index route gets the non-scrolling, fixed-height layout */}
+            <Route
+              index
+              element={
+                <div
+                  className={`relative w-full h-full ${
+                    !isAppFullscreen && "rounded-lg shadow-sm"
+                  } overflow-hidden bg-white dark:bg-gray-900`}
+                >
                   <NetworkVisualizerWrapper
-                    // The theme is added to the key to force a remount on theme change.
                     key={`l-visualizer-${chartKeySuffix}-${theme}`}
                     theme={theme}
                   />
-                }
-              />
-              <Route
-                path="zone/:zoneId"
-                element={
-                  <CoreSitePage
-                    theme={theme}
-                    popupAnchor={popupAnchorCoords}
-                    chartType="L"
-                  />
-                }
-              />
-              <Route
-                path="zone/:zoneId/node/:nodeId"
-                element={<NodeDetailView chartType="L" />}
-              />
-            </Routes>
-          </div>
+                </div>
+              }
+            />
+            {/* The node route is rendered directly, allowing it to use the main scrollbar */}
+            <Route
+              path="zone/:zoneId/node/:nodeId"
+              element={<NodeDetailView chartType="L" theme={theme} />}
+            />
+            <Route
+              path="zone/:zoneId"
+              element={
+                <CoreSitePage
+                  theme={theme}
+                  popupAnchor={popupAnchorCoords}
+                  chartType="L"
+                />
+              }
+            />
+          </Routes>
         }
       />
 
       <Route
         path="/p-chart/*"
         element={
-          <div
-            className={`relative w-full h-full ${
-              !isAppFullscreen && "rounded-lg shadow-sm"
-            } overflow-hidden bg-white dark:bg-gray-900`}
-          >
-            <Routes>
-              <Route
-                index
-                element={
+          <Routes>
+            {/* The index route gets its own non-scrolling, fixed-height layout */}
+            <Route
+              index
+              element={
+                <div
+                  className={`relative w-full h-full ${
+                    !isAppFullscreen && "rounded-lg shadow-sm"
+                  } overflow-hidden bg-white dark:bg-gray-900`}
+                >
                   <NetworkVisualizer5Wrapper
-                    // The theme is added to the key to force a remount on theme change.
                     key={`p-visualizer-${chartKeySuffix}-${theme}`}
                     theme={theme}
                   />
-                }
-              />
-              <Route
-                path="zone/:zoneId"
-                element={
-                  <CoreSitePage
-                    theme={theme}
-                    popupAnchor={popupAnchorCoords}
-                    chartType="P"
-                  />
-                }
-              />
-              <Route
-                path="zone/:zoneId/node/:nodeId"
-                element={<NodeDetailView chartType="P" />}
-              />
-            </Routes>
-          </div>
+                </div>
+              }
+            />
+            {/* The node route is rendered directly, allowing it to use the main scrollbar */}
+            <Route
+              path="zone/:zoneId/node/:nodeId"
+              element={<NodeDetailView chartType="P" theme={theme} />}
+            />
+            <Route
+              path="zone/:zoneId"
+              element={
+                <CoreSitePage
+                  theme={theme}
+                  popupAnchor={popupAnchorCoords}
+                  chartType="P"
+                />
+              }
+            />
+          </Routes>
         }
       />
 
       <Route
         path="/sites/*"
         element={
-          <div className="w-full h-full">
-            <Routes>
-              <Route index element={<EndSiteIndexPage />} />
-              <Route
-                path="site/:siteNavId"
-                element={<SiteDetailPageRouteElement />}
-              />
-            </Routes>
-          </div>
+          <Routes>
+            <Route index element={<EndSiteIndexPage />} />
+            <Route
+              path="site/:siteNavId"
+              element={<SiteDetailPageRouteElement />}
+            />
+          </Routes>
         }
       />
 

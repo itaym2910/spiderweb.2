@@ -1,17 +1,14 @@
 import React, { useState, useMemo } from "react";
-import { useInterfaceData } from "./useInterfaceData"; // Hook provides data and filter options
-import { Button } from "../components/ui/button";
-import {
-  Table,
-  TableHead,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableCell,
-} from "../components/ui/table";
+import { useInterfaceData } from "../useInterfaceData";
+import { Button } from "../../components/ui/button";
 import { Star, ArrowUp, ArrowDown, XCircle, Search } from "lucide-react";
+import { useSelector } from "react-redux";
 
-// Helper components remain unchanged, styles are good.
+// Import the virtualized table and feedback components
+import { VirtualizedTable } from "../../components/ui/VirtualizedTable";
+import { ErrorMessage } from "../../components/ui/feedback/ErrorMessage";
+
+// Helper components (StatusIndicator, FavoriteButton) remain the same
 const StatusIndicator = ({ status }) => {
   const config = {
     Up: { color: "text-green-500", Icon: ArrowUp, label: "Up" },
@@ -22,7 +19,6 @@ const StatusIndicator = ({ status }) => {
       label: "Admin Down",
     },
   }[status] || { color: "text-gray-500", Icon: XCircle, label: "Unknown" };
-
   return (
     <div className={`flex items-center gap-2 font-medium ${config.color}`}>
       <config.Icon className="h-4 w-4" />
@@ -48,10 +44,15 @@ const FavoriteButton = ({ isFavorite, onClick }) => (
   </Button>
 );
 
-// --- STYLES UPDATED ---
 export default function AllInterfacesPage() {
   const { interfaces, handleToggleFavorite, deviceFilterOptions } =
     useInterfaceData();
+
+  const sitesStatus = useSelector((state) => state.sites.status);
+  const linksStatus = useSelector((state) => state.tenGigLinks.status);
+
+  const isLoading = sitesStatus === "loading" || linksStatus === "loading";
+  const hasError = sitesStatus === "failed" || linksStatus === "failed";
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -74,97 +75,98 @@ export default function AllInterfacesPage() {
     });
   }, [interfaces, searchTerm, statusFilter, deviceFilter]);
 
-  const renderContent = () => {
-    if (filteredInterfaces.length > 0) {
-      return (
-        <div className="overflow-x-auto border dark:border-gray-700/50 rounded-lg">
-          <Table>
-            <TableHeader className="bg-gray-100/50 dark:bg-gray-800/50">
-              <TableRow>
-                <TableHead className="font-semibold text-gray-600 dark:text-gray-300">
-                  Interface
-                </TableHead>
-                <TableHead className="font-semibold text-gray-600 dark:text-gray-300">
-                  Device
-                </TableHead>
-                <TableHead className="font-semibold text-gray-600 dark:text-gray-300">
-                  Status
-                </TableHead>
-                <TableHead className="font-semibold text-gray-600 dark:text-gray-300">
-                  Traffic (In / Out)
-                </TableHead>
-                <TableHead className="font-semibold text-gray-600 dark:text-gray-300">
-                  Errors (In / Out)
-                </TableHead>
-                <TableHead className="text-right font-semibold text-gray-600 dark:text-gray-300">
-                  Favorite
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredInterfaces.map((iface) => (
-                <TableRow
-                  key={iface.id}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                >
-                  <TableCell>
-                    <div className="font-medium text-gray-800 dark:text-gray-100">
-                      {iface.interfaceName}
-                    </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs">
-                      {iface.description}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-gray-600 dark:text-gray-300">
-                    {iface.deviceName}
-                  </TableCell>
-                  <TableCell>
-                    <StatusIndicator status={iface.status} />
-                  </TableCell>
-                  <TableCell className="text-gray-600 dark:text-gray-300">{`${iface.trafficIn} / ${iface.trafficOut}`}</TableCell>
-                  <TableCell
-                    className={
-                      iface.errors.in > 0 || iface.errors.out > 0
-                        ? "font-bold text-orange-600 dark:text-orange-400"
-                        : "text-gray-600 dark:text-gray-300"
-                    }
-                  >
-                    {`${iface.errors.in} / ${iface.errors.out}`}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <FavoriteButton
-                      isFavorite={iface.isFavorite}
-                      onClick={() => handleToggleFavorite(iface.id)}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      );
-    }
-    // Enhanced "No Results" state
-    return (
-      <div className="text-center py-16 px-4 mt-6 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
-        <Search
-          size={56}
-          className="mx-auto text-gray-400 dark:text-gray-500 mb-4"
-        />
-        <p className="text-xl font-semibold text-gray-600 dark:text-gray-400">
-          No Interfaces Found
-        </p>
-        <p className="text-md text-gray-500 dark:text-gray-500 mt-2">
-          Your search or filters did not match any interfaces. Try adjusting
-          your criteria.
-        </p>
-      </div>
-    );
-  };
+  const columns = useMemo(
+    () => [
+      {
+        accessorKey: "interface",
+        header: "Interface",
+        size: 3,
+        cell: ({ row }) => (
+          <div>
+            <div className="font-medium text-gray-800 dark:text-gray-100">
+              {row.interfaceName}
+            </div>
+            <div className="text-sm text-gray-500 dark:text-gray-400 truncate">
+              {row.description}
+            </div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: "device",
+        header: "Device(s)",
+        size: 2,
+        cell: ({ row }) => (
+          <span className="text-gray-600 dark:text-gray-300">
+            {row.deviceName}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        size: 1.5,
+        cell: ({ row }) => <StatusIndicator status={row.status} />,
+      },
+      {
+        accessorKey: "traffic",
+        header: "Traffic (In/Out)",
+        size: 1.5,
+        cell: ({ row }) => (
+          <span className="text-gray-600 dark:text-gray-300">{`${row.trafficIn} / ${row.trafficOut}`}</span>
+        ),
+      },
+      {
+        accessorKey: "errors",
+        header: "Errors (In/Out)",
+        size: 1.5,
+        cell: ({ row }) => (
+          <span
+            className={
+              row.errors.in > 0 || row.errors.out > 0
+                ? "font-bold text-orange-600 dark:text-orange-400"
+                : "text-gray-600 dark:text-gray-300"
+            }
+          >
+            {`${row.errors.in} / ${row.errors.out}`}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "favorite",
+        header: "Favorite",
+        size: 1,
+        cell: ({ row }) => (
+          <div className="flex justify-end">
+            <FavoriteButton
+              isFavorite={row.isFavorite}
+              onClick={() => handleToggleFavorite(row.id)}
+            />
+          </div>
+        ),
+      },
+    ],
+    [handleToggleFavorite]
+  );
+
+  const EmptyState = (
+    <div className="text-center py-16 px-4 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
+      <Search
+        size={56}
+        className="mx-auto text-gray-400 dark:text-gray-500 mb-4"
+      />
+      <p className="text-xl font-semibold text-gray-600 dark:text-gray-400">
+        No Interfaces Found
+      </p>
+      <p className="text-md text-gray-500 dark:text-gray-500 mt-2">
+        Your search or filters did not match any interfaces.
+      </p>
+    </div>
+  );
 
   return (
-    <div className="p-6 bg-gray-50 dark:bg-gray-900 min-h-full">
-      <header className="mb-6">
+    <div className="p-6 bg-gray-50 dark:bg-gray-900 h-full flex flex-col gap-6">
+      <header className="flex-shrink-0">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
           All Network Interfaces
         </h1>
@@ -173,9 +175,9 @@ export default function AllInterfacesPage() {
         </p>
       </header>
 
-      {/* Filter & Search Bar Card */}
-      <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md mb-8">
+      <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md flex-shrink-0">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Filter inputs... */}
           <div>
             <label
               htmlFor="search-interfaces"
@@ -234,9 +236,14 @@ export default function AllInterfacesPage() {
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md">
-        {renderContent()}
+      {/* This container grows to fill the rest of the space, and its child will take up 100% of its height. */}
+      <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md flex-grow min-h-0">
+        <VirtualizedTable
+          data={filteredInterfaces}
+          columns={columns}
+          isLoading={isLoading}
+          emptyMessage={hasError ? <ErrorMessage /> : EmptyState}
+        />
       </div>
     </div>
   );

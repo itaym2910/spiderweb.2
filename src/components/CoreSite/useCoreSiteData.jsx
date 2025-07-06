@@ -267,11 +267,6 @@ export function useCoreSiteData(chartType) {
     addOrActivateTab(newLinkPayload);
   };
 
-  const handleBackToChart = () => {
-    const basePath = chartType === "P" ? "/p-chart" : "/l-chart";
-    navigate(basePath);
-  };
-
   return {
     zoneId,
     containerRef,
@@ -284,7 +279,6 @@ export function useCoreSiteData(chartType) {
     showExtendedNodes,
     handleToggleExtendedNodes,
     devicesInZoneCount: devicesForZone.length,
-    handleBackToChart,
     sitesForFocusedNode,
     onSiteClick: handleSiteClick,
     onLinkClick: handleLinkClick,

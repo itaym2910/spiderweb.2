@@ -3,26 +3,8 @@
 import React, { useRef } from "react";
 import CoreSiteCanvas from "./CoreSiteCanvas";
 import SitesBar from "./SitesBar";
-import LinkDetailTabs from "../LinkDetailTabs"; // Import the tab component
+import LinkDetailTabs from "../shared/LinkDetailTabs"; // Import the tab component
 import CoreSiteControls from "./CoreSiteControls";
-
-// Icon component for the "Back to Chart" button
-const BackArrowIcon = ({ className = "w-5 h-5" }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-    strokeWidth={1.5}
-    stroke="currentColor"
-    className={className}
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
-    />
-  </svg>
-);
 
 export default function CoreSiteView({
   theme,
@@ -36,7 +18,6 @@ export default function CoreSiteView({
   selectedNodeId,
   showExtendedNodes,
   onToggleExtendedNodes,
-  onBackToChart,
   sites,
   onSiteClick,
   onLinkClick,
@@ -56,15 +37,6 @@ export default function CoreSiteView({
   const pageBgColor = theme === "dark" ? "bg-gray-800" : "bg-white";
   const loadingBgColor = theme === "dark" ? "bg-slate-800" : "bg-gray-100";
   const loadingTextColor = theme === "dark" ? "text-white" : "text-gray-700";
-  const backButtonBg =
-    theme === "dark"
-      ? "bg-blue-600 hover:bg-blue-700"
-      : "bg-blue-500 hover:bg-blue-600";
-  const backButtonText = "text-white";
-  const backButtonFocusRing =
-    theme === "dark"
-      ? "focus:ring-blue-400 focus:ring-offset-gray-800"
-      : "focus:ring-blue-500 focus:ring-offset-white";
 
   // --- Loading State ---
   if (dimensions.width === 0 || dimensions.height === 0) {
@@ -84,10 +56,6 @@ export default function CoreSiteView({
       ? zoneId
       : `Zone ${zoneId}`
     : "Central Zone";
-  const controlsAreaHalfWidth = 320 / 2;
-  const backButtonWidth = 140;
-  const gap = 16;
-  const backButtonLeftPos = `calc(50% - ${controlsAreaHalfWidth}px - ${backButtonWidth}px - ${gap}px)`;
 
   return (
     // UPDATED LAYOUT: Use flexbox column to stack the tab bar and the main content area.
@@ -112,36 +80,10 @@ export default function CoreSiteView({
       {/* 2. Main content area that grows to fill the remaining space */}
       <div className="flex-grow relative">
         {/* Back button and Controls are absolutely positioned within this main content area */}
-        <div
-          className="absolute z-30 pointer-events-none"
-          style={{
-            top: "1rem",
-            left: backButtonLeftPos,
-            height: "2.25rem",
-            display: "flex",
-            alignItems: "center",
-          }}
-        >
-          <div className="flex-none pointer-events-auto">
-            <button
-              onClick={onBackToChart}
-              className={`px-4 py-2 rounded-md text-sm font-semibold shadow-sm
-                        flex items-center gap-1.5
-                        ${backButtonBg} ${backButtonText}
-                        focus:outline-none focus:ring-2 focus:ring-offset-2 
-                        ${backButtonFocusRing}`}
-              title="Back to chart view"
-            >
-              <BackArrowIcon className="w-4 h-4" />
-              Back to Chart
-            </button>
-          </div>
-        </div>
 
         <CoreSiteControls
           theme={theme}
           displayZoneId={displayZoneId}
-          //selectedNodeId={selectedNodeId}
           zoneId={zoneId}
           showExtendedNodes={showExtendedNodes}
           onToggleExtendedNodes={onToggleExtendedNodes}

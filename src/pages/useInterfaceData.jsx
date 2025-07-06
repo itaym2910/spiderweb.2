@@ -10,18 +10,12 @@ import { selectAllDevices } from "../redux/slices/devicesSlice";
 // Selector and Action for the shared "favorites" state
 import {
   selectFavoriteIds,
-  toggleFavorite,
-} from "../redux/slices/favoritesSlice";
+  toggleFavoriteLink, // <-- FIX #1: Use the correct name for the exported thunk
+} from "../redux/slices/favoritesSlice"; // <-- Make sure the file extension is correct (.js or .jsx)
 
 /**
  * The "Single Source of Truth" Hook for all network connections.
- *
- * Responsibilities:
- * 1. Fetches all raw connection data (sites, core links) from the Redux store.
- * 2. Fetches the shared list of favorite IDs from the Redux store.
- * 3. Transforms and unifies all data sources into a single, consistent format.
- * 4. Merges the favorite status (`isFavorite: true/false`) into each item.
- * 5. Provides a single, stable function (`handleToggleFavorite`) to update the global favorite state.
+ * ... (rest of the JSDoc)
  */
 export function useInterfaceData() {
   // Get the dispatch function to send actions to the Redux store
@@ -55,12 +49,7 @@ export function useInterfaceData() {
     const siteConnections = allSites.map((site) => {
       const device = deviceMap.get(site.device_id);
       return {
-        // --- THIS IS THE FIX ---
-        // Create a composite key that is guaranteed to be unique.
-        // Even if site.id is the same, site.device_id will be different for the duplicate.
         id: `site-${site.id}-${site.device_id}`,
-
-        // --- The rest of the object remains the same ---
         deviceName: device?.hostname || "Unknown Device",
         interfaceName: `Port ${site.interface_id}`,
         description: `Connection to site: ${site.site_name_english}`,
@@ -76,17 +65,14 @@ export function useInterfaceData() {
 
     // B. Transform 10-Gigabit Core Links into the common format
     const tenGigCoreLinks = allTenGigLinks.map((link) => {
-      // Capitalize status ("up" -> "Up") to match the StatusIndicator component
       const formattedStatus =
         link.status.charAt(0).toUpperCase() + link.status.slice(1);
-
       return {
         id: link.id,
-        // For a core link, the "Device" column shows both ends
         deviceName: `${link.source} <-> ${link.target}`,
         interfaceName: `10G Inter-Core Link`,
         description: `Inter-site trunk (${link.bandwidth})`,
-        status: formattedStatus === "Issue" ? "Down" : formattedStatus, // Handle 'issue' status consistently
+        status: formattedStatus === "Issue" ? "Down" : formattedStatus,
         trafficIn: `${faker.number.float({
           min: 1,
           max: 9,
@@ -107,22 +93,20 @@ export function useInterfaceData() {
     // C. Combine all transformed data into one master array
     const allLinks = [...siteConnections, ...tenGigCoreLinks];
 
-    // D. Add the `isFavorite` property to each item by checking against the Redux state
+    // D. Add the `isFavorite` property to each item
     return allLinks.map((link) => ({
       ...link,
-      // Use the Array.includes() method for the check
       isFavorite: favoriteIds.includes(link.id),
     }));
-  }, [allSites, allTenGigLinks, deviceMap, favoriteIds]); // This whole block re-runs ONLY if source data or favorites change
+  }, [allSites, allTenGigLinks, deviceMap, favoriteIds]);
 
   // --- Step 4: Create a stable function to handle user actions ---
   const handleToggleFavorite = useCallback(
     (linkId) => {
-      // Instead of using local state, we dispatch a global Redux action.
-      // This action is handled by the `favoritesSlice` reducer.
-      dispatch(toggleFavorite(linkId));
+      // FIX #2: Dispatch the async thunk with the correct name
+      dispatch(toggleFavoriteLink(linkId));
     },
-    [dispatch] // Dependency array ensures this function is not recreated on every render
+    [dispatch]
   );
 
   // --- Step 5: Return the final data and the action handler ---
