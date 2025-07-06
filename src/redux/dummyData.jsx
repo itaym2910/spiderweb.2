@@ -2,6 +2,7 @@ import { faker } from "@faker-js/faker";
 
 // --- NEW: Add the mock alert generator here ---
 export const generateMockAlerts = () => {
+  // ... (no changes in this function)
   const alerts = [];
   const now = new Date();
   const types = ["error", "warning", "info"];
@@ -18,13 +19,12 @@ export const generateMockAlerts = () => {
     "Backup job 'DailySystemBackup' finished successfully.",
   ];
 
-  // Let's generate a smaller, more dynamic number of alerts each time
   const alertCount = faker.number.int({ min: 1950, max: 2050 });
 
   for (let i = 0; i < alertCount; i++) {
     const randomMinutesAgo = Math.floor(Math.random() * 7 * 24 * 60 * 1.5);
     alerts.push({
-      id: `alert-${i + 1}-${faker.string.uuid()}`, // Use UUID for more unique IDs
+      id: `alert-${i + 1}-${faker.string.uuid()}`,
       type: types[Math.floor(Math.random() * types.length)],
       message: messages[Math.floor(Math.random() * messages.length)],
       timestamp: new Date(now.getTime() - randomMinutesAgo * 60000),
@@ -42,7 +42,6 @@ export const generateMockAlerts = () => {
 };
 
 // --- 1. ADD DUMMY USERS ARRAY ---
-// This array will act as our user database.
 const dummyUsers = [
   { username: "admin", password: "password123", role: "admin" },
   { username: "userg", password: "password123", role: "user" },
@@ -59,13 +58,12 @@ const createItems = (creator, count, ...args) => {
 const createCorePikudim = (typeId) => ({
   id: faker.number.int({ min: 1000, max: 9999 }),
   core_site_name: `Pikud-${faker.location.city()}`,
-  type_id: typeId, // Use the provided typeId
+  type_id: typeId,
   timestamp: faker.date.recent().toISOString(),
 });
 
 const createCoreDevice = (pikud, endingNumber) => ({
   id: faker.number.int({ min: 100, max: 999 }),
-  // The hostname is now constructed with the provided ending number
   hostname: `rtr-${faker.string.alphanumeric(4)}-${endingNumber}`,
   ip_address: faker.internet.ip(),
   network_type_id: pikud.type_id,
@@ -73,16 +71,23 @@ const createCoreDevice = (pikud, endingNumber) => ({
   timestamp: faker.date.recent().toISOString(),
 });
 
-// --- CHANGED ---
-// The createSite function is now more flexible.
-// It accepts a deviceId and a names object to allow for creating paired sites.
-const createSite = (deviceId, siteNames) => ({
+const createSite = (siteNames, device, interfaceData) => ({
   id: faker.number.int({ min: 10000, max: 99999 }),
-  interface_id: faker.number.int({ min: 1, max: 48 }),
-  device_id: deviceId, // Use the provided deviceId
-  site_name_hebrew: siteNames.hebrew, // Use the provided Hebrew name
-  site_name_english: siteNames.english, // Use the provided English name
+  interface_id: interfaceData.name || "N/A",
+  device_id: device.id,
+  site_name_hebrew: siteNames.hebrew,
+  site_name_english: siteNames.english,
   timestamp: faker.date.recent().toISOString(),
+  physicalStatus: interfaceData.physical_status || "N/A",
+  protocolStatus: interfaceData.protocol_status || "N/A",
+  MPLS: interfaceData.mpls || "N/A",
+  OSPF: interfaceData.ospf || "N/A",
+  Bandwidth: interfaceData.bandwidth ?? "N/A",
+  Description: interfaceData.description || "N/A",
+  MediaType: interfaceData.media_type || "N/A",
+  CDP: interfaceData.cdp || "N/A",
+  TX: interfaceData.tx ?? "N/A",
+  RX: interfaceData.rx ?? "N/A",
 });
 
 const createInterfaceInfo = (deviceId) => ({
@@ -110,14 +115,29 @@ const createInterfaceInfo = (deviceId) => ({
   timestamp: faker.date.recent().toISOString(),
 });
 
-const createTenGigLink = (sourceDevice, targetDevice) => ({
+// --- MODIFIED & CORRECTED ---
+// The `targetInterface` argument has been removed as it was unused.
+const createTenGigLink = (sourceDevice, targetDevice, sourceInterface) => ({
   id: `link-10g-${faker.string.alphanumeric(8)}`,
   source: sourceDevice.hostname,
   target: targetDevice.hostname,
   network_type_id: sourceDevice.network_type_id,
   ip: faker.internet.ip(),
-  bandwidth: faker.helpers.arrayElement(["10Gbps", "40Gbps"]),
   status: faker.helpers.arrayElement(["up", "down", "issue"]),
+
+  // --- NEW FIELDS ---
+  // We'll use the source interface's data for the link's properties.
+  // Using the nullish coalescing operator `??` for numbers to correctly handle 0.
+  physicalStatus: sourceInterface.physical_status || "N/A",
+  protocolStatus: sourceInterface.protocol_status || "N/A",
+  MPLS: sourceInterface.mpls || "N/A",
+  OSPF: sourceInterface.ospf || "N/A",
+  Bandwidth: sourceInterface.bandwidth ?? "N/A",
+  Description: sourceInterface.description || "N/A",
+  MediaType: sourceInterface.media_type || "N/A",
+  CDP: sourceInterface.cdp || "N/A",
+  TX: sourceInterface.tx ?? "N/A",
+  RX: sourceInterface.rx ?? "N/A",
 });
 
 // --- Main Export Function ---
@@ -139,6 +159,16 @@ export const generateAllDummyData = () => {
     return devicesForThisPikud;
   });
 
+  // --- Generate deviceInfo early, as it's needed for both links and sites ---
+  const deviceInfo = coreDevices.reduce((acc, device) => {
+    acc[device.id] = createItems(
+      createInterfaceInfo,
+      faker.number.int({ min: 3, max: 8 }),
+      device.id
+    );
+    return acc;
+  }, {});
+
   // --- 2. Group Devices by their Core Site ID ---
   const devicesBySite = new Map();
   for (const device of coreDevices) {
@@ -149,6 +179,7 @@ export const generateAllDummyData = () => {
   }
 
   // --- 3. Generate Structured "Same Site" Links ---
+  // --- MODIFIED & CORRECTED ---
   const sameSiteLinks = [];
   const sameSitePairs = [
     [1, 2],
@@ -172,17 +203,26 @@ export const generateAllDummyData = () => {
     }
     for (const [end1, end2] of sameSitePairs) {
       if (deviceMapByEnding.has(end1) && deviceMapByEnding.has(end2)) {
-        sameSiteLinks.push(
-          createTenGigLink(
-            deviceMapByEnding.get(end1),
-            deviceMapByEnding.get(end2)
-          )
-        );
+        const sourceDevice = deviceMapByEnding.get(end1);
+        const targetDevice = deviceMapByEnding.get(end2);
+
+        // We only need an interface from the source device to enrich the link data
+        const sourceInterfaces = deviceInfo[sourceDevice.id];
+
+        // The check for targetInterfaces is removed as it's not needed for link creation
+        if (sourceInterfaces?.length > 0) {
+          const sourceInterface = faker.helpers.arrayElement(sourceInterfaces);
+          sameSiteLinks.push(
+            // The call to createTenGigLink now only passes the source interface
+            createTenGigLink(sourceDevice, targetDevice, sourceInterface)
+          );
+        }
       }
     }
   }
 
   // --- 4. Generate Random "Different Site" Links ---
+  // --- MODIFIED & CORRECTED ---
   const differentSiteLinks = [];
   const lChartDevices = coreDevices.filter((d) => d.network_type_id === 1);
   const pChartDevices = coreDevices.filter((d) => d.network_type_id === 2);
@@ -202,8 +242,18 @@ export const generateAllDummyData = () => {
           targetDevice.core_pikudim_site_id ||
         createdPairs.has(pairKey)
       );
-      differentSiteLinks.push(createTenGigLink(sourceDevice, targetDevice));
-      createdPairs.add(pairKey);
+
+      // Only need the source interface
+      const sourceInterfaces = deviceInfo[sourceDevice.id];
+
+      if (sourceInterfaces?.length > 0) {
+        const sourceInterface = faker.helpers.arrayElement(sourceInterfaces);
+        differentSiteLinks.push(
+          // The call to createTenGigLink now only passes the source interface
+          createTenGigLink(sourceDevice, targetDevice, sourceInterface)
+        );
+        createdPairs.add(pairKey);
+      }
     }
   };
 
@@ -213,41 +263,35 @@ export const generateAllDummyData = () => {
   const tenGigLinks = [...sameSiteLinks, ...differentSiteLinks];
 
   // --- 5. Generate Paired Sites (Dual-Homed) ---
-  // --- REPLACED LOGIC ---
   const sites = [];
-  const numberOfLogicalSites = 250; // The number of conceptual sites to create
+  const numberOfLogicalSites = 250;
 
   if (coreDevices.length >= 2) {
     for (let i = 0; i < numberOfLogicalSites; i++) {
-      // 1. Create a single set of names for the logical site
       const city = faker.location.city();
-      const siteNames = {
-        hebrew: `אתר ${city}`,
-        english: `Site ${city}`,
-      };
+      const siteNames = { hebrew: `אתר ${city}`, english: `Site ${city}` };
 
-      // 2. Pick two *different* core devices to connect the site to
       let device1, device2;
       do {
         device1 = faker.helpers.arrayElement(coreDevices);
         device2 = faker.helpers.arrayElement(coreDevices);
-      } while (device1.id === device2.id); // Ensure they are not the same device
+      } while (device1.id === device2.id);
 
-      // 3. Create two site entries (one for each device) and add to the array
-      sites.push(createSite(device1.id, siteNames));
-      sites.push(createSite(device2.id, siteNames));
+      const interfaces1 = deviceInfo[device1.id];
+      if (interfaces1?.length > 0) {
+        const interface1 = faker.helpers.arrayElement(interfaces1);
+        sites.push(createSite(siteNames, device1, interface1));
+      }
+
+      const interfaces2 = deviceInfo[device2.id];
+      if (interfaces2?.length > 0) {
+        const interface2 = faker.helpers.arrayElement(interfaces2);
+        sites.push(createSite(siteNames, device2, interface2));
+      }
     }
   }
 
   // --- 6. Finalize Remaining Data ---
-  const deviceInfo = coreDevices.reduce((acc, device) => {
-    acc[device.id] = createItems(
-      createInterfaceInfo,
-      faker.number.int({ min: 3, max: 8 }),
-      device.id
-    );
-    return acc;
-  }, {});
   const netTypes = [
     { id: 1, name: "L-Chart Network" },
     { id: 2, name: "P-Chart Network" },

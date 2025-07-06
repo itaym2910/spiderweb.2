@@ -8,23 +8,20 @@ import {
 import { initialData } from "../initialData";
 
 // --- MOCK API: Mimics the real API call using dummy data ---
-// This isolates the data source, making it easy to swap for the real API later.
 const mockApi = {
   getTenGigLinks: async () => {
     // Simulate a network delay for a realistic loading experience
     await new Promise((resolve) => setTimeout(resolve, 350));
+    // The data from initialData.tenGigLinks is now enriched
     return initialData.tenGigLinks;
   },
 };
 
 // --- ASYNC THUNK: For fetching the 10-Gigabit links ---
-// This function is dispatched to start the data fetching process.
 export const fetchTenGigLinks = createAsyncThunk(
   "tenGigLinks/fetchTenGigLinks",
   async (_, { rejectWithValue }) => {
     try {
-      // LATER: When you switch to the real API, you will change this one line to:
-      // const response = await api.getTenGigLinks();
       const response = await mockApi.getTenGigLinks();
       return response;
     } catch (error) {
@@ -34,6 +31,27 @@ export const fetchTenGigLinks = createAsyncThunk(
 );
 
 // --- The Slice Definition ---
+// Shape of a Link object in the state:
+// {
+//   id: "link-10g-xyz",
+//   source: "rtr-abcd-1",
+//   target: "rtr-efgh-2",
+//   status: "up" | "down" | "issue",
+//   network_type_id: 1,
+//   ip: "...",
+//
+//   // --- NEW ENRICHED FIELDS ---
+//   physicalStatus: "Up" | "Down" | "N/A",
+//   protocolStatus: "Up" | "Down" | "N/A",
+//   MPLS: "Enabled" | "N/A",
+//   OSPF: "Enabled" | "N/A",
+//   Bandwidth: 10000 | "N/A",
+//   Description: "Some description text..." | "N/A",
+//   MediaType: "Fiber" | "N/A",
+//   CDP: "neighbor-switch-xyz" | "N/A",
+//   TX: -3.4 | "N/A",
+//   RX: -4.1 | "N/A"
+// }
 const tenGigLinksSlice = createSlice({
   name: "tenGigLinks",
   initialState: {
@@ -43,8 +61,6 @@ const tenGigLinksSlice = createSlice({
   },
   // Reducers for synchronous actions
   reducers: {
-    // These reducers are for manually adding/deleting links after the initial fetch,
-    // for example, in an admin panel.
     addTenGigLink: (state, action) => {
       state.items.push(action.payload);
     },
@@ -77,7 +93,7 @@ const tenGigLinksSlice = createSlice({
       })
       .addCase(fetchTenGigLinks.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.payload; // Get error message from rejectWithValue
+        state.error = action.payload;
       });
   },
 });

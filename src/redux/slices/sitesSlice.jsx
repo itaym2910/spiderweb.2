@@ -13,18 +13,16 @@ const mockApi = {
   getSites: async () => {
     // Simulate a network delay for a realistic loading experience
     await new Promise((resolve) => setTimeout(resolve, 300));
+    // The data from initialData.sites is now enriched with more fields.
     return initialData.sites;
   },
 };
 
 // --- ASYNC THUNK: For fetching the sites ---
-// This function is dispatched to start the data fetching process.
 export const fetchSites = createAsyncThunk(
   "sites/fetchSites",
   async (_, { rejectWithValue }) => {
     try {
-      // LATER: When you switch to the real API, you will change this one line to:
-      // const response = await api.getSites();
       const response = await mockApi.getSites();
       return response;
     } catch (error) {
@@ -34,6 +32,26 @@ export const fetchSites = createAsyncThunk(
 );
 
 // --- The Slice Definition ---
+// Shape of a Site object in the state:
+// {
+//   id: 56789,
+//   interface_id: "TenGigabitEthernet1/0/1", // Note: This is now the interface name
+//   device_id: 456,
+//   site_name_english: 'Site SomeCity',
+//   timestamp: "...",
+//
+//   // --- NEW ENRICHED FIELDS ---
+//   physicalStatus: "Up" | "Down" | "N/A",
+//   protocolStatus: "Up" | "Down" | "N/A",
+//   MPLS: "Enabled" | "N/A",
+//   OSPF: "Enabled" | "N/A",
+//   Bandwidth: 10000 | "N/A",
+//   Description: "Some description text..." | "N/A",
+//   MediaType: "Fiber" | "N/A",
+//   CDP: "neighbor-switch-xyz" | "N/A",
+//   TX: -3.4 | "N/A",
+//   RX: -4.1 | "N/A"
+// }
 const sitesSlice = createSlice({
   name: "sites",
   initialState: {
@@ -80,7 +98,7 @@ const sitesSlice = createSlice({
       })
       .addCase(fetchSites.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.payload; // Get error message from rejectWithValue
+        state.error = action.payload;
       });
   },
 });
