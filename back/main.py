@@ -274,7 +274,8 @@ async def get_favorite_links(current_user: dict = Depends(user_role_checker)):
     user_id = current_user['id']
     user = next((u for u in db["users"] if u["id"] == user_id), None)
     if user:
-        return [l for l in db["links"] if l["id"] in user["favorite_links"]]
+        user_favs = {str(x) for x in user.get("favorite_links", []) if not isinstance(x, dict)}
+        return [l for l in db["links"] if str(l["id"]) in user_favs]
     return []
 
 @router_link.post("/add-favorite-link/{link_id}")
@@ -305,7 +306,7 @@ async def update_favorite_links(data: FavoriteLinksUpdate, current_user: dict = 
     user_id = current_user['id']
     user = next((u for u in db["users"] if u["id"] == user_id), None)
     if user:
-        user["favorite_links"] = data.link_ids
+        user["favorite_links"] = [int(x) if str(x).isdigit() else str(x) for x in data.link_ids if not isinstance(x, dict)]
         return {"success": True, "updated_ids": user["favorite_links"]}
     return {"success": True, "updated_ids": data.link_ids}
 

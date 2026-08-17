@@ -11,7 +11,14 @@ export const fetchFavoriteLinks = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await api.getFavoriteLinks();
-      return Array.isArray(response) ? response : response?.link_ids || [];
+      const rawList = Array.isArray(response)
+        ? response
+        : response?.link_ids || response?.favorite_links || response?.updated_ids || [];
+      return rawList.map((item) =>
+        item && typeof item === "object" && "id" in item
+          ? String(item.id)
+          : String(item)
+      );
     } catch (error) {
       return rejectWithValue(
         error.message || "Failed to fetch favorite links"
@@ -23,12 +30,14 @@ export const fetchFavoriteLinks = createAsyncThunk(
 export const toggleFavoriteLink = createAsyncThunk(
   "favorites/toggleFavoriteLink",
   async (linkId, { getState, rejectWithValue }) => {
+    const stringId = String(linkId);
     const { ids: currentIds } = getState().favorites;
-    const isCurrentlyFavorite = currentIds.includes(linkId);
+    const currentStringIds = (Array.isArray(currentIds) ? currentIds : []).map(String);
+    const isCurrentlyFavorite = currentStringIds.includes(stringId);
 
     const newIds = isCurrentlyFavorite
-      ? currentIds.filter((id) => id !== linkId)
-      : [...currentIds, linkId];
+      ? currentStringIds.filter((id) => id !== stringId)
+      : [...currentStringIds, stringId];
 
     try {
       await api.updateFavoriteLinks(newIds);
@@ -70,8 +79,9 @@ const favoritesSlice = createSlice({
       // --- Reducers for the optimistic toggle ---
       .addCase(toggleFavoriteLink.pending, (state, action) => {
         // OPTIMISTIC UPDATE: Update the state immediately for a responsive UI.
-        const linkId = action.meta.arg; // The linkId passed to the thunk
-        const index = state.ids.indexOf(linkId);
+        const linkId = String(action.meta.arg);
+        const currentStringIds = state.ids.map(String);
+        const index = currentStringIds.indexOf(linkId);
         if (index >= 0) {
           state.ids.splice(index, 1); // It exists, so remove it
         } else {
@@ -85,8 +95,9 @@ const favoritesSlice = createSlice({
       })
       .addCase(toggleFavoriteLink.rejected, (state, action) => {
         // ROLLBACK: The API call failed. We must revert the optimistic update.
-        const linkId = action.meta.arg; // The linkId that failed
-        const index = state.ids.indexOf(linkId);
+        const linkId = String(action.meta.arg);
+        const currentStringIds = state.ids.map(String);
+        const index = currentStringIds.indexOf(linkId);
         if (index >= 0) {
           // It's in the state, meaning we optimistically ADDED it. Rollback by REMOVING.
           state.ids.splice(index, 1);
@@ -94,7 +105,6 @@ const favoritesSlice = createSlice({
           // It's not in the state, meaning we optimistically REMOVED it. Rollback by ADDING.
           state.ids.push(linkId);
         }
-        // You might want to show a toast notification to the user here.
         console.error("Failed to update favorite:", action.payload);
       });
   },
