@@ -9,6 +9,7 @@ import { fetchCorePikudim } from "./corePikudimSlice";
 import { fetchDevices } from "./devicesSlice";
 import { fetchSites } from "./sitesSlice";
 import { fetchTenGigLinks } from "./tenGigLinksSlice";
+import { fetchNetTypes } from "./netTypesSlice";
 
 // Get dummy users for the mock login
 const { dummyUsers } = initialData;
@@ -46,7 +47,7 @@ export const fetchInitialData = createAsyncThunk(
     dispatch(fetchDevices());
     dispatch(fetchSites());
     dispatch(fetchTenGigLinks());
-    // This thunk doesn't need to return a value, as it's just a coordinator.
+    dispatch(fetchNetTypes());
   }
 );
 

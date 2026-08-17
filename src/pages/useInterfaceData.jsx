@@ -1,6 +1,5 @@
 import { useMemo, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { faker } from "@faker-js/faker";
 
 // --- Redux Imports ---
 // Selectors for raw data sources
@@ -43,22 +42,39 @@ export function useInterfaceData() {
     return ["all", ...hostnames.sort()];
   }, [allDevices]);
 
+  // Deterministic helper to avoid random data changes when favoriteIds updates
+  const getDeterministicVal = (id, salt, min, max, isFloat = false) => {
+    let hash = 0;
+    const str = `${id}-${salt}`;
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash << 5) - hash + str.charCodeAt(i);
+      hash |= 0;
+    }
+    const val = Math.abs(hash);
+    if (isFloat) {
+      const floatVal = min + (val % ((max - min) * 10)) / 10;
+      return floatVal.toFixed(1);
+    }
+    return min + (val % (max - min + 1));
+  };
+
   // --- Step 3: Transform, combine, and merge all data (the core logic) ---
-  const interfaces = useMemo(() => {
+  const rawLinks = useMemo(() => {
     // --- A. Transform Site Connections into the common format ---
     const siteConnections = allSites.map((site) => {
       const device = deviceMap.get(site.device_id);
+      const siteKey = `site-${site.id}-${site.device_id}`;
       return {
-        id: `site-${site.id}-${site.device_id}`,
-        deviceName: device?.hostname || "Unknown Device",
+        id: siteKey,
+        deviceName: device?.hostname || device?.name || "Unknown Device",
         interfaceName: `Port ${site.interface_id}`,
         description: `Connection to site: ${site.site_name_english}`,
         status: "Up",
-        trafficIn: `${faker.number.int({ min: 1, max: 800 })} Mbps`,
-        trafficOut: `${faker.number.int({ min: 1, max: 800 })} Mbps`,
+        trafficIn: `${getDeterministicVal(siteKey, "tIn", 10, 800)} Mbps`,
+        trafficOut: `${getDeterministicVal(siteKey, "tOut", 10, 800)} Mbps`,
         errors: {
-          in: faker.number.int({ max: 5 }),
-          out: faker.number.int({ max: 2 }),
+          in: getDeterministicVal(siteKey, "errIn", 0, 5),
+          out: getDeterministicVal(siteKey, "errOut", 0, 2),
         },
       };
     });
@@ -73,32 +89,24 @@ export function useInterfaceData() {
         interfaceName: `10G Inter-Core Link`,
         description: `Inter-site trunk (${link.bandwidth})`,
         status: formattedStatus === "Issue" ? "Down" : formattedStatus,
-        trafficIn: `${faker.number.float({
-          min: 1,
-          max: 9,
-          precision: 0.1,
-        })} Gbps`,
-        trafficOut: `${faker.number.float({
-          min: 1,
-          max: 9,
-          precision: 0.1,
-        })} Gbps`,
+        trafficIn: `${getDeterministicVal(link.id, "tIn", 1, 9, true)} Gbps`,
+        trafficOut: `${getDeterministicVal(link.id, "tOut", 1, 9, true)} Gbps`,
         errors: {
-          in: faker.number.int({ max: 20 }),
-          out: faker.number.int({ max: 15 }),
+          in: getDeterministicVal(link.id, "errIn", 0, 20),
+          out: getDeterministicVal(link.id, "errOut", 0, 15),
         },
       };
     });
 
-    // C. Combine all transformed data into one master array
-    const allLinks = [...siteConnections, ...tenGigCoreLinks];
+    return [...siteConnections, ...tenGigCoreLinks];
+  }, [allSites, allTenGigLinks, deviceMap]);
 
-    // D. Add the `isFavorite` property to each item
-    return allLinks.map((link) => ({
+  const interfaces = useMemo(() => {
+    return rawLinks.map((link) => ({
       ...link,
       isFavorite: favoriteIds.includes(link.id),
     }));
-  }, [allSites, allTenGigLinks, deviceMap, favoriteIds]);
+  }, [rawLinks, favoriteIds]);
 
   // --- Step 4: Create a stable function to handle user actions ---
   const handleToggleFavorite = useCallback(

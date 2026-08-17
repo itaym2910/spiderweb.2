@@ -29,12 +29,18 @@ def generate_dummy_data():
     for cs in core_sites:
         num_devices = random.randint(2, 6)
         for _ in range(num_devices):
+            dev_name = f"rtr-{fake.word()}-{random.randint(1,100)}"
+            dev_ip = fake.ipv4()
             device = {
                 "id": device_id_counter,
-                "name": f"rtr-{fake.word()}-{random.randint(1,100)}",
-                "ip": fake.ipv4(),
+                "name": dev_name,
+                "hostname": dev_name,
+                "ip": dev_ip,
+                "ip_address": dev_ip,
                 "coresite_id": cs["id"],
-                "network_ids": cs["network_ids"]
+                "core_pikudim_site_id": cs["id"],
+                "network_ids": cs["network_ids"],
+                "network_type_id": cs["network_ids"][0] if cs["network_ids"] else 1,
             }
             core_devices.append(device)
             device_id_counter += 1
@@ -65,13 +71,14 @@ def generate_dummy_data():
             if neighbor["id"] == device["id"]:
                 continue
             
+            is_core = random.choice([True, False])
             link = {
                 "id": link_id_counter,
                 "coredevice_id": device["id"],
                 "neighbor_coredevice_id": neighbor["id"],
                 "neighbor_ip": neighbor["ip"],
-                "neighbor_is_core": True,
-                "description": f"Core link between {device['name']} and {neighbor['name']}",
+                "neighbor_is_core": is_core,
+                "description": f"Link between {device['name']} and {neighbor['name']}",
                 "cdp": f"neighbor-switch-{fake.word()}",
                 "physical_status": random.choice(["Up", "Down"]),
                 "protocol_status": random.choice(["Up", "Down"]),
@@ -79,6 +86,7 @@ def generate_dummy_data():
                 "isis": random.choice(["Enabled", "Disabled"]),
                 "espf_interface_address": fake.ipv4(),
                 "bw": random.choice(["10G", "40G", "100G"]),
+                "bandwidth": random.choice(["10G", "40G", "100G"]),
                 "media_type": "Fiber",
                 "input_rate": f"{random.randint(1,9)} Gbps",
                 "output_rate": f"{random.randint(1,9)} Gbps",

@@ -78,39 +78,42 @@ def admin_role_checker(request: Request):
 # ==============================================================================
 router_alerts = APIRouter()
 
-@router_alerts.get("/alerts")
-def get_alerts(last_crawl_number: int = None):
-    if last_crawl_number is None:
-        return JSONResponse(
-            content={"error": "last_crawl_number is required", "current_crawl_number": db["crawler_cycle"]["count"]},
-            status_code=400
-        )
+# ==============================================================================
+# ALERTS ROUTES (from alerts.py)
+# ==============================================================================
+router_alerts = APIRouter()
 
-    # Simulate long polling
-    start_time = time.time()
-    while True:
-        # In a real app, this would be a more complex check. Here we just return everything.
-        if db["crawler_cycle"]["count"] > last_crawl_number:
-            return JSONResponse(
-                content={"alerts": db["alerts"], "current_crawl_number": db["crawler_cycle"]["count"]},
-                media_type="application/json"
-            )
-        if time.time() - start_time > 15:  # Reduced timeout for dummy
-            return JSONResponse(content={"error": "timeout"}, status_code=408)
-        time.sleep(2)
+@router_alerts.get("/alerts")
+@router_alerts.get("/get_all_alerts")
+def get_alerts(last_crawl_number: Optional[int] = None):
+    # Non-blocking immediate return for alerts
+    return JSONResponse(
+        content={"alerts": db["alerts"], "current_crawl_number": db["crawler_cycle"]["count"]},
+        media_type="application/json"
+    )
+
+@router_alerts.get("/get_all_alerts_status")
+def get_all_alerts_status():
+    return {"status": "ok", "count": len(db["alerts"])}
+
+@router_alerts.get("/get_all_alerts_severity")
+def get_all_alerts_severity():
+    return {"severities": [a.get("severityScore", 1) for a in db["alerts"]]}
 
 # ==============================================================================
 # CORE DEVICE ROUTES (from coredevice.py)
 # ==============================================================================
 router_coredevice = APIRouter()
 
+@router_coredevice.get("/get_core_devices")
+@router_coredevice.get("/coredevices")
+async def get_all_core_devices(current_user: dict = Depends(user_role_checker)):
+    return db["core_devices"]
+
 @router_coredevice.get("/coresite/{coresite_id}/coredevices")
-async def get_core_devices(coresite_id: int, current_user: dict = Depends(user_role_checker)):
+async def get_core_devices_by_coresite(coresite_id: int, current_user: dict = Depends(user_role_checker)):
     devices = [d for d in db["core_devices"] if d["coresite_id"] == coresite_id]
-    return [
-        {key: value for key, value in device.items() if key != 'coresite_id'}
-        for device in devices
-    ]
+    return devices
 
 @router_coredevice.get("/network/{network_id}/coresite/{coresite_id}/coredevices")
 async def get_coresite_coredevices_with_network(network_id: int, coresite_id: int):
@@ -118,12 +121,10 @@ async def get_coresite_coredevices_with_network(network_id: int, coresite_id: in
         d for d in db["core_devices"] 
         if d["coresite_id"] == coresite_id and network_id in d.get("network_ids", [])
     ]
-    return [
-        {key: value for key, value in device.items() if key != 'coresite_id'}
-        for device in devices
-    ]
+    return devices
 
 @router_coredevice.post("/admin/coredevice/create/")
+@router_coredevice.post("/add_core_device")
 async def create_coredevice_admin(coredevice: CoreDeviceCreate, current_user: dict = Depends(admin_role_checker)):
     if any(d["name"] == coredevice.name for d in db["core_devices"]):
         raise HTTPException(status_code=400, detail="coredevice already exists.")
@@ -132,22 +133,26 @@ async def create_coredevice_admin(coredevice: CoreDeviceCreate, current_user: di
     new_device = {
         "id": new_id,
         "name": coredevice.name,
+        "hostname": coredevice.name,
         "ip": coredevice.ip,
+        "ip_address": coredevice.ip,
         "coresite_id": coredevice.coresite_id,
-        "network_ids": []
+        "core_pikudim_site_id": coredevice.coresite_id,
+        "network_ids": [],
+        "network_type_id": 1,
     }
     db["core_devices"].append(new_device)
     return new_device
 
 @router_coredevice.delete("/admin/coredevice/delete/{coredevice_id}")
+@router_coredevice.delete("/delete_device/{coredevice_id}")
 async def delete_coredevice_admin(coredevice_id: int, current_user: dict = Depends(admin_role_checker)):
     device_to_delete = next((d for d in db["core_devices"] if d["id"] == coredevice_id), None)
     if not device_to_delete:
         raise HTTPException(status_code=404, detail='coredevice not found.')
     
-    # Simple check if associated, in real app this would be a DB query
     if any(coredevice_id in s.get("coredevice_ids", []) for s in db["sites"]):
-         raise HTTPException(status_code=400, detail="Coredevice is associated with coresite, cannot delete")
+         raise HTTPException(status_code=400, detail="Coredevice is associated with end-site, cannot delete")
 
     db["core_devices"] = [d for d in db["core_devices"] if d["id"] != coredevice_id]
     return {"message": "Coredevice deleted successfully"}
@@ -158,23 +163,24 @@ async def delete_coredevice_admin(coredevice_id: int, current_user: dict = Depen
 # ==============================================================================
 router_coresite = APIRouter()
 
-# This overrides the one in coredevice.py, but they have the same path. FastAPI uses the last one defined.
-@router_coresite.get("/coresite/{coresite_id}/coredevices")
-async def get_core_devices_for_site(coresite_id: int, current_user: dict = Depends(user_role_checker)):
-    devices = [d for d in db["core_devices"] if d["coresite_id"] == coresite_id]
-    return [{"id": dev["id"], "name": dev["name"], "ip": dev["ip"]} for dev in devices]
+@router_coresite.get("/get_core_pikudim")
+@router_coresite.get("/core_sites")
+async def get_all_core_sites(current_user: dict = Depends(user_role_checker)):
+    return db["core_sites"]
 
 @router_coresite.post("/admin/coresite/create/")
+@router_coresite.post("/add_core_pikudim")
 async def create_coresite_admin(coresite: CoreSiteCreate, current_user: dict = Depends(admin_role_checker)):
     if any(cs["name"] == coresite.name for cs in db["core_sites"]):
         raise HTTPException(status_code=400, detail="coresite already exists.")
     
     new_id = max(cs["id"] for cs in db["core_sites"]) + 1 if db["core_sites"] else 1
-    new_site = {"id": new_id, "name": coresite.name, "network_ids": []}
+    new_site = {"id": new_id, "name": coresite.name, "core_site_name": coresite.name, "network_ids": []}
     db["core_sites"].append(new_site)
     return new_site
 
 @router_coresite.delete("/admin/coresite/delete/{coresite_id}")
+@router_coresite.delete("/delete_core_pikudim/{coresite_id}")
 async def delete_coresite_admin(coresite_id: int, current_user: dict = Depends(admin_role_checker)):
     site_to_delete = next((cs for cs in db["core_sites"] if cs["id"] == coresite_id), None)
     if not site_to_delete:
@@ -192,8 +198,9 @@ async def delete_coresite_admin(coresite_id: int, current_user: dict = Depends(a
 router_network = APIRouter()
 
 @router_network.get("/networks/")
+@router_network.get("/get_net_types")
 async def get_networks(current_user: dict = Depends(user_role_checker)):
-    return [{"id": n["id"], "name": n["name"]} for n in db["networks"]]
+    return db["networks"]
 
 @router_network.get("/network/{network_id}/coresites")
 async def get_network_coresites(network_id: int, current_user: dict = Depends(user_role_checker)):
@@ -201,6 +208,7 @@ async def get_network_coresites(network_id: int, current_user: dict = Depends(us
     return [{"id": s["id"], "name": s["name"]} for s in sites]
 
 @router_network.post("/admin/network/create/")
+@router_network.post("/add_net_type")
 async def create_network_admin(network: NetworkCreate, current_user: dict = Depends(admin_role_checker)):
     if any(n["name"] == network.name for n in db["networks"]):
         raise HTTPException(status_code=400, detail="network already exists.")
@@ -211,6 +219,7 @@ async def create_network_admin(network: NetworkCreate, current_user: dict = Depe
     return new_network
 
 @router_network.delete("/admin/network/delete/{network_id}")
+@router_network.delete("/delete_net_type/{network_id}")
 async def delete_network_admin(network_id: int, current_user: dict = Depends(admin_role_checker)):
     if not any(n["id"] == network_id for n in db["networks"]):
          raise HTTPException(status_code=404, detail='network not found.')
@@ -287,6 +296,7 @@ async def delete_favorite_link(link_id: int, current_user: dict = Depends(user_r
         return {"message": "Link removed from favorites successfully"}
     raise HTTPException(status_code=404, detail="Link or user not found")
 
+@router_link.get("/get_ten_gig_lines")
 @router_link.get("/links/topology")
 def get_links_with_neighbors():
     return db["links"]
@@ -308,9 +318,10 @@ async def get_sites_of_coredevice(coredevice_id: int, current_user: dict = Depen
     sites = [s for s in db["sites"] if coredevice_id in s["coredevice_ids"]]
     return sites
 
+@router_site.get("/get_sites")
 @router_site.get("/sites", response_model=List[dict])
 async def get_all_sites(current_user: dict = Depends(user_role_checker)):
-    return [{"id": str(s["id"]), "name": s["name"]} for s in db["sites"]]
+    return [{"id": s["id"], "name": s["name"]} for s in db["sites"]]
 
 @router_site.post("/site/{site_id}/set-topology")
 async def set_topology(site_id: int, current_user: dict = Depends(user_role_checker)):

@@ -318,16 +318,18 @@ export function AlertsPage() {
       const updatedAlert = allAlerts.find((a) => a.id === selectedAlert.id);
 
       if (updatedAlert) {
-        // If the alert still exists, update our local state to match it.
-        // This is important for seeing the "favorite" star change instantly.
-        setSelectedAlert(updatedAlert);
+        // Only update local state if the object reference has changed
+        if (updatedAlert !== selectedAlert) {
+          setSelectedAlert(updatedAlert);
+        }
       } else {
         // If the alert is not found, it means it was deleted.
-        // We should close the modal automatically.
-        handleCloseModal();
+        setIsModalOpen(false);
+        setSelectedAlert(null);
       }
     }
-  }, [allAlerts, selectedAlert]); // <-- The corrected dependency array
+  }, [allAlerts, selectedAlert]);
+ // <-- The corrected dependency array
 
   // NEW: Step 1 - Sort the alerts first
   const sortedAlerts = useMemo(() => {

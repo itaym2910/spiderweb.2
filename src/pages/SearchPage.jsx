@@ -6,104 +6,22 @@ import {
   MdErrorOutline,
 } from "react-icons/md";
 
-// Mock data remains the same
-const allItems = [
-  {
-    id: 9,
-    type: "Core Device",
-    name: "Router-NYC-01",
-    model: "ASR9K",
-    location: "New York DC",
-    ipAddress: "10.1.1.1",
-  },
-  {
-    id: 10,
-    type: "Core Device",
-    name: "Switch-LDN-CORE-A",
-    model: "NCS5500",
-    location: "London Core",
-    ipAddress: "10.2.2.1",
-  },
-  {
-    id: 15,
-    type: "Core Device",
-    name: "Firewall-Global-Edge",
-    model: "ASA5525",
-    location: "DMZ",
-    ipAddress: "192.168.100.1",
-  },
-  {
-    id: 11,
-    type: "Site",
-    name: "Headquarters",
-    address: "123 Main St, Anytown",
-    country: "USA",
-    siteId: "HQ-001",
-  },
-  {
-    id: 12,
-    type: "Site",
-    name: "Branch Office Paris",
-    address: "1 Rue de la Paix, Paris",
-    country: "France",
-    siteId: "PAR-BR-002",
-  },
-  {
-    id: 13,
-    type: "Link",
-    name: "NYC-LDN-Primary",
-    source: "Router-NYC-01",
-    target: "Router-LDN-01",
-    bandwidth: "100G",
-    linkId: "LNK-NYC-LDN-001",
-  },
-  {
-    id: 14,
-    type: "Link",
-    name: "HQ-Backbone-A",
-    source: "HQ-Switch-01",
-    target: "Backbone-Router-A",
-    status: "Up",
-    linkId: "LNK-HQ-BB-007",
-  },
-  {
-    id: 3,
-    type: "Document",
-    title: "Project Alpha Report",
-    category: "Reports",
-  },
-  {
-    id: 4,
-    type: "Document",
-    title: "Quarterly Financials",
-    category: "Finance",
-  },
-  {
-    id: 8,
-    type: "Document",
-    title: "Marketing Plan Q3",
-    category: "Marketing",
-  },
-  {
-    id: 5,
-    type: "Task",
-    description: "Update core device Router-NYC-01 firmware",
-    status: "In Progress",
-  },
-];
+
+
+import { useSelector } from "react-redux";
+import { selectAllDevices } from "../redux/slices/devicesSlice";
+import { selectAllSites } from "../redux/slices/sitesSlice";
+import { selectAllTenGigLinks } from "../redux/slices/tenGigLinksSlice";
 
 const itemTypes = [
   "All Types",
   "Core Device",
   "Site",
   "Link",
-  "Document",
-  "Task",
 ];
 
 // --- NEW STYLED COMPONENT ---
 const SearchResultCard = ({ item }) => {
-  // Helper function to render details cleanly
   const renderDetail = (label, value) => {
     if (!value) return null;
     return (
@@ -127,29 +45,57 @@ const SearchResultCard = ({ item }) => {
       <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 text-sm space-y-1">
         {renderDetail("Description", item.description)}
         {renderDetail("IP Address", item.ipAddress)}
-        {renderDetail("Location", item.location)}
-        {renderDetail("Model", item.model)}
-        {renderDetail("Site ID", item.siteId)}
-        {renderDetail("Address", item.address)}
-        {renderDetail("Country", item.country)}
-        {renderDetail("Link ID", item.linkId)}
-        {renderDetail("Source", item.source)}
-        {renderDetail("Target", item.target)}
+        {renderDetail("Location / Site", item.location)}
+        {renderDetail("Source Device", item.source)}
+        {renderDetail("Target Device", item.target)}
         {renderDetail("Bandwidth", item.bandwidth)}
         {renderDetail("Status", item.status)}
-        {renderDetail("Category", item.category)}
       </div>
     </div>
   );
 };
 
-// --- STYLES UPDATED ---
 function SearchPage() {
+  const devices = useSelector(selectAllDevices);
+  const sites = useSelector(selectAllSites);
+  const links = useSelector(selectAllTenGigLinks);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState(itemTypes[0]);
   const [searchResults, setSearchResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+
+  const allItems = React.useMemo(() => {
+    const devItems = devices.map((d) => ({
+      id: `dev-${d.id}`,
+      type: "Core Device",
+      name: d.hostname || d.name,
+      ipAddress: d.ip_address || d.ip,
+      description: `Core Device ID: ${d.id}`,
+    }));
+
+    const siteItems = sites.map((s) => ({
+      id: `site-${s.id}`,
+      type: "Site",
+      name: s.site_name_english || s.name,
+      description: s.Description || `Interface: ${s.interface_id}`,
+      status: s.physicalStatus || "Up",
+    }));
+
+    const linkItems = links.map((l) => ({
+      id: `link-${l.id}`,
+      type: "Link",
+      name: `Link ${l.source} <-> ${l.target}`,
+      source: l.source,
+      target: l.target,
+      bandwidth: l.bandwidth || l.bw || "10G",
+      status: l.status,
+      description: l.Description || "Core Inter-Site Link",
+    }));
+
+    return [...devItems, ...siteItems, ...linkItems];
+  }, [devices, sites, links]);
 
   const handleSearch = (e) => {
     if (e) e.preventDefault();
@@ -160,7 +106,6 @@ function SearchPage() {
     }
     setIsLoading(true);
     setHasSearched(true);
-    // Simulate API call
     setTimeout(() => {
       const queryLower = searchQuery.toLowerCase();
       const filteredResults = allItems.filter((item) => {
@@ -175,7 +120,7 @@ function SearchPage() {
       });
       setSearchResults(filteredResults);
       setIsLoading(false);
-    }, 500);
+    }, 200);
   };
 
   useEffect(() => {

@@ -50,21 +50,21 @@ export function AppInitializer({ children }) {
     }
   }, [isIdle, isSuccessful, dispatch]);
 
-  // --- NEW: Effect for periodic alert polling ---
+  // --- NEW: Effect for immediate and periodic alert polling ---
   useEffect(() => {
     let intervalId;
 
     // Start polling only when the core application data has successfully loaded.
     if (isSuccessful) {
+      // Fetch alerts immediately on initial load
+      dispatch(fetchAllAlerts());
+
       // Set up the interval to dispatch the fetch action every 30 seconds.
       intervalId = setInterval(() => {
         dispatch(fetchAllAlerts());
       }, 30000); // 30,000 milliseconds = 30 seconds
     }
 
-    // This is a cleanup function. React runs it when the component unmounts
-    // or when the 'isSuccessful' dependency changes before re-running the effect.
-    // This prevents memory leaks and duplicate intervals.
     return () => {
       if (intervalId) {
         clearInterval(intervalId);

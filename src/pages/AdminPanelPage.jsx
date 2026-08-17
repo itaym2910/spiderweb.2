@@ -182,9 +182,9 @@ export function AdminPanelPage() {
                 e,
                 addCoreSite,
                 {
-                  name: coreSiteData.name, // Changed from core_site_name
-                  site_type_id: parseInt(coreSiteData.type_id, 10), // Changed from type_id
-                  // "location" is removed as it's not in the backend spec
+                  name: coreSiteData.name,
+                  core_site_name: coreSiteData.name,
+                  type_id: parseInt(coreSiteData.type_id, 10),
                 },
                 `Core Site "${coreSiteData.name}" submitted!`,
                 () => setCoreSiteData({ name: "", type_id: "" })
@@ -236,10 +236,13 @@ export function AdminPanelPage() {
                 e,
                 addCoreDevice,
                 {
+                  name: coreDeviceData.hostname,
                   hostname: coreDeviceData.hostname,
-                  ip: coreDeviceData.ip_address, // Changed from ip_address
-                  device_net_type: parseInt(coreDeviceData.network_type_id, 10), // Changed from network_type_id
-                  site_id: parseInt(coreDeviceData.core_pikudim_site_id, 10), // Changed from core_pikudim_site_id
+                  ip: coreDeviceData.ip_address,
+                  ip_address: coreDeviceData.ip_address,
+                  coresite_id: parseInt(coreDeviceData.core_pikudim_site_id, 10),
+                  core_pikudim_site_id: parseInt(coreDeviceData.core_pikudim_site_id, 10),
+                  network_type_id: parseInt(coreDeviceData.network_type_id, 10),
                 },
                 `Device "${coreDeviceData.hostname}" submitted!`,
                 () =>
