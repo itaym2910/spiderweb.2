@@ -52,18 +52,23 @@ const NetworkVisualizerWrapper = ({ theme }) => {
   );
   const linksRaw = useSelector((state) => selectLinksByTypeId(state, 1));
 
-  // The `useMemo` for graphData is unchanged and correct
+  const deviceMapById = useMemo(() => {
+    return new Map(allDevicesForType.map((d) => [d.id, d]));
+  }, [allDevicesForType]);
+
   const graphData = useMemo(() => {
     if (!pikudim.length || !allDevicesForType.length) {
       return { nodes: [], links: [] };
     }
 
     const devicesByPikudId = allDevicesForType.reduce((acc, device) => {
-      const siteId = device.core_pikudim_site_id;
-      if (!acc[siteId]) {
-        acc[siteId] = [];
+      const siteId = device.core_pikudim_site_id || device.coresite_id;
+      if (siteId !== undefined) {
+        if (!acc[siteId]) {
+          acc[siteId] = [];
+        }
+        acc[siteId].push(device);
       }
-      acc[siteId].push(device);
       return acc;
     }, {});
 
@@ -72,36 +77,54 @@ const NetworkVisualizerWrapper = ({ theme }) => {
     );
 
     const visibleDeviceHostnames = new Set(
-      topDevicesPerPikud.map((d) => d.hostname)
+      topDevicesPerPikud.map((d) => d.hostname || d.name)
     );
 
     const pikudimMap = pikudim.reduce((acc, p) => {
       acc[p.id] = p;
       return acc;
     }, {});
-    const transformedNodes = topDevicesPerPikud.map((device) => ({
-      id: device.hostname,
-      group: "node",
-      zone:
-        pikudimMap[device.core_pikudim_site_id]?.core_site_name ||
-        "Unknown Zone",
-    }));
+
+    const transformedNodes = topDevicesPerPikud.map((device) => {
+      const siteId = device.core_pikudim_site_id || device.coresite_id;
+      const zoneName =
+        pikudimMap[siteId]?.core_site_name ||
+        pikudimMap[siteId]?.name ||
+        `Zone ${siteId}`;
+
+      return {
+        id: device.hostname || device.name,
+        group: "node",
+        zone: zoneName,
+      };
+    });
 
     const transformedLinks = linksRaw
+      .map((link) => {
+        const sourceDev = deviceMapById.get(link.coredevice_id);
+        const targetDev = deviceMapById.get(link.neighbor_coredevice_id);
+        const sourceName =
+          link.source || sourceDev?.hostname || sourceDev?.name;
+        const targetName =
+          link.target || targetDev?.hostname || targetDev?.name;
+
+        return {
+          id: link.id,
+          source: sourceName,
+          target: targetName,
+          category: link.physical_status || link.status || "Up",
+        };
+      })
       .filter(
         (link) =>
+          link.source &&
+          link.target &&
           visibleDeviceHostnames.has(link.source) &&
           visibleDeviceHostnames.has(link.target)
-      )
-      .map((link) => ({
-        id: link.id,
-        source: link.source,
-        target: link.target,
-        category: link.status,
-      }));
+      );
 
     return { nodes: transformedNodes, links: transformedLinks };
-  }, [pikudim, allDevicesForType, linksRaw]);
+  }, [pikudim, allDevicesForType, linksRaw, deviceMapById]);
 
   // All handlers are unchanged
   const handleZoneClick = useCallback(

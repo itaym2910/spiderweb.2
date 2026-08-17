@@ -2,47 +2,51 @@ import { useMemo, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 
 // --- Redux Imports ---
-// Selectors for raw data sources
 import { selectAllSites } from "../redux/slices/sitesSlice";
 import { selectAllTenGigLinks } from "../redux/slices/tenGigLinksSlice";
 import { selectAllDevices } from "../redux/slices/devicesSlice";
-// Selector and Action for the shared "favorites" state
 import {
   selectFavoriteIds,
-  toggleFavoriteLink, // <-- FIX #1: Use the correct name for the exported thunk
-} from "../redux/slices/favoritesSlice"; // <-- Make sure the file extension is correct (.js or .jsx)
+  toggleFavoriteLink,
+} from "../redux/slices/favoritesSlice";
 
 /**
  * The "Single Source of Truth" Hook for all network connections.
- * ... (rest of the JSDoc)
+ * Merges backend sites data and 10G trunk links into a unified schema for table display.
  */
 export function useInterfaceData() {
-  // Get the dispatch function to send actions to the Redux store
   const dispatch = useDispatch();
 
-  // --- Step 1: Get all data from the global Redux store using selectors ---
+  // 1. Get raw data from Redux store
   const allSites = useSelector(selectAllSites);
   const allTenGigLinks = useSelector(selectAllTenGigLinks);
   const allDevices = useSelector(selectAllDevices);
-
-  // This gets the favorite IDs as a plain array, e.g., ['id-1', 'id-2']
   const favoriteIds = useSelector(selectFavoriteIds);
 
-  // --- Step 2: Create efficient lookup maps (memoized for performance) ---
-  const deviceMap = useMemo(
-    () => new Map(allDevices.map((d) => [d.id, d])),
-    [allDevices]
-  );
-
-  // --- NEW: Create a clean list of device names for the filter dropdown ---
-  const deviceFilterOptions = useMemo(() => {
-    // Get hostnames from the source of truth: allDevices
-    const hostnames = allDevices.map((device) => device.hostname);
-    // Add the "all" option and sort the list for a clean UI
-    return ["all", ...hostnames.sort()];
+  // 2. Create device lookup map
+  const deviceMap = useMemo(() => {
+    const map = new Map();
+    if (Array.isArray(allDevices)) {
+      allDevices.forEach((d) => {
+        if (d && d.id !== undefined) {
+          map.set(d.id, d);
+        }
+      });
+    }
+    return map;
   }, [allDevices]);
 
-  // Deterministic helper to avoid random data changes when favoriteIds updates
+  // 3. Create list of device options for filter dropdown
+  const deviceFilterOptions = useMemo(() => {
+    if (!Array.isArray(allDevices)) return ["all"];
+    const hostnames = allDevices
+      .map((device) => device.hostname || device.name)
+      .filter(Boolean);
+    const uniqueHostnames = Array.from(new Set(hostnames)).sort();
+    return ["all", ...uniqueHostnames];
+  }, [allDevices]);
+
+  // Fallback deterministic value generator for unpopulated metrics
   const getDeterministicVal = (id, salt, min, max, isFloat = false) => {
     let hash = 0;
     const str = `${id}-${salt}`;
@@ -58,42 +62,105 @@ export function useInterfaceData() {
     return min + (val % (max - min + 1));
   };
 
-  // --- Step 3: Transform, combine, and merge all data (the core logic) ---
+  // 4. Transform and merge data from backend endpoints
   const rawLinks = useMemo(() => {
-    // --- A. Transform Site Connections into the common format ---
-    const siteConnections = allSites.map((site) => {
-      const device = deviceMap.get(site.device_id);
-      const siteKey = `site-${site.id}-${site.device_id}`;
-      return {
-        id: siteKey,
-        deviceName: device?.hostname || device?.name || "Unknown Device",
-        interfaceName: `Port ${site.interface_id}`,
-        description: `Connection to site: ${site.site_name_english}`,
-        status: "Up",
-        trafficIn: `${getDeterministicVal(siteKey, "tIn", 10, 800)} Mbps`,
-        trafficOut: `${getDeterministicVal(siteKey, "tOut", 10, 800)} Mbps`,
-        errors: {
-          in: getDeterministicVal(siteKey, "errIn", 0, 5),
-          out: getDeterministicVal(siteKey, "errOut", 0, 2),
-        },
-      };
-    });
+    // --- A. Transform Site Connections ---
+    const siteConnections = (Array.isArray(allSites) ? allSites : []).map(
+      (site) => {
+        const device = site.device_id ? deviceMap.get(site.device_id) : null;
+        const siteKey = `site-${site.id || Math.random()}`;
+        const siteName =
+          site.site_name_english ||
+          site.name ||
+          site.site_name ||
+          `Site ${site.id}`;
+        const deviceName =
+          device?.hostname ||
+          device?.name ||
+          site.deviceName ||
+          "Core Device";
+        const interfaceName = site.interface_id
+          ? `Port ${site.interface_id}`
+          : site.interfaceName || `Port ${site.id}`;
+        const rawStatus = site.physicalStatus || site.status || "Up";
 
-    // B. Transform 10-Gigabit Core Links into the common format
-    const tenGigCoreLinks = allTenGigLinks.map((link) => {
+        return {
+          id: siteKey,
+          deviceName,
+          interfaceName,
+          description: site.description || `Connection to site: ${siteName}`,
+          status: rawStatus === "Issue" ? "Down" : rawStatus,
+          trafficIn:
+            site.trafficIn ||
+            `${getDeterministicVal(siteKey, "tIn", 10, 800)} Mbps`,
+          trafficOut:
+            site.trafficOut ||
+            `${getDeterministicVal(siteKey, "tOut", 10, 800)} Mbps`,
+          errors: {
+            in: Number(
+              site.input_errors ??
+                site.errors?.in ??
+                getDeterministicVal(siteKey, "errIn", 0, 5)
+            ),
+            out: Number(
+              site.output_errors ??
+                site.errors?.out ??
+                getDeterministicVal(siteKey, "errOut", 0, 2)
+            ),
+          },
+        };
+      }
+    );
+
+    // --- B. Transform 10-Gigabit Core Links ---
+    const tenGigCoreLinks = (
+      Array.isArray(allTenGigLinks) ? allTenGigLinks : []
+    ).map((link) => {
+      const rawStatus = link.physical_status || link.status || "Up";
       const formattedStatus =
-        link.status.charAt(0).toUpperCase() + link.status.slice(1);
+        typeof rawStatus === "string" && rawStatus.length > 0
+          ? rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1)
+          : "Up";
+
+      const sourceDevice = deviceMap.get(link.coredevice_id);
+      const targetDevice = deviceMap.get(link.neighbor_coredevice_id);
+
+      const sourceName =
+        link.source ||
+        sourceDevice?.hostname ||
+        sourceDevice?.name ||
+        `Device-${link.coredevice_id || "A"}`;
+      const targetName =
+        link.target ||
+        targetDevice?.hostname ||
+        targetDevice?.name ||
+        `Device-${link.neighbor_coredevice_id || "B"}`;
+
+      const linkId = String(link.id ?? `link-${Math.random()}`);
+
       return {
-        id: link.id,
-        deviceName: `${link.source} <-> ${link.target}`,
-        interfaceName: `10G Inter-Core Link`,
-        description: `Inter-site trunk (${link.bandwidth})`,
+        id: linkId,
+        deviceName: `${sourceName} <-> ${targetName}`,
+        interfaceName: link.espf_interface_address
+          ? `10G (${link.espf_interface_address})`
+          : `10G Inter-Core Link`,
+        description:
+          link.description ||
+          `Inter-site trunk (${link.bandwidth || link.bw || "10G"})`,
         status: formattedStatus === "Issue" ? "Down" : formattedStatus,
-        trafficIn: `${getDeterministicVal(link.id, "tIn", 1, 9, true)} Gbps`,
-        trafficOut: `${getDeterministicVal(link.id, "tOut", 1, 9, true)} Gbps`,
+        trafficIn:
+          link.input_rate ||
+          `${getDeterministicVal(linkId, "tIn", 1, 9, true)} Gbps`,
+        trafficOut:
+          link.output_rate ||
+          `${getDeterministicVal(linkId, "tOut", 1, 9, true)} Gbps`,
         errors: {
-          in: getDeterministicVal(link.id, "errIn", 0, 20),
-          out: getDeterministicVal(link.id, "errOut", 0, 15),
+          in: Number(
+            link.input_errors ?? getDeterministicVal(linkId, "errIn", 0, 20)
+          ),
+          out: Number(
+            link.output_errors ?? getDeterministicVal(linkId, "errOut", 0, 15)
+          ),
         },
       };
     });
@@ -101,22 +168,22 @@ export function useInterfaceData() {
     return [...siteConnections, ...tenGigCoreLinks];
   }, [allSites, allTenGigLinks, deviceMap]);
 
+  // 5. Inject favorite flag based on Redux favorite IDs
   const interfaces = useMemo(() => {
+    const favSet = new Set(Array.isArray(favoriteIds) ? favoriteIds : []);
     return rawLinks.map((link) => ({
       ...link,
-      isFavorite: favoriteIds.includes(link.id),
+      isFavorite: favSet.has(link.id) || favSet.has(Number(link.id)),
     }));
   }, [rawLinks, favoriteIds]);
 
-  // --- Step 4: Create a stable function to handle user actions ---
+  // 6. Action handler
   const handleToggleFavorite = useCallback(
     (linkId) => {
-      // FIX #2: Dispatch the async thunk with the correct name
       dispatch(toggleFavoriteLink(linkId));
     },
     [dispatch]
   );
 
-  // --- Step 5: Return the final data and the action handler ---
   return { interfaces, handleToggleFavorite, deviceFilterOptions };
 }

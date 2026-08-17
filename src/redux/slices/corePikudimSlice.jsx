@@ -7,27 +7,7 @@ import {
 // import { apiService } from "../../services/apiService";
 import { initialData } from "../initialData";
 
-//import { api } from "../../services/apiServices"; // <-- 1. Import the real api
-
-// --- MOCK API ---
-const mockApi = {
-  getCorePikudim: async () => {
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    return initialData.corePikudim;
-  },
-  // Mocks for the new operations
-  addCoreSite: async (siteData) => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    console.log("Mock API: Adding site...", siteData);
-    // In a real API, you'd get the newly created object back
-    return { ...siteData, id: Date.now(), timestamp: new Date().toISOString() };
-  },
-  deleteCoreSite: async (siteId) => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    console.log("Mock API: Deleting site with ID:", siteId);
-    return { success: true };
-  },
-};
+import { api } from "../../services/apiServices";
 
 // --- ASYNC THUNKS ---
 
@@ -36,12 +16,10 @@ export const fetchCorePikudim = createAsyncThunk(
   "corePikudim/fetchCorePikudim",
   async (_, { rejectWithValue }) => {
     try {
-      // const response = await apiService.getCorePikudim();
-      const response = await mockApi.getCorePikudim();
-      //const response = await api.getCorePikudim(); // <-- 2. Use real api
+      const response = await api.getCorePikudim();
       return response;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error.message || "Failed to fetch core sites");
     }
   }
 );
@@ -130,7 +108,14 @@ export const selectPikudimByTypeId = createSelector(
   [selectPikudimItems, selectTypeId],
   (pikudim, typeId) => {
     if (!typeId) return [];
-    return pikudim.filter((p) => p.type_id === typeId);
+    return pikudim.filter((p) => {
+      if (p.type_id !== undefined) return p.type_id === typeId;
+      if (p.network_type_id !== undefined) return p.network_type_id === typeId;
+      if (Array.isArray(p.network_ids) && p.network_ids.length > 0) {
+        return p.network_ids.includes(typeId);
+      }
+      return true;
+    });
   }
 );
 

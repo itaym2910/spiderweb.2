@@ -7,29 +7,19 @@ import {
 } from "@reduxjs/toolkit";
 import { initialData } from "../initialData";
 
-//import { api } from "../../services/apiServices"; // <-- 1. Import the real api
-
-// --- MOCK API: Mimics the real API call using dummy data ---
-const mockApi = {
-  getTenGigLinks: async () => {
-    // Simulate a network delay for a realistic loading experience
-    await new Promise((resolve) => setTimeout(resolve, 350));
-    // The data from initialData.tenGigLinks is now enriched
-    return initialData.tenGigLinks;
-  },
-};
+import { api } from "../../services/apiServices";
 
 // --- ASYNC THUNK: For fetching the 10-Gigabit links ---
 export const fetchTenGigLinks = createAsyncThunk(
   "tenGigLinks/fetchTenGigLinks",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await mockApi.getTenGigLinks();
-      // Note: Using 'getTenGigLines' to match the function name in api.js
-      //const response = await api.getTenGigLines(); // <-- 2. Import the real api
+      const response = await api.getTenGigLines();
       return response;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(
+        error.message || "Failed to fetch 10-Gigabit links"
+      );
     }
   }
 );
@@ -117,7 +107,11 @@ export const selectLinksByTypeId = createSelector(
   [selectLinkItems, selectTypeIdFromLink],
   (links, typeId) => {
     if (!typeId) return [];
-    return links.filter((l) => l.network_type_id === typeId);
+    return links.filter((l) => {
+      if (l.network_type_id !== undefined) return l.network_type_id === typeId;
+      if (l.type_id !== undefined) return l.type_id === typeId;
+      return true;
+    });
   }
 );
 

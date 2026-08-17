@@ -2,74 +2,41 @@
 
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
-//import { api } from "../../services/apiServices"; // <-- 1. Import the real api
-
-// --- MOCK API: Simulates fetching/updating favorites on the server ---
-// This will be replaced by the real `api` calls.
-const mockApi = {
-  getFavoriteLinks: async () => {
-    // Simulate a network delay
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    // In a real scenario, the server would return the user's saved favorites.
-    // For the mock, we'll start with a few predefined favorites.
-    return ["link-10g-hYpWqRz2", "link-10g-aB3cVfG9", "link-10g-kLp0oXn4"];
-  },
-  updateFavoriteLinks: async (linkIds) => {
-    // Simulate a network delay for the update operation
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    console.log("[Mock API] Updated favorite links on server:", linkIds);
-    // Real API would return a success message or the updated list.
-    return { success: true, updatedIds: linkIds };
-  },
-};
+import { api } from "../../services/apiServices";
 
 // --- ASYNC THUNKS ---
 
-/**
- * Thunk to fetch the user's initial list of favorite link IDs.
- * This should be dispatched after a successful login.
- */
 export const fetchFavoriteLinks = createAsyncThunk(
   "favorites/fetchFavoriteLinks",
   async (_, { rejectWithValue }) => {
     try {
-      // LATER: Change this to `const response = await api.getFavoriteLinks();`
-      const response = await mockApi.getFavoriteLinks();
-      //const response = await api.getFavoriteLinks(); // <-- 2. Import the real api
-      return response;
+      const response = await api.getFavoriteLinks();
+      return Array.isArray(response) ? response : response?.link_ids || [];
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(
+        error.message || "Failed to fetch favorite links"
+      );
     }
   }
 );
 
-/**
- * Thunk to toggle a single favorite link.
- * It uses an "optimistic update" pattern for a fast and responsive UI.
- * 1. It immediately updates the local state (optimistic).
- * 2. It sends the update to the server.
- * 3. If the server fails, it reverts the local state change.
- */
 export const toggleFavoriteLink = createAsyncThunk(
   "favorites/toggleFavoriteLink",
   async (linkId, { getState, rejectWithValue }) => {
     const { ids: currentIds } = getState().favorites;
     const isCurrentlyFavorite = currentIds.includes(linkId);
 
-    // Create the new array of IDs that will be sent to the server.
     const newIds = isCurrentlyFavorite
       ? currentIds.filter((id) => id !== linkId)
       : [...currentIds, linkId];
 
     try {
-      // LATER: Change this to `await api.updateFavoriteLinks(newIds);`
-      await mockApi.updateFavoriteLinks(newIds);
-      // Return the successfully updated array to the `fulfilled` reducer.
-      //await api.updateFavoriteLinks(newIds); // <-- 3. Import the real api
+      await api.updateFavoriteLinks(newIds);
       return newIds;
     } catch (error) {
-      // If the API call fails, rejectWithValue will pass the error to the `rejected` reducer.
-      return rejectWithValue(error.message);
+      return rejectWithValue(
+        error.message || "Failed to update favorite link"
+      );
     }
   }
 );

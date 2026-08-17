@@ -5,23 +5,7 @@ import {
 } from "@reduxjs/toolkit";
 import { initialData } from "../initialData";
 
-//import { api } from "../../services/apiServices"; // <-- 1. Import the real api
-
-// --- MOCK API: Mimics the real API call using dummy data ---
-// This isolates the data source, preparing it for the real API.
-const mockApi = {
-  getCoreDevices: async () => {
-    // Simulate a network delay
-    await new Promise((resolve) => setTimeout(resolve, 250));
-
-    // The real API might return devices and deviceInfo separately.
-    // For this mock, we'll bundle them to populate the initial state easily.
-    return {
-      devices: initialData.coreDevices,
-      deviceInfo: initialData.deviceInfo,
-    };
-  },
-};
+import { api } from "../../services/apiServices";
 
 // --- ASYNC THUNK: For fetching the devices and their info ---
 export const fetchDevices = createAsyncThunk(
@@ -29,31 +13,13 @@ export const fetchDevices = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       // LATER: When you're ready for the real API, you will change this line to:
-      // const response = await api.getCoreDevices();
-      // And you might need another call for deviceInfo if it's a separate endpoint.
-      const response = await mockApi.getCoreDevices();
-      return response;
-
-      // Step 1: Fetch the list of all core devices
-      //const devices = await api.getCoreDevices();
-
-      /*// Step 2: For each device, fetch its detailed interface info
-      const deviceInfoPromises = devices.map(device =>
-        api.getDeviceInfo(device.id)
-      );
-      const allDeviceInfoArrays = await Promise.all(deviceInfoPromises);
-      
-      // Step 3: Combine the device info arrays into a single map object
-      const deviceInfo = allDeviceInfoArrays.reduce((acc, infoArray, index) => {
-        const deviceId = devices[index].id;
-        acc[deviceId] = infoArray;
-        return acc;
-      }, {});
-
-      // Step 4: Return the combined payload, matching the slice's expected shape
-      return { devices, deviceInfo };*/
+      const devices = await api.getCoreDevices();
+      return {
+        devices: Array.isArray(devices) ? devices : devices?.devices || [],
+        deviceInfo: devices?.deviceInfo || {},
+      };
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error.message || "Failed to fetch core devices");
     }
   }
 );
@@ -113,7 +79,14 @@ export const selectDevicesByTypeId = createSelector(
   [selectDeviceItems, selectTypeIdFromDevice],
   (devices, typeId) => {
     if (!typeId) return [];
-    return devices.filter((d) => d.network_type_id === typeId);
+    return devices.filter((d) => {
+      if (d.network_type_id !== undefined) return d.network_type_id === typeId;
+      if (d.type_id !== undefined) return d.type_id === typeId;
+      if (Array.isArray(d.network_ids) && d.network_ids.length > 0) {
+        return d.network_ids.includes(typeId);
+      }
+      return true;
+    });
   }
 );
 

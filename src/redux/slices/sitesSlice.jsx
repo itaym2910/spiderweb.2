@@ -7,29 +7,17 @@ import {
 } from "@reduxjs/toolkit";
 import { initialData } from "../initialData";
 
-//import { api } from "../../services/apiServices"; // <-- 1. Import the real api
-
-// --- MOCK API: Mimics the real API call using dummy data ---
-// This isolates the data source, making it easy to swap for the real API later.
-const mockApi = {
-  getSites: async () => {
-    // Simulate a network delay for a realistic loading experience
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    // The data from initialData.sites is now enriched with more fields.
-    return initialData.sites;
-  },
-};
+import { api } from "../../services/apiServices";
 
 // --- ASYNC THUNK: For fetching the sites ---
 export const fetchSites = createAsyncThunk(
   "sites/fetchSites",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await mockApi.getSites();
-      //const response = await api.getSites(); // <-- 2. Import the real api
+      const response = await api.getSites();
       return response;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error.message || "Failed to fetch sites");
     }
   }
 );

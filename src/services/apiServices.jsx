@@ -3,7 +3,7 @@ import Cookies from "js-cookie";
 
 // --- Configuration ---
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+  import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 //REACT_APP_API_URL=http://your-backend-api.com/api (instead of VITE_API_URL || "http://localhost:8000/api";)
 
