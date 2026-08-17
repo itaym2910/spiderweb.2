@@ -163,6 +163,11 @@ function AppLayout() {
     );
   };
 
+  const isNonScrollablePage =
+    location.pathname.startsWith("/all_interfaces") ||
+    location.pathname.startsWith("/l-chart") ||
+    location.pathname.startsWith("/p-chart");
+
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-950 text-gray-800 dark:text-gray-100 transition-colors overflow-hidden">
       {!isFullscreen && (
@@ -172,7 +177,7 @@ function AppLayout() {
           setCollapsed={setIsSidebarCollapsed}
         />
       )}
-      <main className="flex-1 flex flex-col relative">
+      <main className="flex-1 flex flex-col relative overflow-hidden">
         <header
           className={`bg-white dark:bg-gray-800 shrink-0 flex items-center gap-4 ${
             isFullscreen ? "p-4 border-b dark:border-gray-700" : "p-4 shadow-sm"
@@ -181,7 +186,7 @@ function AppLayout() {
           <h1
             className={`text-2xl shrink-0 ${
               isFullscreen
-                ? "font-extrabold text-white tracking-wide" // <-- This line is changed
+                ? "font-extrabold text-white tracking-wide"
                 : "font-semibold text-gray-900 dark:text-white"
             }`}
           >
@@ -196,17 +201,12 @@ function AppLayout() {
                 className="w-full md:w-[750px] lg:w-[800px]"
               >
                 <TabsList className="grid-cols-5">
-                  <TabsTrigger
-                    value="favorites"
-                    className="flex items-center gap-1.5"
-                  >
-                    <Star className="h-4 w-4 text-yellow-500" /> Favorites
-                  </TabsTrigger>
+                  <TabsTrigger value="favorites">Favorites</TabsTrigger>
                   <TabsTrigger value="all_interfaces">
                     All Interfaces
                   </TabsTrigger>
-                  <TabsTrigger value="l_network">L-chart</TabsTrigger>
-                  <TabsTrigger value="p_network">P-chart</TabsTrigger>
+                  <TabsTrigger value="l_network">L Network</TabsTrigger>
+                  <TabsTrigger value="p_network">P Network</TabsTrigger>
                   <TabsTrigger value="site">Site</TabsTrigger>
                 </TabsList>
               </Tabs>
@@ -228,9 +228,11 @@ function AppLayout() {
           </div>
         </header>
 
-        {/* Scrollable main content area */}
+        {/* Main content area: overflow-hidden for pages with internal scrollbars */}
         <div
-          className={`flex-1 min-h-0 overflow-y-auto ${
+          className={`flex-1 min-h-0 ${
+            isNonScrollablePage ? "overflow-hidden flex flex-col" : "overflow-y-auto"
+          } ${
             theme === "dark"
               ? "dark-scrollbar dark-scrollbar-firefox"
               : "light-scrollbar light-scrollbar-firefox"

@@ -165,7 +165,7 @@ export default function AllInterfacesPage() {
   );
 
   return (
-    <div className="p-6 bg-gray-50 dark:bg-gray-900 h-full flex flex-col gap-6">
+    <div className="p-6 bg-gray-50 dark:bg-gray-900 h-full flex flex-col gap-6 overflow-hidden">
       <header className="flex-shrink-0">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
           All Network Interfaces
@@ -236,8 +236,8 @@ export default function AllInterfacesPage() {
         </div>
       </div>
 
-      {/* This container grows to fill the rest of the space, and its child will take up 100% of its height. */}
-      <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md flex-grow min-h-0">
+      {/* Internal scrollable table wrapper */}
+      <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md flex-1 min-h-0 flex flex-col overflow-hidden">
         <VirtualizedTable
           data={filteredInterfaces}
           columns={columns}
