@@ -1,8 +1,5 @@
-// src/pages/FavoritesPage.jsx
-
 import React, { useMemo } from "react";
 import { useInterfaceData } from "../useInterfaceData"; // The shared "brain"
-import { Button } from "../../components/ui/button";
 import {
   Table,
   TableHead,
@@ -11,45 +8,10 @@ import {
   TableRow,
   TableCell,
 } from "../../components/ui/table";
-import { Star, ArrowUp, ArrowDown, XCircle } from "lucide-react";
+import { Star } from "lucide-react";
+import { StatusIndicator } from "../../components/ui/StatusIndicator";
+import { FavoriteButton } from "../../components/ui/FavoriteButton";
 
-// --- Reusable Helper Components (No changes needed, styles are consistent) ---
-
-const StatusIndicator = ({ status }) => {
-  const config = {
-    Up: { color: "text-green-500", Icon: ArrowUp, label: "Up" },
-    Down: { color: "text-red-500", Icon: ArrowDown, label: "Down" },
-    "Admin Down": {
-      color: "text-gray-500",
-      Icon: XCircle,
-      label: "Admin Down",
-    },
-  }[status] || { color: "text-gray-500", Icon: XCircle, label: "Unknown" };
-
-  return (
-    <div className={`flex items-center gap-2 font-medium ${config.color}`}>
-      <config.Icon className="h-4 w-4" />
-      <span>{config.label}</span>
-    </div>
-  );
-};
-
-const FavoriteButton = ({ isFavorite, onClick }) => (
-  <Button
-    variant="ghost"
-    size="icon"
-    onClick={onClick}
-    aria-label={isFavorite ? "Unfavorite" : "Favorite"}
-  >
-    <Star
-      className={`h-5 w-5 transition-colors ${
-        isFavorite
-          ? "text-yellow-500 fill-yellow-400"
-          : "text-gray-400 hover:text-yellow-500"
-      }`}
-    />
-  </Button>
-);
 
 // --- STYLES UPDATED ---
 export default function FavoritesPage() {
@@ -78,7 +40,7 @@ export default function FavoritesPage() {
                 <TableHead className="font-semibold text-gray-600 dark:text-gray-300">
                   Traffic (In / Out)
                 </TableHead>
-                <TableHead className="text-right font-semibold text-gray-600 dark:text-gray-300">
+                <TableHead className="text-center font-semibold text-gray-600 dark:text-gray-300">
                   Actions
                 </TableHead>
               </TableRow>
@@ -104,7 +66,7 @@ export default function FavoritesPage() {
                     <StatusIndicator status={iface.status} />
                   </TableCell>
                   <TableCell className="text-gray-600 dark:text-gray-300">{`${iface.trafficIn} / ${iface.trafficOut}`}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-center">
                     <FavoriteButton
                       isFavorite={iface.isFavorite}
                       onClick={() => handleToggleFavorite(iface.id)}

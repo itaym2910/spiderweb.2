@@ -49,8 +49,13 @@ export function VirtualizedTable({ data, columns, isLoading, emptyMessage }) {
           <div
             key={column.accessorKey}
             role="columnheader"
-            className="px-4 py-3 font-semibold text-left text-gray-600 dark:text-gray-300"
-            // 👇 CHANGE HERE: Use flex-basis: 0% to ensure columns align perfectly
+            className={`px-4 py-3 font-semibold text-gray-600 dark:text-gray-300 ${
+              column.align === "center"
+                ? "text-center"
+                : column.align === "right"
+                ? "text-right"
+                : "text-left"
+            }`}
             style={{ flex: `${column.size} 0 0%` }}
           >
             {column.header}
