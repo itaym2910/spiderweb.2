@@ -24,7 +24,6 @@ export function useDashboardLogic({ isAppFullscreen, isSidebarCollapsed }) {
   const getTabValueFromPath = (path) => {
     if (path.startsWith("/l-chart")) return "l_network";
     if (path.startsWith("/p-chart")) return "p_network";
-    if (path.startsWith("/sites")) return "site";
     if (path.startsWith("/all_interfaces")) return "all_interfaces";
     if (path.startsWith("/favorites")) return "favorites";
     return "favorites"; // Default to 'favorites' if no match is found
@@ -58,9 +57,6 @@ export function useDashboardLogic({ isAppFullscreen, isSidebarCollapsed }) {
         break;
       case "p_network":
         path = "/p-chart";
-        break;
-      case "site":
-        path = "/sites";
         break;
       case "all_interfaces":
         path = "/all_interfaces"; // Correctly maps to the all_interfaces path

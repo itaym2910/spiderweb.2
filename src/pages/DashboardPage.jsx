@@ -17,8 +17,6 @@ import AllInterfacesPage from "./dashboard/AllInterfacesPage";
 import NetworkVisualizerWrapper from "./dashboard/NetworkVisualizerWrapper";
 import NetworkVisualizer5Wrapper from "./dashboard/NetworkVisualizer5Wrapper";
 import CoreSitePage from "../components/CoreSite/CoreSitePage";
-import SiteDetailPage from "../components/end-site/SiteDetailPage";
-import EndSiteIndexPage from "../components/end-site/EndSiteIndexPage";
 import LinkTable from "../components/CoreDevice/LinkTable";
 
 // Helper hooks and Redux selectors
@@ -228,39 +226,9 @@ export function DashboardPage({
         }
       />
 
-      <Route
-        path="/sites/*"
-        element={
-          <Routes>
-            <Route index element={<EndSiteIndexPage />} />
-            <Route
-              path="site/:siteNavId"
-              element={<SiteDetailPageRouteElement />}
-            />
-          </Routes>
-        }
-      />
-
       {/* Default routes to redirect to the favorites tab */}
       <Route path="/" element={<Navigate to="/favorites" replace />} />
       <Route path="*" element={<Navigate to="/favorites" replace />} />
     </Routes>
-  );
-}
-
-// This helper component for the sites route remains unchanged.
-function SiteDetailPageRouteElement() {
-  const location = useLocation();
-  const siteGroupFromState = location.state?.siteGroupData;
-
-  return siteGroupFromState ? (
-    <SiteDetailPage
-      siteGroup={siteGroupFromState}
-      initialTheme={
-        document.documentElement.classList.contains("dark") ? "dark" : "light"
-      }
-    />
-  ) : (
-    <Navigate to="/sites" replace />
   );
 }

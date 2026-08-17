@@ -12,7 +12,6 @@ export const fetchDevices = createAsyncThunk(
   "devices/fetchDevices",
   async (_, { rejectWithValue }) => {
     try {
-      // LATER: When you're ready for the real API, you will change this line to:
       const devices = await api.getCoreDevices();
       return {
         devices: Array.isArray(devices) ? devices : devices?.devices || [],

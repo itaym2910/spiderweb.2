@@ -200,14 +200,13 @@ function AppLayout() {
                 onValueChange={handleTabChangeForNavigation}
                 className="w-full md:w-[750px] lg:w-[800px]"
               >
-                <TabsList className="grid-cols-5">
+                <TabsList className="grid-cols-4">
                   <TabsTrigger value="favorites">Favorites</TabsTrigger>
                   <TabsTrigger value="all_interfaces">
                     All Interfaces
                   </TabsTrigger>
                   <TabsTrigger value="l_network">L Network</TabsTrigger>
                   <TabsTrigger value="p_network">P Network</TabsTrigger>
-                  <TabsTrigger value="site">Site</TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
