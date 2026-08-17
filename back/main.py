@@ -31,6 +31,9 @@ class NetworkCreate(BaseModel):
 class SiteDescription(BaseModel):
     description: str
 
+class FavoriteLinksUpdate(BaseModel):
+    link_ids: list = []
+
 class LinkBase(BaseModel):
     pass # Not used in dummy backend, but kept for signature matching
 
@@ -295,6 +298,16 @@ async def delete_favorite_link(link_id: int, current_user: dict = Depends(user_r
             user["favorite_links"].remove(link_id)
         return {"message": "Link removed from favorites successfully"}
     raise HTTPException(status_code=404, detail="Link or user not found")
+
+@router_link.put("/favorite-links")
+@router_link.post("/favorite-links")
+async def update_favorite_links(data: FavoriteLinksUpdate, current_user: dict = Depends(user_role_checker)):
+    user_id = current_user['id']
+    user = next((u for u in db["users"] if u["id"] == user_id), None)
+    if user:
+        user["favorite_links"] = data.link_ids
+        return {"success": True, "updated_ids": user["favorite_links"]}
+    return {"success": True, "updated_ids": data.link_ids}
 
 @router_link.get("/get_ten_gig_lines")
 @router_link.get("/links/topology")
