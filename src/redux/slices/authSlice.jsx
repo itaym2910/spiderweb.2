@@ -2,7 +2,6 @@
 
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import Cookies from "js-cookie";
-import { initialData } from "../initialData";
 
 // --- 1. Import the individual data-fetching thunks from other slices ---
 import { fetchCorePikudim } from "./corePikudimSlice";
@@ -11,38 +10,12 @@ import { fetchSites } from "./sitesSlice";
 import { fetchTenGigLinks } from "./tenGigLinksSlice";
 import { fetchNetTypes } from "./netTypesSlice";
 
-// Get dummy users for the mock login
-const { dummyUsers } = initialData;
-
-//import { api } from "../../services/apiServices"; // <-- 1. Import the real api
-
-// --- MOCK API: This object simulates your backend's login endpoint ---
-const mockApi = {
-  login: async (username, password) => {
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    const user = dummyUsers.find(
-      (u) => u.username === username && u.password === password
-    );
-
-    if (user) {
-      // On success, create and return a mock token
-      const mockToken = `fake-jwt-token-for-${user.username}`;
-      return mockToken;
-    } else {
-      // On failure, throw an error, just like a real API would
-      throw new Error("Invalid credentials. Please try again.");
-    }
-  },
-};
+import { api } from "../../services/apiServices";
 
 // --- 2. The "Master" Data Fetching Thunk ---
-// This thunk's only job is to dispatch all the other data-fetching actions in parallel.
 export const fetchInitialData = createAsyncThunk(
   "auth/fetchInitialData",
   async (_, { dispatch }) => {
-    // Dispatch all data fetches concurrently. Redux Toolkit handles this efficiently.
-    // The status of each fetch is managed within its own respective slice.
     dispatch(fetchCorePikudim());
     dispatch(fetchDevices());
     dispatch(fetchSites());
@@ -51,16 +24,12 @@ export const fetchInitialData = createAsyncThunk(
   }
 );
 
-// --- 3. The Login User Thunk (Updated) ---
-// This is the primary thunk called by the LoginPage.
+// --- 3. The Login User Thunk ---
 export const loginUser = createAsyncThunk(
   "auth/loginUser",
   async ({ username, password }, { dispatch, rejectWithValue }) => {
     try {
-      // LATER: You will change this line to `await api.login(username, password);`
-      const token = await mockApi.login(username, password);
-
-      //const token = await api.login(username, password); // <-- 2. Use the real api call
+      const token = await api.login(username, password);
 
       // Set the token in a cookie for session persistence
       Cookies.set("authToken", token, {
