@@ -66,8 +66,16 @@ def generate_dummy_data():
     link_id_counter = 1
     for device in core_devices:
         # Create some links to other core devices
+        same_zone = [d for d in core_devices if d["coresite_id"] == device["coresite_id"] and d["id"] != device["id"]]
+        other_zone = [d for d in core_devices if d["coresite_id"] != device["coresite_id"]]
+        
         for _ in range(random.randint(1, 3)):
-            neighbor = random.choice(core_devices)
+            # 70% chance to link within the same zone if possible
+            if same_zone and random.random() < 0.7:
+                neighbor = random.choice(same_zone)
+            else:
+                neighbor = random.choice(other_zone) if other_zone else random.choice(core_devices)
+            
             if neighbor["id"] == device["id"]:
                 continue
             

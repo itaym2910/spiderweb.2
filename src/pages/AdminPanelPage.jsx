@@ -107,7 +107,7 @@ export function AdminPanelPage() {
 
   const coreSiteOptions = allCoreSites.map((site) => ({
     value: site.id,
-    label: site.core_site_name,
+    label: site.core_site_name || site.name,
   }));
   const deviceOptions = allDevices.map((d) => ({
     value: d.id,

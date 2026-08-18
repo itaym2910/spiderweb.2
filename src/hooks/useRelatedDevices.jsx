@@ -21,7 +21,7 @@ export function useRelatedDevices(currentDeviceName, currentZoneName) {
     }
 
     const currentPikud = allPikudim.find(
-      (p) => p.core_site_name === currentZoneName
+      (p) => p.core_site_name === currentZoneName || p.name === currentZoneName
     );
     if (!currentPikud) {
       // console.log("Could not find Pikud for zone:", currentZoneName);

@@ -28,7 +28,7 @@ export function useCoreSiteData(chartType) {
 
   const devicesForZone = useMemo(() => {
     if (!zoneId || !allPikudim.length || !allDevices.length) return [];
-    const currentPikud = allPikudim.find((p) => p.core_site_name === zoneId);
+    const currentPikud = allPikudim.find((p) => p.core_site_name === zoneId || p.name === zoneId);
     if (!currentPikud) return [];
     return allDevices.filter((d) => d.core_pikudim_site_id === currentPikud.id);
   }, [zoneId, allDevices, allPikudim]);
@@ -96,6 +96,22 @@ export function useCoreSiteData(chartType) {
     return () => window.removeEventListener("resize", updateDimensions);
   }, []);
 
+  const deviceMapById = useMemo(() => {
+    return new Map(allDevices.map((d) => [d.id, d]));
+  }, [allDevices]);
+
+  const mappedLinksForChart = useMemo(() => {
+    return allLinksForChart.map(link => {
+       const sourceDev = deviceMapById.get(link.coredevice_id);
+       const targetDev = deviceMapById.get(link.neighbor_coredevice_id);
+       return {
+         ...link,
+         source: link.source || sourceDev?.hostname || sourceDev?.name,
+         target: link.target || targetDev?.hostname || targetDev?.name,
+       };
+    });
+  }, [allLinksForChart, deviceMapById]);
+
   const {
     nodes: layoutNodes,
     links: layoutLinks,
@@ -107,7 +123,7 @@ export function useCoreSiteData(chartType) {
     showExtendedNodes,
     animateExtendedLayoutUp,
     devicesForZone,
-    allLinksForChart
+    mappedLinksForChart
   );
 
   const nodes = layoutNodes.filter((node) => node.id !== "None");

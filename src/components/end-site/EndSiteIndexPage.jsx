@@ -43,7 +43,7 @@ const SiteCard = ({ siteGroup, deviceMap, pikudMap, onClick }) => {
                 <strong>Device:</strong> {device?.hostname || "N/A"}
               </p>
               <p>
-                <strong>Core Site:</strong> {pikud?.core_site_name || "N/A"}
+                <strong>Core Site:</strong> {pikud?.core_site_name || pikud?.name || "N/A"}
               </p>
             </div>
           );
