@@ -11,7 +11,7 @@ import { StatusIndicator } from "../../components/ui/StatusIndicator";
 import { FavoriteButton } from "../../components/ui/FavoriteButton";
 
 export default function AllInterfacesPage() {
-  const { interfaces, handleToggleFavorite, deviceFilterOptions } =
+  const { interfaces, handleToggleFavorite, deviceFilterOptions, siteCount, linkCount } =
     useInterfaceData();
 
   const sitesStatus = useSelector((state) => state.sites.status);
@@ -156,12 +156,27 @@ export default function AllInterfacesPage() {
             Search, filter, and manage all interfaces across the network.
           </p>
         </div>
-        <div className="text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-lg border dark:border-gray-700 shadow-sm">
-          Showing{" "}
-          <span className="font-semibold text-gray-800 dark:text-gray-200">
-            {filteredInterfaces.length}
-          </span>{" "}
-          of {interfaces.length} interfaces
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-lg border dark:border-gray-700 shadow-sm">
+            Showing{" "}
+            <span className="font-semibold text-gray-800 dark:text-gray-200">
+              {filteredInterfaces.length}
+            </span>{" "}
+            of{" "}
+            <span className="font-semibold text-gray-800 dark:text-gray-200">
+              {interfaces.length}
+            </span>{" "}
+            interfaces
+          </div>
+          <div className="text-xs text-gray-400 dark:text-gray-500 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-lg border dark:border-gray-700 shadow-sm flex items-center gap-2">
+            <span>
+              <span className="font-semibold text-blue-600 dark:text-blue-400">{siteCount}</span> Sites
+            </span>
+            <span className="text-gray-300 dark:text-gray-600">|</span>
+            <span>
+              <span className="font-semibold text-purple-600 dark:text-purple-400">{linkCount}</span> Trunk Links
+            </span>
+          </div>
         </div>
       </header>
 

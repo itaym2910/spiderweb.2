@@ -40,7 +40,7 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
 
   // Local UI state
   const [popupLink, setPopupLink] = useState(null);
-  const [showDetailedLinks, setShowDetailedLinks] = useState(false);
+  const [showDetailedLinks, setShowDetailedLinks] = useState(true);
 
   // Selectors for P-Chart data (typeId: 2)
   const pikudim = useSelector((state) => selectPikudimByTypeId(state, 2));
@@ -209,11 +209,6 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
       />
 
       <div className="flex-grow relative">
-        <ToggleDetailButton
-          isDetailed={showDetailedLinks}
-          onToggle={handleToggleDetailView}
-          theme={theme}
-        />
         <NetworkVisualizer5
           key={theme}
           data={graphData}

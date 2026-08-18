@@ -42,7 +42,7 @@ const NetworkVisualizerWrapper = ({ theme }) => {
 
   // Existing state and selectors...
   const [popupLink, setPopupLink] = useState(null);
-  const [showDetailedLinks, setShowDetailedLinks] = useState(false);
+  const [showDetailedLinks, setShowDetailedLinks] = useState(true);
 
   // --- These selectors correctly get the filtered data ---
   const pikudim = useSelector((state) => selectPikudimByTypeId(state, 1));
@@ -212,11 +212,6 @@ const NetworkVisualizerWrapper = ({ theme }) => {
       />
 
       <div className="flex-grow relative">
-        <ToggleDetailButton
-          isDetailed={showDetailedLinks}
-          onToggle={handleToggleDetailView}
-          theme={theme}
-        />
         <NetworkVisualizer
           key={theme}
           data={graphData}

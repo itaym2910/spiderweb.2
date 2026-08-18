@@ -185,5 +185,8 @@ export function useInterfaceData() {
     [dispatch]
   );
 
-  return { interfaces, handleToggleFavorite, deviceFilterOptions };
+  const siteCount = Array.isArray(allSites) ? allSites.length : 0;
+  const linkCount = Array.isArray(allTenGigLinks) ? allTenGigLinks.length : 0;
+
+  return { interfaces, handleToggleFavorite, deviceFilterOptions, siteCount, linkCount };
 }

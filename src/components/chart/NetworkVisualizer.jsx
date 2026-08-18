@@ -111,9 +111,7 @@ const NetworkVisualizer = ({
         const { transform } = event;
         zoomLayer.attr("transform", transform);
 
-        // +++ MODIFY THE CONDITION TO INCLUDE THE PROP
-        const shouldShowDetailed =
-          transform.k >= ZOOM_THRESHOLD || showDetailedLinks;
+        const shouldShowDetailed = true;
 
         if (shouldShowDetailed && !parallelLinksAreVisible) {
           parallelLinksAreVisible = true;
@@ -217,11 +215,8 @@ const NetworkVisualizer = ({
       const initialTransform = d3.zoomIdentity.translate(tx, ty).scale(k);
       svg.call(zoomBehavior.transform, initialTransform);
 
-      // +++ MODIFY THE INITIAL CHECK TO INCLUDE THE PROP
-      if (k >= ZOOM_THRESHOLD || showDetailedLinks) {
-        const event = { transform: initialTransform };
-        zoomBehavior.on("zoom")(event);
-      }
+      const event = { transform: initialTransform };
+      zoomBehavior.on("zoom")(event);
     } else {
       svg.call(zoomBehavior.transform, d3.zoomIdentity);
     }
