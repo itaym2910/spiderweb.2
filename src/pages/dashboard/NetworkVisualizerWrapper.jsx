@@ -218,7 +218,7 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           theme={theme}
         />
         <NetworkVisualizer
-          key={theme}
+          key={`${theme}-${showDetailedLinks}`}
           data={graphData}
           theme={theme}
           showDetailedLinks={showDetailedLinks}

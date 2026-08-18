@@ -488,7 +488,7 @@ export function drawAllParallelLinks({
         .attr("stroke", "transparent")
         .attr("stroke-width", 12)
         .style("cursor", "pointer")
-        // NEW: Highlight connected nodes on mouseover
+        // NEW: Highlight connected nodes and color ONLY the hovered link on mouseover
         .on("mouseover", function (event, d_mouseover) {
           const s_id = d_mouseover.source.id;
           const t_id = d_mouseover.target.id;
@@ -497,6 +497,16 @@ export function drawAllParallelLinks({
             .attr("fill", palette.nodeHoverLink)
             .attr("stroke", palette.nodeHoverLinkStroke)
             .attr("stroke-width", 4);
+
+          // Show only the hovered duplicate link colored, fade out all others
+          d3.selectAll("path.duplicate-link")
+            .attr("stroke", (d) =>
+              d.id === d_mouseover.id
+                ? getLinkColorByCategory(d, palette)
+                : palette.link
+            )
+            .attr("stroke-opacity", (d) => (d.id === d_mouseover.id ? 1.0 : 0.15))
+            .attr("stroke-width", (d) => (d.id === d_mouseover.id ? 4 : 2));
         })
         .on("mousemove", function (event, d_mousemove) {
           tooltip
@@ -505,7 +515,7 @@ export function drawAllParallelLinks({
             .text(d_mousemove.id)
             .attr("opacity", 1);
         })
-        // MODIFIED: Un-highlight nodes on mouseout
+        // MODIFIED: Un-highlight nodes and restore link coloring on mouseout
         .on("mouseout", function (event, d_mouseout) {
           tooltip.attr("opacity", 0);
           const s_id = d_mouseout.source.id;
@@ -515,6 +525,12 @@ export function drawAllParallelLinks({
             .attr("fill", palette.node)
             .attr("stroke", palette.stroke)
             .attr("stroke-width", 2);
+
+          // Restore status-colors and default stroke properties for all duplicate links
+          d3.selectAll("path.duplicate-link")
+            .attr("stroke", (d) => getLinkColorByCategory(d, palette))
+            .attr("stroke-opacity", 1.0)
+            .attr("stroke-width", 3);
         })
         .on("click", function (event, d_clicked_duplicate_link) {
           if (onLinkClick) {
