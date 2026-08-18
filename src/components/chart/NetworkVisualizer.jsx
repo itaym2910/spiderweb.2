@@ -111,7 +111,7 @@ const NetworkVisualizer = ({
         const { transform } = event;
         zoomLayer.attr("transform", transform);
 
-        const shouldShowDetailed = true;
+        const shouldShowDetailed = showDetailedLinks;
 
         if (shouldShowDetailed && !parallelLinksAreVisible) {
           parallelLinksAreVisible = true;
