@@ -164,6 +164,7 @@ function AppLayout() {
   };
 
   const isNonScrollablePage =
+    location.pathname.startsWith("/admin") ||
     location.pathname.startsWith("/all_interfaces") ||
     location.pathname.startsWith("/l-chart") ||
     location.pathname.startsWith("/p-chart");
@@ -179,16 +180,14 @@ function AppLayout() {
       )}
       <main className="flex-1 flex flex-col relative overflow-hidden">
         <header
-          className={`bg-white dark:bg-gray-800 shrink-0 flex items-center gap-4 ${
-            isFullscreen ? "p-4 border-b dark:border-gray-700" : "p-4 shadow-sm"
-          }`}
+          className={`bg-white dark:bg-gray-800 shrink-0 flex items-center gap-4 ${isFullscreen ? "p-4 border-b dark:border-gray-700" : "p-4 shadow-sm"
+            }`}
         >
           <h1
-            className={`text-2xl shrink-0 ${
-              isFullscreen
-                ? "font-extrabold text-white tracking-wide"
-                : "font-semibold text-gray-900 dark:text-white"
-            }`}
+            className={`text-2xl shrink-0 ${isFullscreen
+              ? "font-extrabold text-white tracking-wide"
+              : "font-semibold text-gray-900 dark:text-white"
+              }`}
           >
             {isFullscreen ? "SPIDERWEB" : activePageLabel}
           </h1>
@@ -229,13 +228,11 @@ function AppLayout() {
 
         {/* Main content area: overflow-hidden for pages with internal scrollbars */}
         <div
-          className={`flex-1 min-h-0 ${
-            isNonScrollablePage ? "overflow-hidden flex flex-col" : "overflow-y-auto"
-          } ${
-            theme === "dark"
+          className={`flex-1 min-h-0 ${isNonScrollablePage ? "overflow-hidden flex flex-col" : "overflow-y-auto"
+            } ${theme === "dark"
               ? "dark-scrollbar dark-scrollbar-firefox"
               : "light-scrollbar light-scrollbar-firefox"
-          } ${!isFullscreen && "p-4 md:p-6"}`}
+            } ${!isFullscreen && "p-4 md:p-6"}`}
         >
           <Routes>
             <Route path="/admin" element={<AdminPanelPage />} />
