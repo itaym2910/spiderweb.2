@@ -3,7 +3,7 @@
 import React, { useRef } from "react";
 import CoreSiteCanvas from "./CoreSiteCanvas";
 import SitesBar from "./SitesBar";
-import LinkDetailTabs from "../shared/LinkDetailTabs"; // Import the tab component
+import LinkDetailPopup from "../shared/LinkDetailPopup";
 import CoreSiteControls from "./CoreSiteControls";
 
 export default function CoreSiteView({
@@ -23,10 +23,8 @@ export default function CoreSiteView({
   onLinkClick,
   onNodeClick,
   devicesInZoneCount,
-  openDetailTabs,
-  activeDetailTabId,
-  onSetActiveTab,
-  onCloseTab,
+  popupDetail,
+  onClosePopup,
   onNavigateToSite,
 }) {
   const svgRef = useRef(null);
@@ -63,19 +61,15 @@ export default function CoreSiteView({
       ref={containerRef}
       className={`w-full h-full ${pageBgColor} flex flex-col overflow-hidden`}
     >
-      {/* 1. RENDER TABS AT THE TOP if they exist */}
-      {openDetailTabs && openDetailTabs.length > 0 && (
-        <div className="flex-shrink-0">
-          <LinkDetailTabs
-            tabs={openDetailTabs}
-            activeTabId={activeDetailTabId}
-            onSetActiveTab={onSetActiveTab}
-            onCloseTab={onCloseTab}
-            onNavigateToSite={onNavigateToSite}
-            theme={theme}
-          />
-        </div>
-      )}
+      {/* 1. RENDER POPUP if detail data exists */}
+      <LinkDetailPopup
+        linkData={popupDetail?.data || null}
+        linkType={popupDetail?.type || "link"}
+        linkTitle={popupDetail?.title || ""}
+        onClose={onClosePopup}
+        onNavigateToSite={onNavigateToSite}
+        theme={theme}
+      />
 
       {/* 2. Main content area that grows to fill the remaining space */}
       <div className="flex-grow relative">

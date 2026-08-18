@@ -38,8 +38,7 @@ export function useCoreSiteData(chartType) {
   const [showExtendedNodes, setShowExtendedNodes] = useState(false);
   const [animateExtendedLayoutUp, setAnimateExtendedLayoutUp] = useState(false);
   const [previousSelectedNodeId, setPreviousSelectedNodeId] = useState(null);
-  const [openDetailTabs, setOpenDetailTabs] = useState([]);
-  const [activeDetailTabId, setActiveDetailTabId] = useState(null);
+  const [popupDetail, setPopupDetail] = useState(null);
 
   const sitesForFocusedNode = useMemo(() => {
     // This logic will only re-run if allDevices, selectedNodeId, or allSites changes.
@@ -173,42 +172,20 @@ export function useCoreSiteData(chartType) {
     }
   };
 
-  const addOrActivateTab = useCallback((payload) => {
-    const { id, type } = payload;
-    const tabId = `${type}-${id}`;
-
-    setOpenDetailTabs((prevTabs) => {
-      const tabExists = prevTabs.some((tab) => tab.id === tabId);
-      if (tabExists) {
-        return prevTabs;
-      }
-      let title = "Details";
-      if (type === "link") {
-        title = `${payload.sourceNode} - ${payload.targetNode}`;
-      } else if (type === "site") {
-        title = payload.name;
-      }
-      return [...prevTabs, { id: tabId, type, title, data: payload }];
-    });
-    setActiveDetailTabId(tabId);
+  const openPopup = useCallback((payload) => {
+    const { type } = payload;
+    let title = "Details";
+    if (type === "link") {
+      title = `${payload.sourceNode} - ${payload.targetNode}`;
+    } else if (type === "site") {
+      title = payload.name;
+    }
+    setPopupDetail({ type, title, data: payload });
   }, []);
 
-  const handleCloseTab = useCallback(
-    (tabIdToClose) => {
-      setOpenDetailTabs((prevTabs) => {
-        const remainingTabs = prevTabs.filter((tab) => tab.id !== tabIdToClose);
-        if (activeDetailTabId === tabIdToClose) {
-          setActiveDetailTabId(
-            remainingTabs.length > 0
-              ? remainingTabs[remainingTabs.length - 1].id
-              : null
-          );
-        }
-        return remainingTabs;
-      });
-    },
-    [activeDetailTabId]
-  );
+  const handleClosePopup = useCallback(() => {
+    setPopupDetail(null);
+  }, []);
 
   // REPLACE THE OLD FUNCTION WITH THIS NEW ONE:
 
@@ -263,7 +240,7 @@ export function useCoreSiteData(chartType) {
       // You can add more real data from the site object here if needed
       description: `Details for ${siteData.site_name_english}`,
     };
-    addOrActivateTab(siteDetailPayload);
+    openPopup(siteDetailPayload);
   };
 
   const handleLinkClick = (linkData) => {
@@ -280,7 +257,7 @@ export function useCoreSiteData(chartType) {
       linkId: linkData.id,
       linkDescription: "Core fiber optic interconnect.",
     };
-    addOrActivateTab(newLinkPayload);
+    openPopup(newLinkPayload);
   };
 
   return {
@@ -299,10 +276,8 @@ export function useCoreSiteData(chartType) {
     onSiteClick: handleSiteClick,
     onLinkClick: handleLinkClick,
     onNodeClickInZone: onNodeClickInZone,
-    openDetailTabs,
-    activeDetailTabId,
-    setActiveDetailTabId,
-    handleCloseTab,
+    popupDetail,
+    handleClosePopup,
     handleNavigateToSite,
   };
 }

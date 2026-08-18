@@ -20,10 +20,8 @@ export default function CoreSitePage({ theme = "dark", chartType }) {
     onLinkClick,
     onNodeClickInZone,
     devicesInZoneCount,
-    openDetailTabs,
-    activeDetailTabId,
-    setActiveDetailTabId,
-    handleCloseTab,
+    popupDetail,
+    handleClosePopup,
     handleNavigateToSite,
   } = useCoreSiteData(chartType);
 
@@ -45,10 +43,8 @@ export default function CoreSitePage({ theme = "dark", chartType }) {
       onLinkClick={onLinkClick}
       onNodeClick={onNodeClickInZone}
       devicesInZoneCount={devicesInZoneCount}
-      openDetailTabs={openDetailTabs}
-      activeDetailTabId={activeDetailTabId}
-      onSetActiveTab={setActiveDetailTabId}
-      onCloseTab={handleCloseTab}
+      popupDetail={popupDetail}
+      onClosePopup={handleClosePopup}
       onNavigateToSite={handleNavigateToSite}
     />
   );

@@ -4,7 +4,7 @@ import React, { useCallback, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import NetworkVisualizer from "../../components/chart/NetworkVisualizer";
-import LinkDetailTabs from "../../components/shared/LinkDetailTabs";
+import LinkDetailPopup from "../../components/shared/LinkDetailPopup";
 import { selectPikudimByTypeId } from "../../redux/slices/corePikudimSlice";
 import { selectDevicesByTypeId } from "../../redux/slices/devicesSlice";
 import { selectLinksByTypeId } from "../../redux/slices/tenGigLinksSlice";
@@ -41,8 +41,7 @@ const NetworkVisualizerWrapper = ({ theme }) => {
   const linksStatus = useSelector((state) => state.tenGigLinks.status);
 
   // Existing state and selectors...
-  const [openLinkTabs, setOpenLinkTabs] = useState([]);
-  const [activeLinkTabId, setActiveLinkTabId] = useState(null);
+  const [popupLink, setPopupLink] = useState(null);
   const [showDetailedLinks, setShowDetailedLinks] = useState(false);
 
   // --- These selectors correctly get the filtered data ---
@@ -147,39 +146,19 @@ const NetworkVisualizerWrapper = ({ theme }) => {
 
   const handleLinkClick = useCallback(
     (linkDetailPayload) => {
-      const { id, sourceNode, targetNode } = linkDetailPayload;
-      const tabExists = openLinkTabs.some((tab) => tab.id === id);
-
-      if (!tabExists) {
-        const newTab = {
-          id: id,
-          title: `${sourceNode} - ${targetNode}`,
-          type: "link",
-          data: linkDetailPayload,
-        };
-        setOpenLinkTabs((prevTabs) => [...prevTabs, newTab]);
-      }
-      setActiveLinkTabId(id);
-    },
-    [openLinkTabs]
-  );
-
-  const handleCloseTab = useCallback(
-    (tabIdToClose) => {
-      setOpenLinkTabs((prevTabs) => {
-        const remainingTabs = prevTabs.filter((tab) => tab.id !== tabIdToClose);
-        if (activeLinkTabId === tabIdToClose) {
-          setActiveLinkTabId(
-            remainingTabs.length > 0
-              ? remainingTabs[remainingTabs.length - 1].id
-              : null
-          );
-        }
-        return remainingTabs;
+      const { sourceNode, targetNode } = linkDetailPayload;
+      setPopupLink({
+        data: linkDetailPayload,
+        type: "link",
+        title: `${sourceNode} - ${targetNode}`,
       });
     },
-    [activeLinkTabId]
+    []
   );
+
+  const handleClosePopup = useCallback(() => {
+    setPopupLink(null);
+  }, []);
 
   const handleToggleDetailView = useCallback(() => {
     setShowDetailedLinks((prev) => !prev);
@@ -224,17 +203,13 @@ const NetworkVisualizerWrapper = ({ theme }) => {
   // --- Original component return ---
   return (
     <div className="w-full h-full flex flex-col">
-      {openLinkTabs.length > 0 && (
-        <div className="flex-shrink-0">
-          <LinkDetailTabs
-            tabs={openLinkTabs}
-            activeTabId={activeLinkTabId}
-            onSetActiveTab={setActiveLinkTabId}
-            onCloseTab={handleCloseTab}
-            theme={theme}
-          />
-        </div>
-      )}
+      <LinkDetailPopup
+        linkData={popupLink?.data || null}
+        linkType={popupLink?.type || "link"}
+        linkTitle={popupLink?.title || ""}
+        onClose={handleClosePopup}
+        theme={theme}
+      />
 
       <div className="flex-grow relative">
         <ToggleDetailButton
