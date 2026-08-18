@@ -158,8 +158,7 @@ export function AdminPanelPage() {
       setItemToDelete("");
     } catch (error) {
       alert(
-        `Error deleting ${entityName}: ${
-          error.message || "An unknown error occurred."
+        `Error deleting ${entityName}: ${error.message || "An unknown error occurred."
         }`
       );
     } finally {
@@ -475,8 +474,20 @@ export function AdminPanelPage() {
   };
 
   return (
-    <div className="p-6 bg-gray-50 dark:bg-gray-900 min-h-full space-y-8">
-      <header className="mb-6">
+    <div
+      className="
+      absolute
+      inset-0
+      overflow-y-auto
+      overflow-x-hidden
+      p-6
+      bg-gray-50
+      dark:bg-gray-900
+      space-y-8
+      dark-scrollbar
+      dark-scrollbar-firefox
+    "
+    >      <header className="mb-6">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
           Admin Panel
         </h1>
@@ -491,31 +502,28 @@ export function AdminPanelPage() {
         <div className="flex flex-wrap gap-3">
           <button
             onClick={() => setActiveAddSection("coreSite")}
-            className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-blue-500 ${
-              activeAddSection === "coreSite"
-                ? "bg-blue-600 text-white shadow"
-                : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
-            }`}
+            className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-blue-500 ${activeAddSection === "coreSite"
+              ? "bg-blue-600 text-white shadow"
+              : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
           >
             Add Core Site
           </button>
           <button
             onClick={() => setActiveAddSection("coreDevice")}
-            className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-blue-500 ${
-              activeAddSection === "coreDevice"
-                ? "bg-blue-600 text-white shadow"
-                : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
-            }`}
+            className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-blue-500 ${activeAddSection === "coreDevice"
+              ? "bg-blue-600 text-white shadow"
+              : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
           >
             Add Core Device
           </button>
           <button
             onClick={() => setActiveAddSection("netType")}
-            className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-blue-500 ${
-              activeAddSection === "netType"
-                ? "bg-blue-600 text-white shadow"
-                : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
-            }`}
+            className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-blue-500 ${activeAddSection === "netType"
+              ? "bg-blue-600 text-white shadow"
+              : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
           >
             Add Net Type
           </button>
@@ -529,31 +537,28 @@ export function AdminPanelPage() {
         <div className="flex flex-wrap gap-3">
           <button
             onClick={() => handleSetDeleteSection("deleteCoreSite")}
-            className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-red-500 ${
-              activeDeleteSection === "deleteCoreSite"
-                ? "bg-red-600 text-white shadow"
-                : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
-            }`}
+            className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-red-500 ${activeDeleteSection === "deleteCoreSite"
+              ? "bg-red-600 text-white shadow"
+              : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
           >
             Delete Core Site
           </button>
           <button
             onClick={() => handleSetDeleteSection("deleteDevice")}
-            className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-red-500 ${
-              activeDeleteSection === "deleteDevice"
-                ? "bg-red-600 text-white shadow"
-                : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
-            }`}
+            className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-red-500 ${activeDeleteSection === "deleteDevice"
+              ? "bg-red-600 text-white shadow"
+              : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
           >
             Delete Core Device
           </button>
           <button
             onClick={() => handleSetDeleteSection("deleteNetType")}
-            className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-red-500 ${
-              activeDeleteSection === "deleteNetType"
-                ? "bg-red-600 text-white shadow"
-                : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
-            }`}
+            className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-red-500 ${activeDeleteSection === "deleteNetType"
+              ? "bg-red-600 text-white shadow"
+              : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
           >
             Delete Net Type
           </button>

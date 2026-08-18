@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { Star, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 // --- Redux Imports ---
 import { logout } from "../../redux/slices/authSlice";
@@ -21,9 +21,7 @@ import { AdminPanelPage } from "../../pages/AdminPanelPage";
 import { AlertsPage } from "../../pages/AlertsPage";
 import SearchPage from "../../pages/SearchPage";
 
-// --- Local Helper Components for this Layout ---
-
-// Icons used for the fullscreen toggle in the header.
+// --- Fullscreen Icon ---
 export const FullscreenIcon = ({ className = "w-5 h-5" }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -41,6 +39,7 @@ export const FullscreenIcon = ({ className = "w-5 h-5" }) => (
   </svg>
 );
 
+// --- Exit Fullscreen Icon ---
 export const ExitFullscreenIcon = ({ className = "w-5 h-5" }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -58,15 +57,27 @@ export const ExitFullscreenIcon = ({ className = "w-5 h-5" }) => (
   </svg>
 );
 
-// Real-time status indicator component
+// --- Real-time Status Indicator ---
 const RealtimeStatusIndicator = () => {
   const status = useSelector(selectRealtimeStatus);
 
   const config = {
-    connected: { color: "bg-green-500", text: "Live" },
-    connecting: { color: "bg-yellow-500", text: "Connecting" },
-    disconnected: { color: "bg-red-500", text: "Offline" },
-  }[status] || { color: "bg-gray-500", text: "Unknown" };
+    connected: {
+      color: "bg-green-500",
+      text: "Live",
+    },
+    connecting: {
+      color: "bg-yellow-500",
+      text: "Connecting",
+    },
+    disconnected: {
+      color: "bg-red-500",
+      text: "Offline",
+    },
+  }[status] || {
+    color: "bg-gray-500",
+    text: "Unknown",
+  };
 
   return (
     <div
@@ -77,9 +88,10 @@ const RealtimeStatusIndicator = () => {
         {status === "connected" && (
           <div
             className={`absolute inset-0 w-full h-full rounded-full ${config.color} animate-ping`}
-          ></div>
+          />
         )}
       </div>
+
       <span className="text-xs font-medium text-gray-500 dark:text-gray-400 hidden sm:inline">
         {config.text}
       </span>
@@ -88,68 +100,92 @@ const RealtimeStatusIndicator = () => {
 };
 
 // --- Main AppLayout Component ---
-
 function AppLayout() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
   const location = useLocation();
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
   const [theme, setTheme] = useState(
-    document.documentElement.classList.contains("dark") ? "dark" : "light"
+    document.documentElement.classList.contains("dark")
+      ? "dark"
+      : "light"
   );
 
+  // --- Theme observer ---
   useEffect(() => {
     const observer = new MutationObserver(() => {
       setTheme(
-        document.documentElement.classList.contains("dark") ? "dark" : "light"
+        document.documentElement.classList.contains("dark")
+          ? "dark"
+          : "light"
       );
     });
+
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["class"],
     });
+
     return () => observer.disconnect();
   }, []);
 
+  // --- Active page label ---
   const activePageLabel = useMemo(() => {
     const path = location.pathname;
+
     if (path.startsWith("/admin")) return "Admin Panel";
     if (path.startsWith("/search")) return "Search";
     if (path.startsWith("/notifications")) return "Alerts";
     if (path.startsWith("/help")) return "Help";
     if (path.startsWith("/settings")) return "Settings";
+
     return "Dashboard";
   }, [location.pathname]);
 
   const isDashboardActive = activePageLabel === "Dashboard";
 
+  // --- Dashboard logic ---
   const dashboardLogic = useDashboardLogic({
     isAppFullscreen: isFullscreen,
     isSidebarCollapsed,
   });
-  const { activeTabValue, handleTabChangeForNavigation } = dashboardLogic;
 
+  const {
+    activeTabValue,
+    handleTabChangeForNavigation,
+  } = dashboardLogic;
+
+  // --- Fullscreen ---
   const toggleFullscreen = () => {
     if (!isDashboardActive) return;
+
     setIsFullscreen(!isFullscreen);
   };
 
+  // --- Logout ---
   const handleLogout = () => {
-    // First, disconnect the real-time service to clean up the interval.
     dispatch(disconnect());
-    // Then, clear the user's session data.
     dispatch(logout());
-    // Finally, navigate back to the login page.
-    navigate("/login", { replace: true });
+
+    navigate("/login", {
+      replace: true,
+    });
   };
 
+  // --- Fullscreen button ---
   const renderFullscreenToggleButton = () => {
     if (!isDashboardActive) return null;
 
-    const ButtonIcon = isFullscreen ? ExitFullscreenIcon : FullscreenIcon;
-    const buttonTitle = isFullscreen ? "Exit Fullscreen" : "Fullscreen";
+    const ButtonIcon = isFullscreen
+      ? ExitFullscreenIcon
+      : FullscreenIcon;
+
+    const buttonTitle = isFullscreen
+      ? "Exit Fullscreen"
+      : "Fullscreen";
 
     return (
       <button
@@ -163,14 +199,21 @@ function AppLayout() {
     );
   };
 
+  // --- Pages that have their own internal layout ---
   const isNonScrollablePage =
-    location.pathname.startsWith("/admin") ||
     location.pathname.startsWith("/all_interfaces") ||
     location.pathname.startsWith("/l-chart") ||
     location.pathname.startsWith("/p-chart");
 
+  // --- Admin page ---
+  const isAdminPage = location.pathname.startsWith("/admin");
+
   return (
-    <div className="flex h-screen bg-gray-100 dark:bg-gray-950 text-gray-800 dark:text-gray-100 transition-colors overflow-hidden">
+    <div className="flex h-screen w-full bg-gray-100 dark:bg-gray-950 text-gray-800 dark:text-gray-100 transition-colors overflow-hidden">
+
+      {/* =====================================================
+          SIDEBAR
+      ===================================================== */}
       {!isFullscreen && (
         <Sidebar
           currentPage={activePageLabel}
@@ -178,20 +221,31 @@ function AppLayout() {
           setCollapsed={setIsSidebarCollapsed}
         />
       )}
-      <main className="flex-1 flex flex-col relative overflow-hidden">
+
+      {/* =====================================================
+          MAIN APPLICATION
+      ===================================================== */}
+      <main className="flex-1 min-w-0 min-h-0 flex flex-col relative overflow-hidden">
+
+        {/* ===================================================
+            HEADER
+        =================================================== */}
         <header
-          className={`bg-white dark:bg-gray-800 shrink-0 flex items-center gap-4 ${isFullscreen ? "p-4 border-b dark:border-gray-700" : "p-4 shadow-sm"
+          className={`bg-white dark:bg-gray-800 shrink-0 flex items-center gap-4 ${isFullscreen
+              ? "p-4 border-b dark:border-gray-700"
+              : "p-4 shadow-sm"
             }`}
         >
           <h1
             className={`text-2xl shrink-0 ${isFullscreen
-              ? "font-extrabold text-white tracking-wide"
-              : "font-semibold text-gray-900 dark:text-white"
+                ? "font-extrabold text-white tracking-wide"
+                : "font-semibold text-gray-900 dark:text-white"
               }`}
           >
             {isFullscreen ? "SPIDERWEB" : activePageLabel}
           </h1>
 
+          {/* Dashboard tabs */}
           {isDashboardActive && (
             <div className="flex-1 flex justify-center">
               <Tabs
@@ -200,21 +254,32 @@ function AppLayout() {
                 className="w-full md:w-[750px] lg:w-[800px]"
               >
                 <TabsList className="grid-cols-4">
-                  <TabsTrigger value="favorites">Favorites</TabsTrigger>
+                  <TabsTrigger value="favorites">
+                    Favorites
+                  </TabsTrigger>
+
                   <TabsTrigger value="all_interfaces">
                     All Interfaces
                   </TabsTrigger>
-                  <TabsTrigger value="l_network">L Network</TabsTrigger>
-                  <TabsTrigger value="p_network">P Network</TabsTrigger>
+
+                  <TabsTrigger value="l_network">
+                    L Network
+                  </TabsTrigger>
+
+                  <TabsTrigger value="p_network">
+                    P Network
+                  </TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
           )}
 
-          {/* Wrapper for right-side action buttons */}
+          {/* Right-side buttons */}
           <div className="flex items-center gap-4 ml-auto">
             <RealtimeStatusIndicator />
+
             {renderFullscreenToggleButton()}
+
             <button
               onClick={handleLogout}
               title="Log Out"
@@ -226,18 +291,49 @@ function AppLayout() {
           </div>
         </header>
 
-        {/* Main content area: overflow-hidden for pages with internal scrollbars */}
+        {/* ===================================================
+            CONTENT CONTAINER
+        =================================================== */}
         <div
-          className={`flex-1 min-h-0 ${isNonScrollablePage ? "overflow-hidden flex flex-col" : "overflow-y-auto"
+          className={`flex-1 min-h-0 min-w-0 relative ${isAdminPage
+              ? "overflow-hidden"
+              : isNonScrollablePage
+                ? "overflow-hidden flex flex-col"
+                : "overflow-y-auto"
             } ${theme === "dark"
               ? "dark-scrollbar dark-scrollbar-firefox"
               : "light-scrollbar light-scrollbar-firefox"
-            } ${!isFullscreen && "p-4 md:p-6"}`}
+            } ${!isFullscreen && !isAdminPage ? "p-4 md:p-6" : ""}`}
         >
           <Routes>
-            <Route path="/admin" element={<AdminPanelPage />} />
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/notifications" element={<AlertsPage />} />
+
+            {/* =================================================
+                ADMIN
+            ================================================= */}
+            <Route
+              path="/admin"
+              element={<AdminPanelPage />}
+            />
+
+            {/* =================================================
+                SEARCH
+            ================================================= */}
+            <Route
+              path="/search"
+              element={<SearchPage />}
+            />
+
+            {/* =================================================
+                ALERTS
+            ================================================= */}
+            <Route
+              path="/notifications"
+              element={<AlertsPage />}
+            />
+
+            {/* =================================================
+                HELP
+            ================================================= */}
             <Route
               path="/help"
               element={
@@ -246,6 +342,10 @@ function AppLayout() {
                 </div>
               }
             />
+
+            {/* =================================================
+                SETTINGS
+            ================================================= */}
             <Route
               path="/settings"
               element={
@@ -254,6 +354,10 @@ function AppLayout() {
                 </div>
               }
             />
+
+            {/* =================================================
+                DASHBOARD
+            ================================================= */}
             <Route
               path="/*"
               element={
@@ -261,11 +365,16 @@ function AppLayout() {
                   isAppFullscreen={isFullscreen}
                   activeTabValue={activeTabValue}
                   theme={theme}
-                  popupAnchorCoords={dashboardLogic.popupAnchorCoords}
-                  chartKeySuffix={dashboardLogic.chartKeySuffix}
+                  popupAnchorCoords={
+                    dashboardLogic.popupAnchorCoords
+                  }
+                  chartKeySuffix={
+                    dashboardLogic.chartKeySuffix
+                  }
                 />
               }
             />
+
           </Routes>
         </div>
       </main>
