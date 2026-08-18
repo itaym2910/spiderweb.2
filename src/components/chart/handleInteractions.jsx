@@ -57,7 +57,7 @@ function createLinkPopupPayload(linkDataObject) {
 // ===================================================================
 function getLinkColorByCategory(linkData, palette) {
   // Default to 'issue' if category is missing, for robustness
-  const category = linkData.category || "issue";
+  const category = (linkData.category || "issue").toLowerCase();
   // Return the color from the palette, or the issue color as a fallback
   return palette.status[category] || palette.status.issue;
 }
