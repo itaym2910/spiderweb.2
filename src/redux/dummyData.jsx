@@ -185,8 +185,12 @@ export const generateAllDummyData = () => {
     [1, 2],
     [1, 4],
     [1, 5],
+    [1, 7],
+    [1, 8],
     [2, 4],
     [2, 5],
+    [2, 7],
+    [2, 8],
     [4, 5],
     [4, 7],
     [4, 8],
@@ -227,21 +231,59 @@ export const generateAllDummyData = () => {
   const lChartDevices = coreDevices.filter((d) => d.network_type_id === 1);
   const pChartDevices = coreDevices.filter((d) => d.network_type_id === 2);
 
-  const createRandomInterSiteLinks = (deviceList, count) => {
-    const createdPairs = new Set();
+  // Helper to extract top 2 devices per site, matching the visualization logic
+  const getTopDevicesForList = (deviceList) => {
+    const devicesByPikud = deviceList.reduce((acc, device) => {
+      const siteId = device.core_pikudim_site_id || device.coresite_id;
+      if (siteId !== undefined) {
+        if (!acc[siteId]) {
+          acc[siteId] = [];
+        }
+        acc[siteId].push(device);
+      }
+      return acc;
+    }, {});
+
+    const topDevices = Object.values(devicesByPikud).flatMap((deviceGroup) => {
+      if (deviceGroup.length <= 2) return deviceGroup;
+      const priorityOrder = [4, 5, 1, 2, 7, 8];
+      const sorted = [...deviceGroup].sort((a, b) => {
+        const a_ending = parseInt(a.hostname.split("-").pop(), 10);
+        const b_ending = parseInt(b.hostname.split("-").pop(), 10);
+        const a_priority = priorityOrder.indexOf(a_ending);
+        const b_priority = priorityOrder.indexOf(b_ending);
+        const final_a_priority = a_priority === -1 ? 99 : a_priority;
+        const final_b_priority = b_priority === -1 ? 99 : b_priority;
+        return final_a_priority - final_b_priority;
+      });
+      return sorted.slice(0, 2);
+    });
+
+    return topDevices;
+  };
+
+  const lChartTopDevices = getTopDevicesForList(lChartDevices);
+  const pChartTopDevices = getTopDevicesForList(pChartDevices);
+
+  const createRandomInterSiteLinks = (deviceList, count, createdPairs = new Set()) => {
     for (let i = 0; i < count; i++) {
       if (deviceList.length < 2) break;
       let sourceDevice, targetDevice, pairKey;
+      let attempts = 0;
       do {
         sourceDevice = faker.helpers.arrayElement(deviceList);
         targetDevice = faker.helpers.arrayElement(deviceList);
         const sortedIds = [sourceDevice.id, targetDevice.id].sort();
         pairKey = `${sortedIds[0]}-${sortedIds[1]}`;
+        attempts++;
       } while (
-        sourceDevice.core_pikudim_site_id ===
+        (sourceDevice.core_pikudim_site_id ===
           targetDevice.core_pikudim_site_id ||
-        createdPairs.has(pairKey)
+        createdPairs.has(pairKey)) &&
+        attempts < 100
       );
+
+      if (attempts >= 100) continue;
 
       // Only need the source interface
       const sourceInterfaces = deviceInfo[sourceDevice.id];
@@ -255,10 +297,16 @@ export const generateAllDummyData = () => {
         createdPairs.add(pairKey);
       }
     }
+    return createdPairs;
   };
 
-  createRandomInterSiteLinks(lChartDevices, 50);
-  createRandomInterSiteLinks(pChartDevices, 40);
+  // First, generate links between the highly visible top devices to make the chart look nice and connected
+  const lChartPairs = createRandomInterSiteLinks(lChartTopDevices, 40);
+  const pChartPairs = createRandomInterSiteLinks(pChartTopDevices, 30);
+
+  // Then, generate additional links between any devices for detail pages
+  createRandomInterSiteLinks(lChartDevices, 100, lChartPairs);
+  createRandomInterSiteLinks(pChartDevices, 80, pChartPairs);
 
   const tenGigLinks = [...sameSiteLinks, ...differentSiteLinks];
 
