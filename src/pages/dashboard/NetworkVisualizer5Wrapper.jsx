@@ -182,19 +182,23 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
     [navigate]
   );
 
-  const handleLinkClick = useCallback(
-    (linkDetailPayload) => {
-      const { sourceNode, targetNode, sourceName, targetName } = linkDetailPayload;
-      const src = sourceNode || sourceName;
-      const tgt = targetNode || targetName;
-      setPopupLink({
-        data: linkDetailPayload,
-        type: "link",
-        title: `${src} - ${tgt}`,
-      });
-    },
-    []
-  );
+  const handleLinkClick = useCallback((linkDetailPayload) => {
+    if (!linkDetailPayload) return;
+    const src =
+      typeof linkDetailPayload.source === "object"
+        ? linkDetailPayload.source?.id || linkDetailPayload.source?.hostname || linkDetailPayload.source?.name
+        : linkDetailPayload.sourceNode || linkDetailPayload.sourceName || linkDetailPayload.source;
+    const tgt =
+      typeof linkDetailPayload.target === "object"
+        ? linkDetailPayload.target?.id || linkDetailPayload.target?.hostname || linkDetailPayload.target?.name
+        : linkDetailPayload.targetNode || linkDetailPayload.targetName || linkDetailPayload.target;
+
+    setPopupLink({
+      data: linkDetailPayload,
+      type: "link",
+      title: `${src || "Device A"} ⟷ ${tgt || "Device B"}`,
+    });
+  }, []);
 
   const handleClosePopup = useCallback(() => {
     setPopupLink(null);

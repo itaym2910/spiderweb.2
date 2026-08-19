@@ -115,18 +115,34 @@ const createInterfaceInfo = (deviceId) => ({
   timestamp: faker.date.recent().toISOString(),
 });
 
-// --- MODIFIED & CORRECTED ---
-// The `targetInterface` argument has been removed as it was unused.
+let linkCounter = 0;
+
 const createTenGigLink = (sourceDevice, targetDevice, sourceInterface) => {
-  // Varied distribution across < 24h, 1-7 days, and 7-30 days
-  const daysAgo = faker.helpers.arrayElement([
-    faker.number.float({ min: 0.05, max: 0.9, fractionDigits: 2 }), // < 24h
-    faker.number.float({ min: 1.1, max: 6.5, fractionDigits: 2 }),  // 1 to 7 days
-    faker.number.float({ min: 7.5, max: 28, fractionDigits: 2 }),   // 7 to 30 days
-  ]);
+  linkCounter++;
+
+  // Well-distributed set of time presets across all time windows:
+  const timePresets = [
+    0.25 / 24, // ~15 mins ago (< 24h)
+    1.5 / 24,  // ~1.5 hours ago (< 24h)
+    4.5 / 24,  // ~4.5 hours ago (< 24h)
+    14.0 / 24, // ~14 hours ago (< 24h)
+    2.2,       // ~2.2 days ago (1-7d)
+    4.5,       // ~4.5 days ago (1-7d)
+    6.1,       // ~6.1 days ago (1-7d)
+    11.5,      // ~11.5 days ago (7-30d)
+    18.0,      // ~18 days ago (7-30d)
+    25.5,      // ~25.5 days ago (7-30d)
+    45.0,      // ~45 days ago (> 30d)
+    90.0,      // ~90 days ago (> 30d)
+  ];
+
+  const daysAgo = timePresets[linkCounter % timePresets.length];
   const statusChangedDate = new Date(
     Date.now() - daysAgo * 24 * 60 * 60 * 1000
   ).toISOString();
+
+  const statuses = ["up", "down", "up", "issue", "up", "down", "up", "down", "up", "issue"];
+  const status = statuses[linkCounter % statuses.length];
 
   return {
     id: `link-10g-${faker.string.alphanumeric(8)}`,
@@ -134,23 +150,19 @@ const createTenGigLink = (sourceDevice, targetDevice, sourceInterface) => {
     target: targetDevice.hostname,
     network_type_id: sourceDevice.network_type_id,
     ip: faker.internet.ip(),
-    status: faker.helpers.arrayElement(["up", "down", "issue"]),
+    status,
     timestamp: statusChangedDate,
     statusChangedAt: statusChangedDate,
-
-  // --- NEW FIELDS ---
-  // We'll use the source interface's data for the link's properties.
-  // Using the nullish coalescing operator `??` for numbers to correctly handle 0.
-  physicalStatus: sourceInterface.physical_status || "N/A",
-  protocolStatus: sourceInterface.protocol_status || "N/A",
-  MPLS: sourceInterface.mpls || "N/A",
-  OSPF: sourceInterface.ospf || "N/A",
-  Bandwidth: sourceInterface.bandwidth ?? "N/A",
-  Description: sourceInterface.description || "N/A",
-  MediaType: sourceInterface.media_type || "N/A",
-  CDP: sourceInterface.cdp || "N/A",
-  TX: sourceInterface.tx ?? "N/A",
-  RX: sourceInterface.rx ?? "N/A",
+    physicalStatus: status === "down" ? "Down" : sourceInterface.physical_status || "Up",
+    protocolStatus: status === "down" ? "Down" : sourceInterface.protocol_status || "Up",
+    MPLS: sourceInterface.mpls || "Enabled",
+    OSPF: sourceInterface.ospf || "Enabled",
+    Bandwidth: sourceInterface.bandwidth ?? 10000,
+    Description: sourceInterface.description || "Core backbone fiber link",
+    MediaType: sourceInterface.media_type || "Fiber",
+    CDP: sourceInterface.cdp || "neighbor-switch-core",
+    TX: sourceInterface.tx ?? -3.2,
+    RX: sourceInterface.rx ?? -4.5,
   };
 };
 

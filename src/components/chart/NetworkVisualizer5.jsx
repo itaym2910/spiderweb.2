@@ -223,10 +223,10 @@ const NetworkVisualizer5 = ({
 
       if (NODE_GROUPS && NODE_GROUPS.length > 0) {
         NODE_GROUPS.forEach((zone) => {
-          minX = Math.min(minX, zone.cx - 165);
-          maxX = Math.max(maxX, zone.cx + 165);
-          minY = Math.min(minY, zone.cy - 195);
-          maxY = Math.max(maxY, zone.cy + 195);
+          minX = Math.min(minX, zone.cx - 155);
+          maxX = Math.max(maxX, zone.cx + 155);
+          minY = Math.min(minY, zone.cy - 165);
+          maxY = Math.max(maxY, zone.cy + 165);
         });
       }
 
@@ -237,8 +237,8 @@ const NetworkVisualizer5 = ({
       const dataHeight = maxY - minY;
       const dataCenterX = minX + dataWidth / 2;
       const dataCenterY = minY + dataHeight / 2;
-      const zoomOutFactor = 0.92;
-      const paddingFactor = 0.08;
+      const zoomOutFactor = 1.05;
+      const paddingFactor = 0.03;
       const padding = Math.min(visibleWidth, height) * paddingFactor;
       const viewWidth = visibleWidth - 2 * padding;
       const viewHeight = height - 2 * padding;

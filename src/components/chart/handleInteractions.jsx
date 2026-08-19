@@ -6,41 +6,95 @@ import * as d3 from "d3";
 export function createLinkPopupPayload(linkDataObject) {
   if (!linkDataObject) return null;
 
+  const raw = linkDataObject.rawLink || linkDataObject;
+
   const sourceId =
     typeof linkDataObject.source === "object" && linkDataObject.source !== null
-      ? linkDataObject.source.id
-      : linkDataObject.source;
+      ? linkDataObject.source.id || linkDataObject.source.hostname || linkDataObject.source.name
+      : (linkDataObject.sourceNode || linkDataObject.sourceName || linkDataObject.source);
+
   const targetId =
     typeof linkDataObject.target === "object" && linkDataObject.target !== null
-      ? linkDataObject.target.id
-      : linkDataObject.target;
+      ? linkDataObject.target.id || linkDataObject.target.hostname || linkDataObject.target.name
+      : (linkDataObject.targetNode || linkDataObject.targetName || linkDataObject.target);
+
+  const status = normalizeLinkStatus(linkDataObject);
+  const physicalStatus =
+    raw.physical_status ||
+    raw.physicalStatus ||
+    linkDataObject.physical_status ||
+    linkDataObject.physicalStatus ||
+    (status === "down" ? "Down" : "Up");
+
+  const protocolStatus =
+    raw.protocol_status ||
+    raw.protocolStatus ||
+    linkDataObject.protocol_status ||
+    linkDataObject.protocolStatus ||
+    (status === "down" ? "Down" : "Up");
+
+  const mpls = raw.MPLS || raw.mpls || linkDataObject.MPLS || linkDataObject.mpls || "Enabled";
+  const ospf = raw.OSPF || raw.ospf || linkDataObject.OSPF || linkDataObject.ospf || "Enabled";
+  const rawBw = raw.bandwidth ?? raw.Bandwidth ?? raw.bw ?? linkDataObject.bandwidth ?? "10 Gbps";
+  const bandwidth =
+    typeof rawBw === "number"
+      ? rawBw >= 1000
+        ? `${rawBw / 1000} Gbps`
+        : `${rawBw} Mbps`
+      : String(rawBw);
+
+  const description =
+    raw.description ||
+    raw.Description ||
+    linkDataObject.description ||
+    "Core backbone fiber link";
+  const mediaType =
+    raw.media_type ||
+    raw.MediaType ||
+    raw.mediaType ||
+    linkDataObject.mediaType ||
+    "Fiber Optic";
+  const cdp = raw.cdp || raw.CDP || linkDataObject.cdp || "N/A";
+  const rawTx = raw.tx ?? raw.TX ?? linkDataObject.tx ?? "N/A";
+  const rawRx = raw.rx ?? raw.RX ?? linkDataObject.rx ?? "N/A";
+  const tx = typeof rawTx === "number" ? `${rawTx} dBm` : String(rawTx);
+  const rx = typeof rawRx === "number" ? `${rawRx} dBm` : String(rawRx);
+  const ip = raw.ip || linkDataObject.ip || "N/A";
+  const sourceZone = linkDataObject.sourceZone || raw.sourceZone || "N/A";
+  const targetZone = linkDataObject.targetZone || raw.targetZone || "N/A";
 
   const popupId =
     linkDataObject.id ||
     `${sourceId}-${targetId}-${Math.random().toString(16).slice(2)}`;
 
   return {
+    ...raw,
     ...linkDataObject,
     type: "link",
     id: popupId,
-    linkId: linkDataObject.id,
+    linkId: linkDataObject.id || popupId,
+    source: sourceId,
+    target: targetId,
     sourceNode: sourceId,
     targetNode: targetId,
-    name:
-      linkDataObject.name ||
-      linkDataObject.id ||
-      `Link ${sourceId}-${targetId}`,
-    status: linkDataObject.status || "N/A",
-    linkBandwidth:
-      linkDataObject.bandwidth || linkDataObject.linkBandwidth || "N/A",
-    latency: linkDataObject.latency || "N/A",
-    utilization: linkDataObject.utilization || "N/A",
-    linkDescription:
-      linkDataObject.description || linkDataObject.linkDescription || "N/A",
-    sourceInterface: linkDataObject.sourceInterface || "N/A",
-    targetInterface: linkDataObject.targetInterface || "N/A",
-    encapsulation: linkDataObject.encapsulation || "N/A",
-    lastFlap: linkDataObject.lastFlap || "N/A",
+    sourceName: sourceId,
+    targetName: targetId,
+    sourceZone,
+    targetZone,
+    name: `Link ${sourceId} ⟷ ${targetId}`,
+    status,
+    normalizedStatus: status,
+    physicalStatus,
+    protocolStatus,
+    mpls,
+    ospf,
+    bandwidth,
+    description,
+    mediaType,
+    cdp,
+    tx,
+    rx,
+    ip,
   };
 }
 
@@ -457,7 +511,6 @@ export function handleNodeMouseOver(
 
     if (isConnected) {
       d3.select(this)
-        .raise()
         .attr("stroke", getLinkColorByCategory(l, palette))
         .attr("stroke-opacity", 1.0)
         .attr("stroke-width", 5);
@@ -482,7 +535,6 @@ export function handleNodeMouseOver(
 
     if (isConnected) {
       d3.select(this)
-        .raise()
         .attr("stroke", getLinkColorByCategory(l, palette))
         .attr("stroke-opacity", 1.0)
         .attr("stroke-width", 5);
@@ -504,14 +556,12 @@ export function handleNodeMouseOver(
     if (!n) return;
     if (n.id === nodeId) {
       d3.select(this)
-        .raise()
         .attr("fill", palette.nodeHoverDirect || "#1d9bb4")
         .attr("stroke", palette.nodeHoverLinkStroke || "#facc15")
         .attr("stroke-width", 4.5)
         .style("opacity", 1);
     } else if (neighborNodeIds.has(n.id)) {
       d3.select(this)
-        .raise()
         .attr("fill", palette.nodeHoverLink || "#fde68a")
         .attr("stroke", palette.nodeHoverLinkStroke || "#facc15")
         .attr("stroke-width", 3.5)
@@ -607,7 +657,6 @@ function handleMouseOver(
     if (!l) return;
     if (l.id === d_link.id) {
       d3.select(this)
-        .raise()
         .attr("stroke", getLinkColorByCategory(l, palette))
         .attr("stroke-opacity", 1.0)
         .attr("stroke-width", 5);
@@ -623,7 +672,6 @@ function handleMouseOver(
     if (!n) return;
     if (n.id === sId || n.id === tId) {
       d3.select(this)
-        .raise()
         .attr("fill", palette.nodeHoverLink || "#fde68a")
         .attr("stroke", palette.nodeHoverLinkStroke || "#facc15")
         .attr("stroke-width", 4)
@@ -695,6 +743,7 @@ export function setupInteractions({
   }
 
   const svgNode = zoomLayer.node().ownerSVGElement;
+  const svg = d3.select(svgNode);
 
   // Build Adjacency Graph Index
   const linksByNode = new Map();
@@ -716,7 +765,7 @@ export function setupInteractions({
   // Node hover interactions
   if (node && node.size()) {
     node
-      .on("mouseenter.nodeHover", function (event, d_node) {
+      .on("mouseover", function (event, d_node) {
         handleNodeMouseOver(
           d_node,
           link,
@@ -725,14 +774,14 @@ export function setupInteractions({
           graphIndex
         );
       })
-      .on("mouseleave.nodeHover", function (event, d_node) {
+      .on("mouseout", function (event, d_node) {
         handleNodeMouseOut(d_node, link, palette, getMarkedLinkIds);
       });
   }
 
   // Link hover interactions
   linkHover
-    .on("mouseenter", function (event, d_hovered) {
+    .on("mouseover", function (event, d_hovered) {
       handleMouseOver(
         d_hovered,
         link,
@@ -750,7 +799,7 @@ export function setupInteractions({
       const [px, py] = d3.pointer(event, svgNode);
       tooltip.attr("x", px + 12).attr("y", py - 12);
     })
-    .on("mouseleave", function () {
+    .on("mouseout", function () {
       handleMouseOut(link, tooltip, palette, getMarkedLinkIds);
     })
     .on("click", function (event, d_clicked) {
@@ -760,4 +809,9 @@ export function setupInteractions({
       }
       event.stopPropagation();
     });
+
+  // Global SVG pointerleave safety check to prevent any stuck hover state
+  svg.on("pointerleave.clearHover", function () {
+    handleNodeMouseOut(null, link, palette, getMarkedLinkIds);
+  });
 }

@@ -201,12 +201,20 @@ const NetworkVisualizerWrapper = ({ theme }) => {
   };
 
   const handleLinkClick = (linkData) => {
+    if (!linkData) return;
+    const src =
+      typeof linkData.source === "object"
+        ? linkData.source?.id || linkData.source?.hostname || linkData.source?.name
+        : linkData.sourceNode || linkData.sourceName || linkData.source;
+    const tgt =
+      typeof linkData.target === "object"
+        ? linkData.target?.id || linkData.target?.hostname || linkData.target?.name
+        : linkData.targetNode || linkData.targetName || linkData.target;
+
     setPopupLink({
       data: linkData,
-      type: linkData.linkType || "link",
-      title: `${linkData.sourceNode || linkData.source} ⟷ ${
-        linkData.targetNode || linkData.target
-      }`,
+      type: "link",
+      title: `${src || "Device A"} ⟷ ${tgt || "Device B"}`,
     });
   };
 

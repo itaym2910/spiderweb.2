@@ -36,6 +36,8 @@ const realtimeService = {
         const updatePayload = {
           id: randomLink.id,
           status: nextStatus,
+          statusChangedAt: new Date().toISOString(),
+          timestamp: new Date().toISOString(),
         };
 
         // 4. Dispatch a standard Redux action, as if this came from a WebSocket.

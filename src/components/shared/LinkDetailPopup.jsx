@@ -182,11 +182,45 @@ const LinkDetailPopup = ({
                   isDark ? "divide-gray-700" : "divide-gray-100"
                 }`}
               >
-                <DetailRow label="Physical" value="Up" isDark={isDark} />
-                <DetailRow label="Protocol" value="Up" isDark={isDark} />
-                <DetailRow label="MPLS" value="Enabled" isDark={isDark} />
-                <DetailRow label="OSPF" value="Full" isDark={isDark} />
-                <DetailRow label="Bandwidth" value="10 Gbps" isDark={isDark} />
+                <DetailRow
+                  label="Physical Status"
+                  value={itemData.physicalStatus || itemData.physical_status || "Up"}
+                  isDark={isDark}
+                />
+                <DetailRow
+                  label="Protocol Status"
+                  value={itemData.protocolStatus || itemData.protocol_status || "Up"}
+                  isDark={isDark}
+                />
+                <DetailRow
+                  label="MPLS"
+                  value={itemData.mpls || itemData.MPLS || "Enabled"}
+                  isDark={isDark}
+                />
+                <DetailRow
+                  label="OSPF"
+                  value={itemData.ospf || itemData.OSPF || "Enabled"}
+                  isDark={isDark}
+                />
+                <DetailRow
+                  label="Bandwidth"
+                  value={itemData.bandwidth || itemData.Bandwidth || "10 Gbps"}
+                  isDark={isDark}
+                />
+                {itemData.sourceZone && itemData.sourceZone !== "N/A" && (
+                  <DetailRow
+                    label="Source Zone"
+                    value={itemData.sourceZone}
+                    isDark={isDark}
+                  />
+                )}
+                {itemData.targetZone && itemData.targetZone !== "N/A" && (
+                  <DetailRow
+                    label="Target Zone"
+                    value={itemData.targetZone}
+                    isDark={isDark}
+                  />
+                )}
               </div>
 
               {/* Expanded details section */}
@@ -209,21 +243,36 @@ const LinkDetailPopup = ({
                 >
                   <DetailRow
                     label="Description"
-                    value="Core fiber link"
+                    value={itemData.description || itemData.Description || "Core backbone fiber link"}
                     isDark={isDark}
                   />
                   <DetailRow
                     label="Media Type"
-                    value="Fiber Optic"
+                    value={itemData.mediaType || itemData.MediaType || itemData.media_type || "Fiber Optic"}
                     isDark={isDark}
                   />
                   <DetailRow
-                    label="CDP Neighbors"
-                    value="2"
+                    label="CDP Neighbor"
+                    value={itemData.cdp || itemData.CDP || itemData.cdpNeighbors || "N/A"}
                     isDark={isDark}
                   />
-                  <DetailRow label="TX" value="8.2 Gbps" isDark={isDark} />
-                  <DetailRow label="RX" value="7.1 Gbps" isDark={isDark} />
+                  <DetailRow
+                    label="TX"
+                    value={itemData.tx || itemData.TX || "N/A"}
+                    isDark={isDark}
+                  />
+                  <DetailRow
+                    label="RX"
+                    value={itemData.rx || itemData.RX || "N/A"}
+                    isDark={isDark}
+                  />
+                  {itemData.ip && itemData.ip !== "N/A" && (
+                    <DetailRow
+                      label="IP Address"
+                      value={itemData.ip}
+                      isDark={isDark}
+                    />
+                  )}
                 </div>
               </div>
             </div>

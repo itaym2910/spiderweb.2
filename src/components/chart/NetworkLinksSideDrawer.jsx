@@ -221,7 +221,29 @@ export default function NetworkLinksSideDrawer({
     });
   }, [enrichedLinks, activeFilter, timeFilter, searchQuery]);
 
-  // Handle clicking the Up or Down button
+  // Helper to get links matching status and time window for marking on chart
+  const getMatchingLinks = (statusF, timeF) => {
+    return enrichedLinks.filter((link) => {
+      // Status filter
+      if (statusF === "up" && link.normalizedStatus !== "up") return false;
+      if (statusF === "down" && link.normalizedStatus === "up") return false;
+
+      // Time filter
+      if (timeF && timeF !== "all") {
+        const targetDate = new Date(link.statusDate);
+        if (!isNaN(targetDate.getTime())) {
+          const diffHours =
+            (Date.now() - targetDate.getTime()) / (1000 * 60 * 60);
+          if (timeF === "24h" && diffHours > 24) return false;
+          if (timeF === "7d" && diffHours > 24 * 7) return false;
+          if (timeF === "30d" && diffHours > 24 * 30) return false;
+        }
+      }
+      return true;
+    });
+  };
+
+  // Handle clicking the Up or Down floating button
   const handleButtonClick = (filterType) => {
     if (isOpen && activeFilter === filterType) {
       setIsOpen(false);
@@ -229,30 +251,23 @@ export default function NetworkLinksSideDrawer({
     } else {
       setActiveFilter(filterType);
       setIsOpen(true);
-      const targetLinks = enrichedLinks.filter((l) =>
-        filterType === "up"
-          ? l.normalizedStatus === "up"
-          : l.normalizedStatus !== "up"
-      );
-      onMarkAll?.(targetLinks.map((l) => l.id));
+      const matching = getMatchingLinks(filterType, timeFilter);
+      onMarkAll?.(matching.map((l) => l.id));
     }
   };
 
+  // Handle status tab clicks (Up, Down, All)
   const handleStatusTabClick = (filterType) => {
     setActiveFilter(filterType);
-    if (filterType === "up") {
-      const targetLinks = enrichedLinks.filter(
-        (l) => l.normalizedStatus === "up"
-      );
-      onMarkAll?.(targetLinks.map((l) => l.id));
-    } else if (filterType === "down") {
-      const targetLinks = enrichedLinks.filter(
-        (l) => l.normalizedStatus !== "up"
-      );
-      onMarkAll?.(targetLinks.map((l) => l.id));
-    } else {
-      onMarkAll?.(enrichedLinks.map((l) => l.id));
-    }
+    const matching = getMatchingLinks(filterType, timeFilter);
+    onMarkAll?.(matching.map((l) => l.id));
+  };
+
+  // Handle time window filter clicks (<24h, <7d, <1 Month, All)
+  const handleTimeFilterClick = (newTimeFilter) => {
+    setTimeFilter(newTimeFilter);
+    const matching = getMatchingLinks(activeFilter, newTimeFilter);
+    onMarkAll?.(matching.map((l) => l.id));
   };
 
   const markedCount = markedLinkIds ? markedLinkIds.size : 0;
@@ -478,7 +493,7 @@ export default function NetworkLinksSideDrawer({
                   <button
                     key={opt.id}
                     type="button"
-                    onClick={() => setTimeFilter(opt.id)}
+                    onClick={() => handleTimeFilterClick(opt.id)}
                     className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-all whitespace-nowrap flex items-center gap-1 ${
                       isSelected
                         ? "bg-blue-600 text-white shadow-sm font-semibold"
