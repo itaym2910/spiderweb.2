@@ -86,8 +86,18 @@ export default function NetworkLinksSideDrawer({
   onLinkClick,
   theme = "light",
   chartName = "Network",
+  isOpen: controlledIsOpen,
+  onOpenChange,
 }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
+
+  const setIsOpen = (val) => {
+    const nextVal = typeof val === "function" ? val(isOpen) : val;
+    setInternalIsOpen(nextVal);
+    onOpenChange?.(nextVal);
+  };
+
   const [activeFilter, setActiveFilter] = useState("up"); // 'up' | 'down' | 'all'
   const [searchQuery, setSearchQuery] = useState("");
   // Local state to trigger re-computation of durations every 10 seconds

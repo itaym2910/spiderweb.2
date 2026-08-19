@@ -42,6 +42,7 @@ const NetworkVisualizerWrapper = ({ theme }) => {
   // Existing state and selectors...
   const [popupLink, setPopupLink] = useState(null);
   const [showDetailedLinks, setShowDetailedLinks] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // --- These selectors correctly get the filtered data ---
   const pikudim = useSelector((state) => selectPikudimByTypeId(state, 1));
@@ -225,6 +226,8 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           onLinkClick={handleLinkClick}
           theme={theme}
           chartName="L-Network"
+          isOpen={isDrawerOpen}
+          onOpenChange={setIsDrawerOpen}
         />
         <ToggleDetailButton
           isDetailed={showDetailedLinks}
@@ -236,6 +239,7 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           data={graphData}
           theme={theme}
           showDetailedLinks={showDetailedLinks}
+          isDrawerOpen={isDrawerOpen}
           onZoneClick={handleZoneClick}
           onLinkClick={handleLinkClick}
           onNodeClick={handleNodeClick}

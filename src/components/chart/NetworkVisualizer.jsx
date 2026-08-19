@@ -13,13 +13,13 @@ const NetworkVisualizer = ({
   theme,
   data,
   showDetailedLinks,
+  isDrawerOpen = false,
   onZoneClick,
   onLinkClick,
   onNodeClick,
 }) => {
   const svgRef = useRef();
 
-  // +++ ADD `showDetailedLinks` TO THE DEPENDENCY ARRAY
   useEffect(() => {
     const svgElement = svgRef.current;
     if (!svgElement) return;
@@ -27,7 +27,6 @@ const NetworkVisualizer = ({
     const width = svgElement.clientWidth || window.innerWidth;
     const height = svgElement.clientHeight || window.innerHeight;
 
-    // ... (rest of the initial setup logic is unchanged)
     const nodes = structuredClone(data.nodes || []);
     const links = structuredClone(data.links || []);
 
@@ -36,7 +35,6 @@ const NetworkVisualizer = ({
       return;
     }
 
-    // ... (palette and node/link processing is unchanged)
     const NODE_GROUPS = getNodeGroups(nodes);
 
     const nodeMap = {};
@@ -101,7 +99,6 @@ const NetworkVisualizer = ({
     const zoomLayer = svg.append("g").attr("class", "main-zoom-layer");
     const tooltipLayer = svg.append("g").attr("class", "tooltip-layer-group");
 
-    const ZOOM_THRESHOLD = 1.5;
     let parallelLinksAreVisible = false;
 
     const zoomBehavior = d3
@@ -146,7 +143,6 @@ const NetworkVisualizer = ({
       onNodeClick
     );
 
-    // ... (rest of the rendering logic is unchanged)
     link.attr("stroke", palette.link);
     node.attr("fill", palette.node).attr("stroke", palette.stroke);
     label.attr("fill", palette.label);
@@ -177,26 +173,39 @@ const NetworkVisualizer = ({
       .attr("y2", (d) => linkPositionFromEdges(d).y2);
 
     if (nodes.length > 0) {
-      // ... (initial transform calculation is unchanged) ...
       let minX = Infinity,
         maxX = -Infinity,
         minY = Infinity,
         maxY = -Infinity;
+
       nodes.forEach((n) => {
         if (n.x < minX) minX = n.x;
         if (n.x > maxX) maxX = n.x;
         if (n.y < minY) minY = n.y;
         if (n.y > maxY) maxY = n.y;
       });
+
+      // Include zone boundaries (radii + labels) so everything fits comfortably inside the box
+      if (NODE_GROUPS && NODE_GROUPS.length > 0) {
+        NODE_GROUPS.forEach((zone) => {
+          minX = Math.min(minX, zone.cx - 165);
+          maxX = Math.max(maxX, zone.cx + 165);
+          minY = Math.min(minY, zone.cy - 195);
+          maxY = Math.max(maxY, zone.cy + 195);
+        });
+      }
+
+      const drawerOffset = isDrawerOpen && width > 768 ? 440 : 0;
+      const visibleWidth = Math.max(200, width - drawerOffset);
+
       const dataWidth = maxX - minX;
       const dataHeight = maxY - minY;
       const dataCenterX = minX + dataWidth / 2;
       const dataCenterY = minY + dataHeight / 2;
-      const zoomOutFactor = 0.9;
-      const verticalScreenOffset = 0;
-      const paddingFactor = 0.15;
-      const padding = Math.min(width, height) * paddingFactor;
-      const viewWidth = width - 2 * padding;
+      const zoomOutFactor = 0.92;
+      const paddingFactor = 0.08;
+      const padding = Math.min(visibleWidth, height) * paddingFactor;
+      const viewWidth = visibleWidth - 2 * padding;
       const viewHeight = height - 2 * padding;
       let k = 1;
       if (dataWidth > 0 && dataHeight > 0) {
@@ -209,9 +218,9 @@ const NetworkVisualizer = ({
       k *= zoomOutFactor;
       const [minScale, maxScale] = zoomBehavior.scaleExtent();
       k = Math.max(minScale, Math.min(maxScale, k));
-      let tx = width / 2 - dataCenterX * k;
+
+      let tx = visibleWidth / 2 - dataCenterX * k;
       let ty = height / 2 - dataCenterY * k;
-      ty += verticalScreenOffset;
       const initialTransform = d3.zoomIdentity.translate(tx, ty).scale(k);
       svg.call(zoomBehavior.transform, initialTransform);
 
@@ -233,13 +242,13 @@ const NetworkVisualizer = ({
         onLinkClick,
       })
     );
-  }, [onZoneClick, data, theme, onLinkClick, onNodeClick, showDetailedLinks]); // <<< Added prop to dependency array
+  }, [onZoneClick, data, theme, onLinkClick, onNodeClick, showDetailedLinks, isDrawerOpen]);
 
   return (
-    <div>
+    <div className="w-full h-full relative">
       <svg
         ref={svgRef}
-        className="absolute top-0 left-0 w-full h-full bg-white dark:bg-gray-800"
+        className="absolute top-0 left-0 w-full h-full bg-white dark:bg-gray-800 transition-colors"
       />
     </div>
   );

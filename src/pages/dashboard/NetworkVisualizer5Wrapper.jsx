@@ -42,6 +42,7 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
   // Local UI state
   const [popupLink, setPopupLink] = useState(null);
   const [showDetailedLinks, setShowDetailedLinks] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Selectors for P-Chart data (typeId: 2)
   const pikudim = useSelector((state) => selectPikudimByTypeId(state, 2));
@@ -224,6 +225,8 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           onLinkClick={handleLinkClick}
           theme={theme}
           chartName="P-Network"
+          isOpen={isDrawerOpen}
+          onOpenChange={setIsDrawerOpen}
         />
         <ToggleDetailButton
           isDetailed={showDetailedLinks}
@@ -235,6 +238,7 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           data={graphData}
           theme={theme}
           showDetailedLinks={showDetailedLinks}
+          isDrawerOpen={isDrawerOpen}
           onZoneClick={handleZoneClick}
           onLinkClick={handleLinkClick}
           onNodeClick={handleNodeClick}
