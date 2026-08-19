@@ -133,6 +133,12 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
         const targetName =
           (typeof link.target === "string" ? link.target : null) || targetDev?.hostname || targetDev?.name;
 
+        const normalized = (link.status || link.physical_status || link.physicalStatus || "").toLowerCase().includes("down")
+          ? "down"
+          : (link.status || link.physical_status || link.physicalStatus || "").toLowerCase().includes("issue")
+          ? "issue"
+          : "up";
+
         return {
           ...link,
           id: link.id,
@@ -140,8 +146,9 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           target: targetName,
           sourceZone: nodeZoneMap.get(sourceName) || "Core",
           targetZone: nodeZoneMap.get(targetName) || "Core",
-          category: link.physical_status || link.physicalStatus || link.status || "Up",
-          status: link.status || link.physical_status || link.physicalStatus || "up",
+          category: normalized,
+          status: normalized,
+          normalizedStatus: normalized,
           statusChangedAt: link.statusChangedAt || link.timestamp,
         };
       })

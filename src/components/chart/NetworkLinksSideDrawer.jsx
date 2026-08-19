@@ -59,22 +59,7 @@ export function formatExactTime(timestamp) {
   });
 }
 
-/**
- * Normalizes status from different link data formats.
- */
-function normalizeStatus(link) {
-  const raw = (
-    link.status ||
-    link.physicalStatus ||
-    link.physical_status ||
-    link.category ||
-    "up"
-  ).toLowerCase();
-
-  if (raw === "down") return "down";
-  if (raw === "issue" || raw === "warning") return "issue";
-  return "up";
-}
+import { normalizeLinkStatus } from "./drawHelpers";
 
 /**
  * NetworkLinksSideDrawer
@@ -126,7 +111,7 @@ export default function NetworkLinksSideDrawer({
   // Classify and enrich links
   const enrichedLinks = useMemo(() => {
     return links.map((link) => {
-      const normalizedStatus = normalizeStatus(link);
+      const normalizedStatus = normalizeLinkStatus(link);
       const statusDate =
         link.statusChangedAt ||
         link.status_changed_at ||
@@ -546,40 +531,19 @@ export default function NetworkLinksSideDrawer({
               )}
             </div>
 
-            {/* Mark on chart quick action */}
-            {filteredLinks.length > 0 && (
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onMarkAll) {
-                      onMarkAll(filteredLinks.map((l) => l.id));
-                    }
-                  }}
-                  title="Highlight all filtered links on chart"
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors border ${
-                    isDark
-                      ? "bg-gray-800 hover:bg-gray-700 text-amber-300 border-gray-700"
-                      : "bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200"
-                  }`}
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>Mark All</span>
-                </button>
-
-                {markedCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (onClearMarks) onClearMarks();
-                    }}
-                    title="Clear chart highlights"
-                    className="p-1.5 rounded-lg text-xs font-semibold text-gray-400 hover:text-rose-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  >
-                    <EyeOff className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
+            {/* Clear chart highlights button (if any marks are active) */}
+            {markedCount > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (onClearMarks) onClearMarks();
+                }}
+                title="Clear chart highlights"
+                className="px-2 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 text-gray-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-gray-200 dark:border-gray-700 transition-colors shrink-0"
+              >
+                <EyeOff className="w-3.5 h-3.5" />
+                <span>Clear ({markedCount})</span>
+              </button>
             )}
           </div>
         </div>

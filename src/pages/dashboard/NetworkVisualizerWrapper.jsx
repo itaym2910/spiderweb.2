@@ -152,6 +152,12 @@ const NetworkVisualizerWrapper = ({ theme }) => {
         const sourceZone = pikudimMap[sourceSiteId]?.core_site_name || pikudimMap[sourceSiteId]?.name || `Pikud ${sourceSiteId}`;
         const targetZone = pikudimMap[targetSiteId]?.core_site_name || pikudimMap[targetSiteId]?.name || `Pikud ${targetSiteId}`;
 
+        const normalized = (link.status || link.physical_status || "").toLowerCase().includes("down")
+          ? "down"
+          : (link.status || link.physical_status || "").toLowerCase().includes("issue")
+          ? "issue"
+          : "up";
+
         return {
           ...link,
           id: link.id,
@@ -163,8 +169,9 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           targetZone,
           physical_status: link.physical_status,
           protocol_status: link.protocol_status,
-          category: link.physical_status || link.status || "Up",
-          status: link.status || link.physical_status || "up",
+          category: normalized,
+          status: normalized,
+          normalizedStatus: normalized,
           statusChangedAt: link.statusChangedAt || link.status_changed_at || link.updated_at || link.timestamp,
           linkType: "core",
           bandwidth: link.bandwidth || link.bw || "10G",

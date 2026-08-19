@@ -1,5 +1,4 @@
-// src/chart/handleInteractions.js
-import { linkPositionFromEdges } from "./drawHelpers";
+import { linkPositionFromEdges, normalizeLinkStatus } from "./drawHelpers";
 import * as d3 from "d3";
 
 // --- Helper function to create payload for link popups ---
@@ -15,29 +14,21 @@ function createLinkPopupPayload(linkDataObject) {
       ? linkDataObject.target.id
       : linkDataObject.target;
 
-  // Ensure 'id' for the popup system is the actual link's ID if available,
-  // otherwise generate one. This 'id' is for the popup instance.
-  // The original link's ID will be stored in a separate property if needed, e.g., 'originalLinkId'
-  // For SiteDetailPopup, detailData.id is used for aria and keys.
   const popupId =
     linkDataObject.id ||
     `${sourceId}-${targetId}-${Math.random().toString(16).slice(2)}`;
 
   return {
-    ...linkDataObject, // Spread existing link data to retain all original properties
-    type: "link", // Explicitly set type for the popup
-    id: popupId, // This ID is used by usePopupManager and SiteDetailPopup for its key and aria attributes
-
-    // Fields expected by SiteDetailPopup for type: "link"
-    // Adjust these based on the actual properties available in your linkDataObject
-    // and what SiteDetailPopup expects.
-    linkId: linkDataObject.id, // <<< Explicitly including the original link ID
+    ...linkDataObject,
+    type: "link",
+    id: popupId,
+    linkId: linkDataObject.id,
     sourceNode: sourceId,
     targetNode: targetId,
     name:
       linkDataObject.name ||
       linkDataObject.id ||
-      `Link ${sourceId}-${targetId}`, // A display name
+      `Link ${sourceId}-${targetId}`,
     status: linkDataObject.status || "N/A",
     linkBandwidth:
       linkDataObject.bandwidth || linkDataObject.linkBandwidth || "N/A",
@@ -53,39 +44,240 @@ function createLinkPopupPayload(linkDataObject) {
 }
 
 // ===================================================================
-// NEW: Helper function to get the correct color by category
+// Helper function to get the correct color by category / status
 // ===================================================================
-function getLinkColorByCategory(linkData, palette) {
+export function getLinkColorByCategory(linkData, palette) {
   if (!linkData) return palette?.link || "#6b7280";
-  // Check category, status, or physical_status
-  const category = (
-    linkData.category ||
-    linkData.status ||
-    linkData.physical_status ||
-    "issue"
-  ).toLowerCase();
-  // Return the color from the palette, or the issue color as a fallback
-  return palette?.status?.[category] || palette?.status?.issue || "#f59e0b";
+  const status = normalizeLinkStatus(linkData);
+  if (status === "down") {
+    return palette?.status?.down || "#ef4444";
+  }
+  if (status === "issue") {
+    return palette?.status?.issue || "#f59e0b";
+  }
+  return palette?.status?.up || "#22c55e";
 }
 
-function handleMouseOut(d_hovered_orig, linkSelection, tooltip, palette) {
+// ===================================================================
+// Helper function to apply / restore marked links & nodes state
+// ===================================================================
+export function applyMarkedState({
+  svg,
+  markedLinkIds,
+  hoveredLinkId,
+  palette,
+  theme,
+}) {
+  if (!svg || !svg.node()) return;
+
+  const isDark = theme === "dark";
+  const defaultLinkColor = palette?.link || (isDark ? "#94a3b8" : "#6b7280");
+  const defaultNodeColor = palette?.node || "#29c6e0";
+  const defaultNodeStroke = palette?.stroke || (isDark ? "#60a5fa" : "#1d4ed8");
+
+  const hasMarked =
+    (markedLinkIds && markedLinkIds.size > 0) || Boolean(hoveredLinkId);
+
+  if (!hasMarked) {
+    svg
+      .selectAll("line.visible-link")
+      .transition()
+      .duration(150)
+      .attr("stroke", defaultLinkColor)
+      .attr("stroke-opacity", 0.6)
+      .attr("stroke-width", 2);
+
+    svg
+      .selectAll("circle.node")
+      .transition()
+      .duration(150)
+      .style("opacity", 0.9)
+      .attr("fill", defaultNodeColor)
+      .attr("stroke", defaultNodeStroke)
+      .attr("stroke-width", 2)
+      .style("pointer-events", "auto")
+      .style("cursor", "pointer");
+
+    svg
+      .selectAll("path.duplicate-link")
+      .transition()
+      .duration(150)
+      .attr("stroke", (d) => getLinkColorByCategory(d, palette))
+      .attr("stroke-opacity", 1.0)
+      .attr("stroke-width", 3);
+
+    svg
+      .selectAll("line.link-hover, path.duplicate-link-hover")
+      .style("pointer-events", "auto")
+      .style("cursor", "pointer");
+
+    svg
+      .selectAll("text.label")
+      .transition()
+      .duration(150)
+      .style("opacity", 1)
+      .attr("font-weight", "normal");
+
+    return;
+  }
+
+  const activeEndpoints = new Set();
+  const markedIdsSet = new Set(markedLinkIds || []);
+  if (hoveredLinkId) markedIdsSet.add(hoveredLinkId);
+
+  // 1. Visible straight links
+  svg.selectAll("line.visible-link").each(function (d) {
+    if (!d) return;
+    const isMarked = markedIdsSet.has(d.id);
+    const highlightColor = getLinkColorByCategory(d, palette);
+
+    const sourceId = typeof d.source === "object" ? d.source.id : d.source;
+    const targetId = typeof d.target === "object" ? d.target.id : d.target;
+
+    if (isMarked) {
+      activeEndpoints.add(sourceId);
+      activeEndpoints.add(targetId);
+
+      d3.select(this)
+        .raise()
+        .transition()
+        .duration(150)
+        .attr("stroke", highlightColor)
+        .attr("stroke-opacity", 1)
+        .attr("stroke-width", 4.5);
+    } else {
+      d3.select(this)
+        .transition()
+        .duration(150)
+        .attr("stroke", defaultLinkColor)
+        .attr("stroke-opacity", 0.12)
+        .attr("stroke-width", 1.5);
+    }
+  });
+
+  // 2. Duplicate / parallel links
+  svg.selectAll("path.duplicate-link").each(function (d) {
+    if (!d) return;
+    const isMarked = markedIdsSet.has(d.id);
+    const highlightColor = getLinkColorByCategory(d, palette);
+
+    const sourceId = typeof d.source === "object" ? d.source.id : d.source;
+    const targetId = typeof d.target === "object" ? d.target.id : d.target;
+
+    if (isMarked) {
+      activeEndpoints.add(sourceId);
+      activeEndpoints.add(targetId);
+
+      d3.select(this)
+        .raise()
+        .transition()
+        .duration(150)
+        .attr("stroke", highlightColor)
+        .attr("stroke-opacity", 1)
+        .attr("stroke-width", 4.5);
+    } else {
+      d3.select(this)
+        .transition()
+        .duration(150)
+        .attr("stroke", defaultLinkColor)
+        .attr("stroke-opacity", 0.12)
+        .attr("stroke-width", 1.5);
+    }
+  });
+
+  // 3. Hover hitboxes: only marked links can be hovered
+  svg.selectAll("line.link-hover").each(function (d) {
+    const isMarked = d && markedIdsSet.has(d.id);
+    d3.select(this)
+      .style("pointer-events", isMarked ? "auto" : "none")
+      .style("cursor", isMarked ? "pointer" : "default");
+  });
+
+  svg.selectAll("path.duplicate-link-hover").each(function (d) {
+    const isMarked = d && markedIdsSet.has(d.id);
+    d3.select(this)
+      .style("pointer-events", isMarked ? "auto" : "none")
+      .style("cursor", isMarked ? "pointer" : "default");
+  });
+
+  // 4. Nodes: only endpoints of marked links can be hovered
+  svg.selectAll("circle.node").each(function (d) {
+    if (!d) return;
+    const isEndpoint = activeEndpoints.has(d.id);
+    if (isEndpoint) {
+      d3.select(this)
+        .raise()
+        .transition()
+        .duration(150)
+        .style("opacity", 1)
+        .attr("fill", "#fef08a")
+        .attr("stroke", "#f59e0b")
+        .attr("stroke-width", 3.5)
+        .style("pointer-events", "auto")
+        .style("cursor", "pointer");
+    } else {
+      d3.select(this)
+        .transition()
+        .duration(150)
+        .style("opacity", 0.25)
+        .attr("fill", defaultNodeColor)
+        .attr("stroke", defaultNodeStroke)
+        .attr("stroke-width", 2)
+        .style("pointer-events", "none")
+        .style("cursor", "default");
+    }
+  });
+
+  // 5. Labels
+  svg.selectAll("text.label").each(function (d) {
+    if (!d) return;
+    const isEndpoint = activeEndpoints.has(d.id);
+    d3.select(this)
+      .transition()
+      .duration(150)
+      .style("opacity", isEndpoint ? 1 : 0.3)
+      .attr("font-weight", isEndpoint ? "bold" : "normal");
+  });
+}
+
+function handleMouseOut(
+  d_hovered_orig,
+  linkSelection,
+  tooltip,
+  palette,
+  getMarkedLinkIds
+) {
+  tooltip.attr("opacity", 0);
+  d3.selectAll("path.duplicate-link").remove();
+  d3.selectAll("path.duplicate-link-hover").remove();
+
+  const markedIds = getMarkedLinkIds ? getMarkedLinkIds() : null;
+  if (markedIds && markedIds.size > 0) {
+    // If marked links are active, restore the marked state
+    const svgNode = linkSelection ? linkSelection.node() : null;
+    const svg = svgNode ? d3.select(svgNode.ownerSVGElement || svgNode.closest("svg")) : null;
+    if (svg && svg.node()) {
+      applyMarkedState({ svg, markedLinkIds: markedIds, palette });
+      return;
+    }
+  }
+
   if (
     !d_hovered_orig ||
     typeof d_hovered_orig.source === "undefined" ||
     typeof d_hovered_orig.target === "undefined"
   ) {
-    linkSelection
-      .attr("stroke", palette.link)
-      .attr("stroke-opacity", 0.6)
-      .style("pointer-events", "auto")
-      .attr("stroke-width", 2);
+    if (linkSelection) {
+      linkSelection
+        .attr("stroke", palette.link)
+        .attr("stroke-opacity", 0.6)
+        .style("pointer-events", "auto")
+        .attr("stroke-width", 2);
+    }
     d3.selectAll("circle.node")
       .attr("fill", palette.node)
       .attr("stroke", palette.stroke)
       .attr("stroke-width", 2);
-    d3.selectAll("path.duplicate-link").remove();
-    d3.selectAll("path.duplicate-link-hover").remove();
-    tooltip.attr("opacity", 0);
     return;
   }
 
@@ -99,58 +291,54 @@ function handleMouseOut(d_hovered_orig, linkSelection, tooltip, palette) {
       : d_hovered_orig.target;
 
   if (typeof sourceId === "undefined" || typeof targetId === "undefined") {
-    linkSelection.attr("stroke-opacity", 0.6).style("pointer-events", "auto");
+    if (linkSelection) {
+      linkSelection.attr("stroke-opacity", 0.6).style("pointer-events", "auto");
+    }
     d3.selectAll("circle.node")
       .attr("fill", palette.node)
       .attr("stroke", palette.stroke);
-    d3.selectAll("path.duplicate-link").remove();
-    d3.selectAll("path.duplicate-link-hover").remove();
-    tooltip.attr("opacity", 0);
     return;
   }
 
   const key_unhovered = [sourceId, targetId].sort().join("--");
 
-  linkSelection.each(function (l_straight) {
-    if (
-      !l_straight ||
-      typeof l_straight.source === "undefined" ||
-      typeof l_straight.target === "undefined"
-    ) {
-      return;
-    }
-    const s_id =
-      typeof l_straight.source === "object" && l_straight.source !== null
-        ? l_straight.source.id
-        : l_straight.source;
-    const t_id =
-      typeof l_straight.target === "object" && l_straight.target !== null
-        ? l_straight.target.id
-        : l_straight.target;
+  if (linkSelection) {
+    linkSelection.each(function (l_straight) {
+      if (
+        !l_straight ||
+        typeof l_straight.source === "undefined" ||
+        typeof l_straight.target === "undefined"
+      ) {
+        return;
+      }
+      const s_id =
+        typeof l_straight.source === "object" && l_straight.source !== null
+          ? l_straight.source.id
+          : l_straight.source;
+      const t_id =
+        typeof l_straight.target === "object" && l_straight.target !== null
+          ? l_straight.target.id
+          : l_straight.target;
 
-    if (typeof s_id === "undefined" || typeof t_id === "undefined") {
-      return;
-    }
-    const straightKey = [s_id, t_id].sort().join("--");
-    if (straightKey === key_unhovered) {
-      d3.select(this)
-        .attr("stroke", palette.link)
-        .attr("stroke-opacity", 0.6)
-        .style("pointer-events", "auto")
-        .attr("stroke-width", 2);
-    }
-  });
+      if (typeof s_id === "undefined" || typeof t_id === "undefined") {
+        return;
+      }
+      const straightKey = [s_id, t_id].sort().join("--");
+      if (straightKey === key_unhovered) {
+        d3.select(this)
+          .attr("stroke", palette.link)
+          .attr("stroke-opacity", 0.6)
+          .style("pointer-events", "auto")
+          .attr("stroke-width", 2);
+      }
+    });
+  }
 
   d3.selectAll("circle.node")
     .filter((n) => n.id === sourceId || n.id === targetId)
     .attr("fill", palette.node)
     .attr("stroke", palette.stroke)
     .attr("stroke-width", 2);
-
-  tooltip.attr("opacity", 0);
-
-  d3.selectAll("path.duplicate-link").remove();
-  d3.selectAll("path.duplicate-link-hover").remove();
 }
 
 function handleMouseOver(
@@ -161,8 +349,14 @@ function handleMouseOver(
   zoomLayer,
   tooltip,
   palette,
-  onLinkClick
+  onLinkClick,
+  getMarkedLinkIds
 ) {
+  const markedIds = getMarkedLinkIds ? getMarkedLinkIds() : null;
+  if (markedIds && markedIds.size > 0 && !markedIds.has(d_hovered_orig.id)) {
+    return;
+  }
+
   const sourceId =
     typeof d_hovered_orig.source === "object" && d_hovered_orig.source !== null
       ? d_hovered_orig.source.id
@@ -413,6 +607,8 @@ export function drawAllParallelLinks({
   tooltip,
   palette,
   onLinkClick,
+  linkSelection,
+  getMarkedLinkIds,
 }) {
   if (!zoomLayer) return;
 
@@ -496,6 +692,11 @@ export function drawAllParallelLinks({
         .style("cursor", "pointer")
         // NEW: Highlight connected nodes and color ONLY the hovered link on mouseover
         .on("mouseover", function (event, d_mouseover) {
+          const markedIds = getMarkedLinkIds ? getMarkedLinkIds() : null;
+          if (markedIds && markedIds.size > 0 && !markedIds.has(d_mouseover.id)) {
+            return;
+          }
+
           const s_id = d_mouseover.source.id;
           const t_id = d_mouseover.target.id;
           d3.selectAll("circle.node")
@@ -515,6 +716,10 @@ export function drawAllParallelLinks({
             .attr("stroke-width", (d) => (d.id === d_mouseover.id ? 4 : 2));
         })
         .on("mousemove", function (event, d_mousemove) {
+          const markedIds = getMarkedLinkIds ? getMarkedLinkIds() : null;
+          if (markedIds && markedIds.size > 0 && !markedIds.has(d_mousemove.id)) {
+            return;
+          }
           tooltip
             .attr("x", event.offsetX + 10)
             .attr("y", event.offsetY - 10)
@@ -524,6 +729,15 @@ export function drawAllParallelLinks({
         // MODIFIED: Un-highlight nodes and restore link coloring on mouseout
         .on("mouseout", function (event, d_mouseout) {
           tooltip.attr("opacity", 0);
+          const markedIds = getMarkedLinkIds ? getMarkedLinkIds() : null;
+          if (markedIds && markedIds.size > 0) {
+            const svg = zoomLayer ? d3.select(zoomLayer.node().ownerSVGElement) : null;
+            if (svg && svg.node()) {
+              applyMarkedState({ svg, markedLinkIds: markedIds, palette });
+              return;
+            }
+          }
+
           const s_id = d_mouseout.source.id;
           const t_id = d_mouseout.target.id;
           d3.selectAll("circle.node")
@@ -552,9 +766,53 @@ export function drawAllParallelLinks({
 // ===================================================================
 // Node hover handlers to mark all links connected to the node
 // ===================================================================
-export function handleNodeMouseOver(d_node, linkSelection, palette) {
+export function handleNodeMouseOver(d_node, linkSelection, palette, getMarkedLinkIds) {
   if (!d_node || !d_node.id) return;
   const nodeId = d_node.id;
+  const markedIds = getMarkedLinkIds ? getMarkedLinkIds() : null;
+  const hasMarked = markedIds && markedIds.size > 0;
+
+  // If marked links are active, verify if this node connects to any marked link
+  let hasConnectedMarkedLink = false;
+  if (hasMarked) {
+    if (linkSelection && linkSelection.size()) {
+      linkSelection.each(function (l) {
+        if (!l || !markedIds.has(l.id)) return;
+        const sId =
+          typeof l.source === "object" && l.source !== null
+            ? l.source.id
+            : l.source;
+        const tId =
+          typeof l.target === "object" && l.target !== null
+            ? l.target.id
+            : l.target;
+        if (sId === nodeId || tId === nodeId) {
+          hasConnectedMarkedLink = true;
+        }
+      });
+    }
+    const duplicateLinks = d3.selectAll("path.duplicate-link");
+    if (!hasConnectedMarkedLink && !duplicateLinks.empty()) {
+      duplicateLinks.each(function (l) {
+        if (!l || !markedIds.has(l.id)) return;
+        const sId =
+          typeof l.source === "object" && l.source !== null
+            ? l.source.id
+            : l.source;
+        const tId =
+          typeof l.target === "object" && l.target !== null
+            ? l.target.id
+            : l.target;
+        if (sId === nodeId || tId === nodeId) {
+          hasConnectedMarkedLink = true;
+        }
+      });
+    }
+
+    if (!hasConnectedMarkedLink) {
+      return; // Cannot hover on un-marked node when marked subset is active
+    }
+  }
 
   const connectedNodeIds = new Set([nodeId]);
 
@@ -571,7 +829,9 @@ export function handleNodeMouseOver(d_node, linkSelection, palette) {
           ? l.target.id
           : l.target;
 
-      const isConnected = sId === nodeId || tId === nodeId;
+      const isMarked = !hasMarked || markedIds.has(l.id);
+      const isConnected = (sId === nodeId || tId === nodeId) && isMarked;
+
       if (isConnected) {
         if (sId === nodeId && typeof tId !== "undefined") connectedNodeIds.add(tId);
         if (tId === nodeId && typeof sId !== "undefined") connectedNodeIds.add(sId);
@@ -580,12 +840,17 @@ export function handleNodeMouseOver(d_node, linkSelection, palette) {
           .raise()
           .attr("stroke", getLinkColorByCategory(l, palette))
           .attr("stroke-opacity", 1.0)
-          .attr("stroke-width", 4.5);
+          .attr("stroke-width", 5);
       } else {
         d3.select(this)
-          .attr("stroke", palette.link)
-          .attr("stroke-opacity", 0.15)
-          .attr("stroke-width", 1.5);
+          .attr(
+            "stroke",
+            hasMarked && isMarked
+              ? getLinkColorByCategory(l, palette)
+              : palette.link
+          )
+          .attr("stroke-opacity", hasMarked && isMarked ? 0.35 : 0.12)
+          .attr("stroke-width", hasMarked && isMarked ? 3 : 1.5);
       }
     });
   }
@@ -604,7 +869,9 @@ export function handleNodeMouseOver(d_node, linkSelection, palette) {
           ? l.target.id
           : l.target;
 
-      const isConnected = sId === nodeId || tId === nodeId;
+      const isMarked = !hasMarked || markedIds.has(l.id);
+      const isConnected = (sId === nodeId || tId === nodeId) && isMarked;
+
       if (isConnected) {
         if (sId === nodeId && typeof tId !== "undefined") connectedNodeIds.add(tId);
         if (tId === nodeId && typeof sId !== "undefined") connectedNodeIds.add(sId);
@@ -613,12 +880,17 @@ export function handleNodeMouseOver(d_node, linkSelection, palette) {
           .raise()
           .attr("stroke", getLinkColorByCategory(l, palette))
           .attr("stroke-opacity", 1.0)
-          .attr("stroke-width", 4.5);
+          .attr("stroke-width", 5);
       } else {
         d3.select(this)
-          .attr("stroke", palette.link)
-          .attr("stroke-opacity", 0.15)
-          .attr("stroke-width", 2);
+          .attr(
+            "stroke",
+            hasMarked && isMarked
+              ? getLinkColorByCategory(l, palette)
+              : palette.link
+          )
+          .attr("stroke-opacity", hasMarked && isMarked ? 0.35 : 0.12)
+          .attr("stroke-width", hasMarked && isMarked ? 3 : 2);
       }
     });
   }
@@ -631,7 +903,7 @@ export function handleNodeMouseOver(d_node, linkSelection, palette) {
         .raise()
         .attr("fill", palette.nodeHoverDirect)
         .attr("stroke", palette.nodeHoverLinkStroke || "#facc15")
-        .attr("stroke-width", 4)
+        .attr("stroke-width", 4.5)
         .style("opacity", 1);
     } else if (connectedNodeIds.has(n.id)) {
       d3.select(this)
@@ -645,7 +917,7 @@ export function handleNodeMouseOver(d_node, linkSelection, palette) {
         .attr("fill", palette.node)
         .attr("stroke", palette.stroke)
         .attr("stroke-width", 2)
-        .style("opacity", 0.35);
+        .style("opacity", 0.25);
     }
   });
 
@@ -654,12 +926,22 @@ export function handleNodeMouseOver(d_node, linkSelection, palette) {
     if (!n) return;
     const isConnected = connectedNodeIds.has(n.id);
     d3.select(this)
-      .style("opacity", isConnected ? 1 : 0.35)
+      .style("opacity", isConnected ? 1 : 0.25)
       .attr("font-weight", isConnected ? "bold" : "normal");
   });
 }
 
-export function handleNodeMouseOut(d_node, linkSelection, palette) {
+export function handleNodeMouseOut(d_node, linkSelection, palette, getMarkedLinkIds) {
+  const markedIds = getMarkedLinkIds ? getMarkedLinkIds() : null;
+  if (markedIds && markedIds.size > 0) {
+    const svgNode = linkSelection ? linkSelection.node() : null;
+    const svg = svgNode ? d3.select(svgNode.ownerSVGElement || svgNode.closest("svg")) : null;
+    if (svg && svg.node()) {
+      applyMarkedState({ svg, markedLinkIds: markedIds, palette });
+      return;
+    }
+  }
+
   // Restore all straight links
   if (linkSelection && linkSelection.size()) {
     linkSelection
@@ -696,6 +978,7 @@ export function setupInteractions({
   palette,
   zoomLayer,
   onLinkClick,
+  getMarkedLinkIds,
 }) {
   if (!zoomLayer || !zoomLayer.node()) {
     console.error(
@@ -716,10 +999,10 @@ export function setupInteractions({
   if (node && node.size()) {
     node
       .on("mouseover.nodeLinksHover", function (event, d_node) {
-        handleNodeMouseOver(d_node, link, palette);
+        handleNodeMouseOver(d_node, link, palette, getMarkedLinkIds);
       })
       .on("mouseout.nodeLinksHover", function (event, d_node) {
-        handleNodeMouseOut(d_node, link, palette);
+        handleNodeMouseOut(d_node, link, palette, getMarkedLinkIds);
       });
   }
 
@@ -733,7 +1016,8 @@ export function setupInteractions({
         zoomLayer,
         tooltip,
         palette,
-        onLinkClick
+        onLinkClick,
+        getMarkedLinkIds
       );
     })
     .on("mouseout", function (event, d_hovered_linkhover) {
@@ -801,7 +1085,13 @@ export function setupInteractions({
       }
 
       if (shouldProceedWithMouseOut) {
-        handleMouseOut(d_hovered_linkhover, link, tooltip, palette);
+        handleMouseOut(
+          d_hovered_linkhover,
+          link,
+          tooltip,
+          palette,
+          getMarkedLinkIds
+        );
       }
     })
     .on("click", function (event, d_clicked_linkhover) {

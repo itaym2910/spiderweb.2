@@ -57,3 +57,51 @@ export function linkPositionFromEdges(d, r = 60) {
     y2: d.target.y + r * Math.sin(angle2),
   };
 }
+
+export function normalizeLinkStatus(link) {
+  if (!link) return "up";
+
+  if (link.normalizedStatus) {
+    const norm = String(link.normalizedStatus).toLowerCase().trim();
+    if (norm === "down" || norm === "issue" || norm === "up") return norm;
+  }
+
+  const s = String(link.status || "").toLowerCase().trim();
+  const p = String(
+    link.physical_status || link.physicalStatus || ""
+  ).toLowerCase().trim();
+  const proto = String(
+    link.protocol_status || link.protocolStatus || ""
+  ).toLowerCase().trim();
+  const cat = String(link.category || "").toLowerCase().trim();
+
+  // If any status field indicates down, it is strictly down
+  if (
+    s === "down" ||
+    p === "down" ||
+    proto === "down" ||
+    cat === "down" ||
+    s.includes("down") ||
+    p.includes("down") ||
+    proto.includes("down") ||
+    cat.includes("down")
+  ) {
+    return "down";
+  }
+
+  // If any status field indicates an issue or warning
+  if (
+    s === "issue" ||
+    p === "issue" ||
+    cat === "issue" ||
+    s === "warning" ||
+    p === "warning" ||
+    cat === "warning" ||
+    s.includes("issue") ||
+    s.includes("warning")
+  ) {
+    return "issue";
+  }
+
+  return "up";
+}
