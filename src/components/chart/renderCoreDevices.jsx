@@ -114,19 +114,6 @@ export function renderCoreDevices(
     .attr("stroke-width", 2)
     .style("opacity", 0.9)
     .style("cursor", "pointer")
-    .on("mouseover", function () {
-      const selection = d3.select(this);
-      if (selection.attr("fill") !== "#fde68a") {
-        // Assuming #fde68a is link hover color
-        selection.attr("fill", palette.nodeHoverDirect);
-      }
-    })
-    .on("mouseout", function () {
-      const selection = d3.select(this);
-      if (selection.attr("fill") === palette.nodeHoverDirect) {
-        selection.attr("fill", palette.node);
-      }
-    })
     .on("click", function (event, d_node) {
       // console.log("Node clicked:", d_node.id, "Zone:", d_node.zone);
       event.stopPropagation();

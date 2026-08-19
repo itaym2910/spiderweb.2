@@ -56,10 +56,16 @@ function createLinkPopupPayload(linkDataObject) {
 // NEW: Helper function to get the correct color by category
 // ===================================================================
 function getLinkColorByCategory(linkData, palette) {
-  // Default to 'issue' if category is missing, for robustness
-  const category = (linkData.category || "issue").toLowerCase();
+  if (!linkData) return palette?.link || "#6b7280";
+  // Check category, status, or physical_status
+  const category = (
+    linkData.category ||
+    linkData.status ||
+    linkData.physical_status ||
+    "issue"
+  ).toLowerCase();
   // Return the color from the palette, or the issue color as a fallback
-  return palette.status[category] || palette.status.issue;
+  return palette?.status?.[category] || palette?.status?.issue || "#f59e0b";
 }
 
 function handleMouseOut(d_hovered_orig, linkSelection, tooltip, palette) {
@@ -543,6 +549,144 @@ export function drawAllParallelLinks({
   });
 }
 
+// ===================================================================
+// Node hover handlers to mark all links connected to the node
+// ===================================================================
+export function handleNodeMouseOver(d_node, linkSelection, palette) {
+  if (!d_node || !d_node.id) return;
+  const nodeId = d_node.id;
+
+  const connectedNodeIds = new Set([nodeId]);
+
+  // 1. Highlight connected straight links (line.visible-link) and dim non-connected
+  if (linkSelection && linkSelection.size()) {
+    linkSelection.each(function (l) {
+      if (!l) return;
+      const sId =
+        typeof l.source === "object" && l.source !== null
+          ? l.source.id
+          : l.source;
+      const tId =
+        typeof l.target === "object" && l.target !== null
+          ? l.target.id
+          : l.target;
+
+      const isConnected = sId === nodeId || tId === nodeId;
+      if (isConnected) {
+        if (sId === nodeId && typeof tId !== "undefined") connectedNodeIds.add(tId);
+        if (tId === nodeId && typeof sId !== "undefined") connectedNodeIds.add(sId);
+
+        d3.select(this)
+          .raise()
+          .attr("stroke", getLinkColorByCategory(l, palette))
+          .attr("stroke-opacity", 1.0)
+          .attr("stroke-width", 4.5);
+      } else {
+        d3.select(this)
+          .attr("stroke", palette.link)
+          .attr("stroke-opacity", 0.15)
+          .attr("stroke-width", 1.5);
+      }
+    });
+  }
+
+  // 2. Highlight connected duplicate/parallel links if visible
+  const duplicateLinks = d3.selectAll("path.duplicate-link");
+  if (!duplicateLinks.empty()) {
+    duplicateLinks.each(function (l) {
+      if (!l) return;
+      const sId =
+        typeof l.source === "object" && l.source !== null
+          ? l.source.id
+          : l.source;
+      const tId =
+        typeof l.target === "object" && l.target !== null
+          ? l.target.id
+          : l.target;
+
+      const isConnected = sId === nodeId || tId === nodeId;
+      if (isConnected) {
+        if (sId === nodeId && typeof tId !== "undefined") connectedNodeIds.add(tId);
+        if (tId === nodeId && typeof sId !== "undefined") connectedNodeIds.add(sId);
+
+        d3.select(this)
+          .raise()
+          .attr("stroke", getLinkColorByCategory(l, palette))
+          .attr("stroke-opacity", 1.0)
+          .attr("stroke-width", 4.5);
+      } else {
+        d3.select(this)
+          .attr("stroke", palette.link)
+          .attr("stroke-opacity", 0.15)
+          .attr("stroke-width", 2);
+      }
+    });
+  }
+
+  // 3. Highlight hovered node and connected neighbor nodes, dim others
+  d3.selectAll("circle.node").each(function (n) {
+    if (!n) return;
+    if (n.id === nodeId) {
+      d3.select(this)
+        .raise()
+        .attr("fill", palette.nodeHoverDirect)
+        .attr("stroke", palette.nodeHoverLinkStroke || "#facc15")
+        .attr("stroke-width", 4)
+        .style("opacity", 1);
+    } else if (connectedNodeIds.has(n.id)) {
+      d3.select(this)
+        .raise()
+        .attr("fill", palette.nodeHoverLink)
+        .attr("stroke", palette.nodeHoverLinkStroke || "#facc15")
+        .attr("stroke-width", 3.5)
+        .style("opacity", 1);
+    } else {
+      d3.select(this)
+        .attr("fill", palette.node)
+        .attr("stroke", palette.stroke)
+        .attr("stroke-width", 2)
+        .style("opacity", 0.35);
+    }
+  });
+
+  // 4. Highlight labels for connected nodes, dim others
+  d3.selectAll("text.label").each(function (n) {
+    if (!n) return;
+    const isConnected = connectedNodeIds.has(n.id);
+    d3.select(this)
+      .style("opacity", isConnected ? 1 : 0.35)
+      .attr("font-weight", isConnected ? "bold" : "normal");
+  });
+}
+
+export function handleNodeMouseOut(d_node, linkSelection, palette) {
+  // Restore all straight links
+  if (linkSelection && linkSelection.size()) {
+    linkSelection
+      .attr("stroke", palette.link)
+      .attr("stroke-opacity", 0.6)
+      .attr("stroke-width", 2);
+  }
+
+  // Restore all duplicate/parallel links
+  d3.selectAll("path.duplicate-link")
+    .attr("stroke", (d) => getLinkColorByCategory(d, palette))
+    .attr("stroke-opacity", 1.0)
+    .attr("stroke-width", 3);
+
+  // Restore all nodes
+  d3.selectAll("circle.node")
+    .attr("fill", palette.node)
+    .attr("stroke", palette.stroke)
+    .attr("stroke-width", 2)
+    .style("opacity", 0.9);
+
+  // Restore all labels
+  d3.selectAll("text.label")
+    .style("opacity", 1)
+    .attr("font-weight", "normal");
+}
+
 export function setupInteractions({
   link,
   linkHover,
@@ -567,6 +711,17 @@ export function setupInteractions({
   }
 
   const allNodes = node.data();
+
+  // Attach hover interactions to nodes/circles
+  if (node && node.size()) {
+    node
+      .on("mouseover.nodeLinksHover", function (event, d_node) {
+        handleNodeMouseOver(d_node, link, palette);
+      })
+      .on("mouseout.nodeLinksHover", function (event, d_node) {
+        handleNodeMouseOut(d_node, link, palette);
+      });
+  }
 
   linkHover
     .on("mouseover", function (event, d_hovered_linkhover) {

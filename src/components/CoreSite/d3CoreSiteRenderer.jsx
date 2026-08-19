@@ -195,19 +195,52 @@ export function drawCoreSiteChart(
   nodesGroup
     .selectAll("circle.node")
     .style("cursor", "pointer")
-    .on("mouseover.nodehighlight", function () {
+    .on("mouseover.nodehighlight", function (event, d_hovered_node) {
       const currentNodeSelection = d3.select(this);
-      const currentFill = currentNodeSelection.attr("fill");
-      if (currentFill !== themeColors.nodeHoverFill) {
-        currentNodeSelection.attr("fill", themeColors.nodeHighlightFill);
-      }
+      currentNodeSelection.attr("fill", themeColors.nodeHighlightFill);
+
+      // Highlight connected links
+      linksGroup
+        .selectAll("line.link")
+        .filter((l) => {
+          const sId = typeof l.source === "object" ? l.source.id : l.source;
+          const tId = typeof l.target === "object" ? l.target.id : l.target;
+          return sId === d_hovered_node.id || tId === d_hovered_node.id;
+        })
+        .attr("stroke", themeColors.linkHoverStroke)
+        .attr("stroke-width", 4);
+
+      // Highlight connected neighbor nodes
+      const connectedNodeIds = new Set([d_hovered_node.id]);
+      linksGroup.selectAll("line.link").each(function (l) {
+        const sId = typeof l.source === "object" ? l.source.id : l.source;
+        const tId = typeof l.target === "object" ? l.target.id : l.target;
+        if (sId === d_hovered_node.id) connectedNodeIds.add(tId);
+        if (tId === d_hovered_node.id) connectedNodeIds.add(sId);
+      });
+
+      nodesGroup
+        .selectAll("circle.node")
+        .filter((n) => n.id !== d_hovered_node.id && connectedNodeIds.has(n.id))
+        .attr("fill", themeColors.nodeHoverFill)
+        .attr("stroke", themeColors.nodeHoverStroke);
     })
-    .on("mouseout.nodehighlight", function () {
-      const currentNodeSelection = d3.select(this);
-      const currentFill = currentNodeSelection.attr("fill");
-      if (currentFill === themeColors.nodeHighlightFill) {
-        currentNodeSelection.attr("fill", themeColors.nodeFill);
-      }
+    .on("mouseout.nodehighlight", function (event, d_hovered_node) {
+      nodesGroup
+        .selectAll("circle.node")
+        .attr("fill", themeColors.nodeFill)
+        .attr("stroke", (d) =>
+          d.id === focusedNodeId
+            ? themeColors.selectedNodePulseColor
+            : themeColors.nodeStroke
+        )
+        .attr("stroke-width", (d) => (d.id === focusedNodeId ? 3 : 2));
+
+      linksGroup
+        .selectAll("line.link")
+        .attr("stroke", themeColors.linkStroke)
+        .style("opacity", themeColors.linkStrokeOpacity)
+        .attr("stroke-width", 2);
     })
     .on("click.nodeaction", function (event, d_clicked_node) {
       if (onNodeClickCallback) {
