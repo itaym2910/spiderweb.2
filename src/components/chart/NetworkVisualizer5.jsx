@@ -275,6 +275,13 @@ const NetworkVisualizer5 = ({
         .attr("stroke-width", 2);
 
       svg
+        .selectAll("path.duplicate-link")
+        .transition()
+        .duration(200)
+        .attr("stroke-opacity", 1.0)
+        .attr("stroke-width", 3);
+
+      svg
         .selectAll("text.label")
         .transition()
         .duration(200)
@@ -287,6 +294,39 @@ const NetworkVisualizer5 = ({
     if (hoveredLinkId) markedIdsSet.add(hoveredLinkId);
 
     svg.selectAll("line.visible-link").each(function (d) {
+      if (!d) return;
+      const isMarked = markedIdsSet.has(d.id);
+      const isDown =
+        (d.status || d.physical_status || d.category || "").toLowerCase() === "down";
+      const isIssue =
+        (d.status || d.physical_status || d.category || "").toLowerCase() === "issue";
+      const highlightColor = isDown ? "#ef4444" : isIssue ? "#f59e0b" : "#10b981";
+
+      const sourceId = typeof d.source === "object" ? d.source.id : d.source;
+      const targetId = typeof d.target === "object" ? d.target.id : d.target;
+
+      if (isMarked) {
+        activeEndpoints.add(sourceId);
+        activeEndpoints.add(targetId);
+
+        d3.select(this)
+          .raise()
+          .transition()
+          .duration(200)
+          .attr("stroke", highlightColor)
+          .attr("stroke-opacity", 1)
+          .attr("stroke-width", 4.5);
+      } else {
+        d3.select(this)
+          .transition()
+          .duration(200)
+          .attr("stroke", defaultLinkColor)
+          .attr("stroke-opacity", 0.12)
+          .attr("stroke-width", 1.5);
+      }
+    });
+
+    svg.selectAll("path.duplicate-link").each(function (d) {
       if (!d) return;
       const isMarked = markedIdsSet.has(d.id);
       const isDown =

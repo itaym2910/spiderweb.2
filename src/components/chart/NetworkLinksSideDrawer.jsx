@@ -240,9 +240,33 @@ export default function NetworkLinksSideDrawer({
   const handleButtonClick = (filterType) => {
     if (isOpen && activeFilter === filterType) {
       setIsOpen(false);
+      onClearMarks?.();
     } else {
       setActiveFilter(filterType);
       setIsOpen(true);
+      const targetLinks = enrichedLinks.filter((l) =>
+        filterType === "up"
+          ? l.normalizedStatus === "up"
+          : l.normalizedStatus !== "up"
+      );
+      onMarkAll?.(targetLinks.map((l) => l.id));
+    }
+  };
+
+  const handleStatusTabClick = (filterType) => {
+    setActiveFilter(filterType);
+    if (filterType === "up") {
+      const targetLinks = enrichedLinks.filter(
+        (l) => l.normalizedStatus === "up"
+      );
+      onMarkAll?.(targetLinks.map((l) => l.id));
+    } else if (filterType === "down") {
+      const targetLinks = enrichedLinks.filter(
+        (l) => l.normalizedStatus !== "up"
+      );
+      onMarkAll?.(targetLinks.map((l) => l.id));
+    } else {
+      onMarkAll?.(enrichedLinks.map((l) => l.id));
     }
   };
 
@@ -412,7 +436,7 @@ export default function NetworkLinksSideDrawer({
           <div className="grid grid-cols-3 gap-1 p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl">
             <button
               type="button"
-              onClick={() => setActiveFilter("up")}
+              onClick={() => handleStatusTabClick("up")}
               className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${
                 activeFilter === "up"
                   ? "bg-emerald-600 text-white shadow-sm"
@@ -425,7 +449,7 @@ export default function NetworkLinksSideDrawer({
 
             <button
               type="button"
-              onClick={() => setActiveFilter("down")}
+              onClick={() => handleStatusTabClick("down")}
               className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${
                 activeFilter === "down"
                   ? "bg-rose-600 text-white shadow-sm"
@@ -438,7 +462,7 @@ export default function NetworkLinksSideDrawer({
 
             <button
               type="button"
-              onClick={() => setActiveFilter("all")}
+              onClick={() => handleStatusTabClick("all")}
               className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${
                 activeFilter === "all"
                   ? "bg-blue-600 text-white shadow-sm"
