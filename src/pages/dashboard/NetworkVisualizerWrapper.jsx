@@ -43,6 +43,28 @@ const NetworkVisualizerWrapper = ({ theme }) => {
   const [popupLink, setPopupLink] = useState(null);
   const [showDetailedLinks, setShowDetailedLinks] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [markedLinkIds, setMarkedLinkIds] = useState(new Set());
+  const [hoveredLinkId, setHoveredLinkId] = useState(null);
+
+  const handleToggleMarkLink = (linkId) => {
+    setMarkedLinkIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(linkId)) {
+        next.delete(linkId);
+      } else {
+        next.add(linkId);
+      }
+      return next;
+    });
+  };
+
+  const handleMarkAll = (linkIds) => {
+    setMarkedLinkIds(new Set(linkIds));
+  };
+
+  const handleClearMarks = () => {
+    setMarkedLinkIds(new Set());
+  };
 
   // --- These selectors correctly get the filtered data ---
   const pikudim = useSelector((state) => selectPikudimByTypeId(state, 1));
@@ -89,81 +111,97 @@ const NetworkVisualizerWrapper = ({ theme }) => {
       const zoneName =
         pikudimMap[siteId]?.core_site_name ||
         pikudimMap[siteId]?.name ||
-        `Zone ${siteId}`;
+        `Pikud ${siteId}`;
 
       return {
         id: device.hostname || device.name,
-        group: "node",
+        name: device.hostname || device.name,
+        ip: device.ip,
         zone: zoneName,
+        pikudId: siteId,
+        nodeType: device.node_type || "router",
+        device: device,
       };
     });
 
-    const nodeZoneMap = new Map(transformedNodes.map((n) => [n.id, n.zone]));
-
     const transformedLinks = linksRaw
+      .filter((link) => {
+        const sourceDeviceId = link.coredevice_id ?? link.source_device_id ?? link.source_id;
+        const neighborDeviceId = link.neighbor_coredevice_id ?? link.neighbor_device_id ?? link.target_id;
+        const sourceDevice = deviceMapById.get(sourceDeviceId) || (typeof link.source === "object" ? link.source : null);
+        const neighborDevice = deviceMapById.get(neighborDeviceId) || (typeof link.target === "object" ? link.target : null);
+        if (!sourceDevice || !neighborDevice) return false;
+
+        const sourceHostname = sourceDevice.hostname || sourceDevice.name || link.source;
+        const neighborHostname = neighborDevice.hostname || neighborDevice.name || link.target;
+
+        return (
+          visibleDeviceHostnames.has(sourceHostname) &&
+          visibleDeviceHostnames.has(neighborHostname)
+        );
+      })
       .map((link) => {
-        const sourceDev = deviceMapById.get(link.coredevice_id);
-        const targetDev = deviceMapById.get(link.neighbor_coredevice_id);
-        const sourceName =
-          link.source || sourceDev?.hostname || sourceDev?.name;
-        const targetName =
-          link.target || targetDev?.hostname || targetDev?.name;
+        const sourceDeviceId = link.coredevice_id ?? link.source_device_id ?? link.source_id;
+        const neighborDeviceId = link.neighbor_coredevice_id ?? link.neighbor_device_id ?? link.target_id;
+        const sourceDevice = deviceMapById.get(sourceDeviceId) || (typeof link.source === "object" ? link.source : null);
+        const neighborDevice = deviceMapById.get(neighborDeviceId) || (typeof link.target === "object" ? link.target : null);
+        const sourceHostname = sourceDevice?.hostname || sourceDevice?.name || link.source;
+        const neighborHostname = neighborDevice?.hostname || neighborDevice?.name || link.target;
+        const sourceSiteId = sourceDevice?.core_pikudim_site_id || sourceDevice?.coresite_id;
+        const targetSiteId = neighborDevice?.core_pikudim_site_id || neighborDevice?.coresite_id;
+        const sourceZone = pikudimMap[sourceSiteId]?.core_site_name || pikudimMap[sourceSiteId]?.name || `Pikud ${sourceSiteId}`;
+        const targetZone = pikudimMap[targetSiteId]?.core_site_name || pikudimMap[targetSiteId]?.name || `Pikud ${targetSiteId}`;
 
         return {
           ...link,
           id: link.id,
-          source: sourceName,
-          target: targetName,
-          sourceZone: nodeZoneMap.get(sourceName) || "Core",
-          targetZone: nodeZoneMap.get(targetName) || "Core",
-          category: link.physical_status || link.physicalStatus || link.status || "Up",
-          status: link.status || link.physical_status || link.physicalStatus || "up",
-          statusChangedAt: link.statusChangedAt || link.timestamp,
+          source: sourceHostname,
+          target: neighborHostname,
+          sourceName: sourceHostname,
+          targetName: neighborHostname,
+          sourceZone,
+          targetZone,
+          physical_status: link.physical_status,
+          protocol_status: link.protocol_status,
+          category: link.physical_status || link.status || "Up",
+          status: link.status || link.physical_status || "up",
+          statusChangedAt: link.statusChangedAt || link.status_changed_at || link.updated_at || link.timestamp,
+          linkType: "core",
+          bandwidth: link.bandwidth || link.bw || "10G",
+          rawLink: link,
         };
-      })
-      .filter(
-        (link) =>
-          link.source &&
-          link.target &&
-          visibleDeviceHostnames.has(link.source) &&
-          visibleDeviceHostnames.has(link.target)
-      );
+      });
 
-    return { nodes: transformedNodes, links: transformedLinks };
+    return {
+      nodes: transformedNodes,
+      links: transformedLinks,
+    };
   }, [pikudim, allDevicesForType, linksRaw, deviceMapById]);
 
-  // All handlers are unchanged
-  const handleZoneClick = useCallback(
-    (zoneId) => {
-      navigate(`zone/${zoneId}`);
-    },
-    [navigate]
-  );
+  const handleZoneClick = (zone) => {
+    navigate(
+      `/devices?tab=pikudim&siteId=${zone.id}&name=${encodeURIComponent(
+        zone.name
+      )}`
+    );
+  };
 
-  const handleNodeClick = useCallback(
-    (nodeData) => {
-      if (nodeData && nodeData.id && nodeData.zone) {
-        navigate(`zone/${nodeData.zone}/node/${nodeData.id}`);
-      } else {
-        console.warn("Node data incomplete for navigation:", nodeData);
-      }
-    },
-    [navigate]
-  );
+  const handleNodeClick = (node) => {
+    const deviceId = node.device?.id;
+    if (deviceId) {
+      navigate(`/devices?tab=devices&deviceId=${deviceId}`);
+    }
+  };
 
-  const handleLinkClick = useCallback(
-    (linkDetailPayload) => {
-      const { sourceNode, targetNode, sourceName, targetName } = linkDetailPayload;
-      const src = sourceNode || sourceName;
-      const tgt = targetNode || targetName;
-      setPopupLink({
-        data: linkDetailPayload,
-        type: "link",
-        title: `${src} - ${tgt}`,
-      });
-    },
-    []
-  );
+  const handleLinkClick = (linkData) => {
+    setPopupLink({
+      data: linkData,
+      type: linkData.linkType || "link",
+      title: `${linkData.sourceNode || linkData.source} ⟷ ${
+        linkData.targetNode || linkData.target
+      }`,
+    });
+  };
 
   const handleClosePopup = useCallback(() => {
     setPopupLink(null);
@@ -228,6 +266,11 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           chartName="L-Network"
           isOpen={isDrawerOpen}
           onOpenChange={setIsDrawerOpen}
+          markedLinkIds={markedLinkIds}
+          onToggleMarkLink={handleToggleMarkLink}
+          onMarkAll={handleMarkAll}
+          onClearMarks={handleClearMarks}
+          onHoverLink={setHoveredLinkId}
         />
         <ToggleDetailButton
           isDetailed={showDetailedLinks}
@@ -240,6 +283,8 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           theme={theme}
           showDetailedLinks={showDetailedLinks}
           isDrawerOpen={isDrawerOpen}
+          markedLinkIds={markedLinkIds}
+          hoveredLinkId={hoveredLinkId}
           onZoneClick={handleZoneClick}
           onLinkClick={handleLinkClick}
           onNodeClick={handleNodeClick}

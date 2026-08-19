@@ -9,6 +9,9 @@ import {
   CheckCircle2,
   ExternalLink,
   Layers,
+  Eye,
+  EyeOff,
+  Sparkles,
 } from "lucide-react";
 
 /**
@@ -80,6 +83,7 @@ function normalizeStatus(link) {
  * 1. Two side buttons (Up / Down) with live count badges on the network chart.
  * 2. A slide-out side panel showing all Up or Down links, search filtering,
  *    and how long each link has been up or down.
+ * 3. Mark / Highlight link controls to display relevant links prominently on the chart.
  */
 export default function NetworkLinksSideDrawer({
   links = [],
@@ -88,6 +92,11 @@ export default function NetworkLinksSideDrawer({
   chartName = "Network",
   isOpen: controlledIsOpen,
   onOpenChange,
+  markedLinkIds = new Set(),
+  onToggleMarkLink,
+  onMarkAll,
+  onClearMarks,
+  onHoverLink,
 }) {
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
@@ -99,6 +108,7 @@ export default function NetworkLinksSideDrawer({
   };
 
   const [activeFilter, setActiveFilter] = useState("up"); // 'up' | 'down' | 'all'
+  const [timeFilter, setTimeFilter] = useState("all"); // 'all' | '24h' | '7d' | '30d'
   const [searchQuery, setSearchQuery] = useState("");
   // Local state to trigger re-computation of durations every 10 seconds
   const [, setTimerTick] = useState(0);
@@ -158,12 +168,47 @@ export default function NetworkLinksSideDrawer({
     [enrichedLinks]
   );
 
-  // Filtered links for the active view and search
+  // Time filter counts based on the active status tab
+  const timeCounts = useMemo(() => {
+    const statusFiltered = enrichedLinks.filter((link) => {
+      if (activeFilter === "up") return link.normalizedStatus === "up";
+      if (activeFilter === "down") return link.normalizedStatus !== "up";
+      return true;
+    });
+
+    const counts = { all: statusFiltered.length, "24h": 0, "7d": 0, "30d": 0 };
+    const now = Date.now();
+
+    statusFiltered.forEach((link) => {
+      const d = new Date(link.statusDate);
+      if (!isNaN(d.getTime())) {
+        const diffHours = (now - d.getTime()) / (1000 * 60 * 60);
+        if (diffHours <= 24) counts["24h"]++;
+        if (diffHours <= 24 * 7) counts["7d"]++;
+        if (diffHours <= 24 * 30) counts["30d"]++;
+      }
+    });
+
+    return counts;
+  }, [enrichedLinks, activeFilter]);
+
+  // Filtered links for the active view, time window, and search
   const filteredLinks = useMemo(() => {
     return enrichedLinks.filter((link) => {
       // Status filter
       if (activeFilter === "up" && link.normalizedStatus !== "up") return false;
       if (activeFilter === "down" && link.normalizedStatus === "up") return false;
+
+      // Time filter
+      if (timeFilter !== "all") {
+        const targetDate = new Date(link.statusDate);
+        if (!isNaN(targetDate.getTime())) {
+          const diffHours = (Date.now() - targetDate.getTime()) / (1000 * 60 * 60);
+          if (timeFilter === "24h" && diffHours > 24) return false;
+          if (timeFilter === "7d" && diffHours > 24 * 7) return false;
+          if (timeFilter === "30d" && diffHours > 24 * 30) return false;
+        }
+      }
 
       // Search filter
       if (searchQuery.trim()) {
@@ -189,7 +234,7 @@ export default function NetworkLinksSideDrawer({
 
       return true;
     });
-  }, [enrichedLinks, activeFilter, searchQuery]);
+  }, [enrichedLinks, activeFilter, timeFilter, searchQuery]);
 
   // Handle clicking the Up or Down button
   const handleButtonClick = (filterType) => {
@@ -200,6 +245,8 @@ export default function NetworkLinksSideDrawer({
       setIsOpen(true);
     }
   };
+
+  const markedCount = markedLinkIds ? markedLinkIds.size : 0;
 
   return (
     <>
@@ -276,6 +323,19 @@ export default function NetworkLinksSideDrawer({
             {downCount}
           </span>
         </button>
+
+        {/* Marked Indicator Badge (if any links marked on chart) */}
+        {markedCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setIsOpen(true)}
+            title="Marked links active on chart"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-400/40 shadow-md backdrop-blur-md animate-pulse"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span>{markedCount} on chart</span>
+          </button>
+        )}
       </div>
 
       {/* ========================================================= */}
@@ -291,7 +351,7 @@ export default function NetworkLinksSideDrawer({
 
       <aside
         aria-label="Network Links Side Drawer"
-        className={`absolute top-0 right-0 h-full w-full sm:w-[440px] max-w-full z-30 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out border-l ${
+        className={`absolute top-0 right-0 h-full w-full sm:w-[460px] max-w-full z-30 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out border-l ${
           isOpen ? "translate-x-0" : "translate-x-full pointer-events-none"
         } ${
           isDark
@@ -342,13 +402,13 @@ export default function NetworkLinksSideDrawer({
           </button>
         </div>
 
-        {/* --- Filter Tabs & Search Controls --- */}
+        {/* --- Filter Tabs, Time Range & Search Controls --- */}
         <div
           className={`p-3 border-b flex-shrink-0 space-y-2.5 ${
             isDark ? "border-gray-800" : "border-gray-100"
           }`}
         >
-          {/* Tabs switch */}
+          {/* Status Tabs switch */}
           <div className="grid grid-cols-3 gap-1 p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl">
             <button
               type="button"
@@ -390,28 +450,112 @@ export default function NetworkLinksSideDrawer({
             </button>
           </div>
 
-          {/* Search bar */}
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by device, zone, IP..."
-              className={`w-full pl-9 pr-8 py-1.5 text-xs rounded-lg border outline-none transition-all ${
-                isDark
-                  ? "bg-gray-800/80 border-gray-700 text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              }`}
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+          {/* Time Filter Bar */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-1 shrink-0">
+              <Clock className="w-3 h-3 text-gray-400" />
+              Time:
+            </span>
+            <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none flex-1">
+              {[
+                { id: "all", label: "All" },
+                { id: "24h", label: "< 24h" },
+                { id: "7d", label: "< 7d" },
+                { id: "30d", label: "< 1 Month" },
+              ].map((opt) => {
+                const isSelected = timeFilter === opt.id;
+                const count = timeCounts[opt.id] ?? 0;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setTimeFilter(opt.id)}
+                    className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-all whitespace-nowrap flex items-center gap-1 ${
+                      isSelected
+                        ? "bg-blue-600 text-white shadow-sm font-semibold"
+                        : isDark
+                        ? "bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+                        : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
+                    }`}
+                  >
+                    <span>{opt.label}</span>
+                    <span
+                      className={`text-[10px] px-1 rounded-full ${
+                        isSelected
+                          ? "bg-blue-700 text-white"
+                          : isDark
+                          ? "bg-gray-700 text-gray-300"
+                          : "bg-gray-200 text-gray-600"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Search bar & Mark All button */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by device, zone, IP..."
+                className={`w-full pl-9 pr-8 py-1.5 text-xs rounded-lg border outline-none transition-all ${
+                  isDark
+                    ? "bg-gray-800/80 border-gray-700 text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                }`}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Mark on chart quick action */}
+            {filteredLinks.length > 0 && (
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onMarkAll) {
+                      onMarkAll(filteredLinks.map((l) => l.id));
+                    }
+                  }}
+                  title="Highlight all filtered links on chart"
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors border ${
+                    isDark
+                      ? "bg-gray-800 hover:bg-gray-700 text-amber-300 border-gray-700"
+                      : "bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200"
+                  }`}
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Mark All</span>
+                </button>
+
+                {markedCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onClearMarks) onClearMarks();
+                    }}
+                    title="Clear chart highlights"
+                    className="p-1.5 rounded-lg text-xs font-semibold text-gray-400 hover:text-rose-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <EyeOff className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -438,24 +582,40 @@ export default function NetworkLinksSideDrawer({
                   ? "No Down Links Detected"
                   : searchQuery
                   ? "No Matching Links Found"
+                  : timeFilter !== "all"
+                  ? "No Links in Selected Timeframe"
                   : "No Links Available"}
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-[220px]">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-[240px]">
                 {activeFilter === "down"
                   ? "All chart links are currently healthy and operational."
                   : searchQuery
                   ? `No links matched your query "${searchQuery}".`
+                  : timeFilter !== "all"
+                  ? "No links matched the selected time range. Try selecting 'All Time'."
                   : "No links found for the selected category."}
               </p>
+              {timeFilter !== "all" && (
+                <button
+                  type="button"
+                  onClick={() => setTimeFilter("all")}
+                  className="mt-3 px-3 py-1 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-colors shadow-sm"
+                >
+                  Reset Time Filter
+                </button>
+              )}
             </div>
           ) : (
             filteredLinks.map((link) => {
               const isLinkUp = link.normalizedStatus === "up";
               const isLinkIssue = link.normalizedStatus === "issue";
+              const isLinkMarked = markedLinkIds && markedLinkIds.has(link.id);
 
               return (
                 <div
                   key={link.id || `${link.sourceName}-${link.targetName}`}
+                  onMouseEnter={() => onHoverLink?.(link.id)}
+                  onMouseLeave={() => onHoverLink?.(null)}
                   onClick={() => {
                     if (onLinkClick) {
                       onLinkClick({
@@ -466,12 +626,16 @@ export default function NetworkLinksSideDrawer({
                     }
                   }}
                   className={`group relative p-3 rounded-xl border transition-all duration-200 cursor-pointer ${
-                    isDark
+                    isLinkMarked
+                      ? isDark
+                        ? "bg-amber-950/20 border-amber-500/70 shadow-md shadow-amber-500/5 ring-1 ring-amber-500/50"
+                        : "bg-amber-50/70 border-amber-300 shadow-md shadow-amber-200/50 ring-1 ring-amber-400/50"
+                      : isDark
                       ? "bg-gray-800/60 hover:bg-gray-800 border-gray-700/60 hover:border-gray-600"
                       : "bg-white hover:bg-gray-50/80 border-gray-200/80 hover:border-gray-300 shadow-sm"
                   }`}
                 >
-                  {/* Card Top: Status & Duration */}
+                  {/* Card Top: Status & Duration & Mark Button */}
                   <div className="flex items-center justify-between gap-2 mb-2">
                     {/* Status badge */}
                     <div className="flex items-center gap-1.5">
@@ -508,26 +672,45 @@ export default function NetworkLinksSideDrawer({
                       </span>
                     </div>
 
-                    {/* How long it has been up / down */}
-                    <div
-                      title={
-                        link.exactTimeStr
-                          ? `Status change: ${link.exactTimeStr}`
-                          : undefined
-                      }
-                      className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                        isLinkUp
-                          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
-                          : isLinkIssue
-                          ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20"
-                          : "bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20"
-                      }`}
-                    >
-                      <Clock className="w-3 h-3 flex-shrink-0" />
-                      <span>
-                        {isLinkUp ? "Up" : isLinkIssue ? "Issue" : "Down"} for{" "}
-                        <strong className="font-semibold">{link.durationStr}</strong>
-                      </span>
+                    <div className="flex items-center gap-2">
+                      {/* Duration */}
+                      <div
+                        title={
+                          link.exactTimeStr
+                            ? `Status change: ${link.exactTimeStr}`
+                            : undefined
+                        }
+                        className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                          isLinkUp
+                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
+                            : isLinkIssue
+                            ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20"
+                            : "bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20"
+                        }`}
+                      >
+                        <Clock className="w-3 h-3 flex-shrink-0" />
+                        <span>
+                          {isLinkUp ? "Up" : isLinkIssue ? "Issue" : "Down"} for{" "}
+                          <strong className="font-semibold">{link.durationStr}</strong>
+                        </span>
+                      </div>
+
+                      {/* Mark on chart button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onToggleMarkLink) onToggleMarkLink(link.id);
+                        }}
+                        title={isLinkMarked ? "Unmark from chart" : "Mark link on chart"}
+                        className={`p-1 rounded-md transition-colors ${
+                          isLinkMarked
+                            ? "bg-amber-500 text-white shadow-sm"
+                            : "text-gray-400 hover:text-amber-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
 
@@ -592,3 +775,4 @@ export default function NetworkLinksSideDrawer({
     </>
   );
 }
+

@@ -43,6 +43,28 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
   const [popupLink, setPopupLink] = useState(null);
   const [showDetailedLinks, setShowDetailedLinks] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [markedLinkIds, setMarkedLinkIds] = useState(new Set());
+  const [hoveredLinkId, setHoveredLinkId] = useState(null);
+
+  const handleToggleMarkLink = (linkId) => {
+    setMarkedLinkIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(linkId)) {
+        next.delete(linkId);
+      } else {
+        next.add(linkId);
+      }
+      return next;
+    });
+  };
+
+  const handleMarkAll = (linkIds) => {
+    setMarkedLinkIds(new Set(linkIds));
+  };
+
+  const handleClearMarks = () => {
+    setMarkedLinkIds(new Set());
+  };
 
   // Selectors for P-Chart data (typeId: 2)
   const pikudim = useSelector((state) => selectPikudimByTypeId(state, 2));
@@ -102,12 +124,14 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
 
     const transformedLinks = linksRaw
       .map((link) => {
-        const sourceDev = deviceMapById.get(link.coredevice_id);
-        const targetDev = deviceMapById.get(link.neighbor_coredevice_id);
+        const sourceDeviceId = link.coredevice_id ?? link.source_device_id ?? link.source_id;
+        const targetDeviceId = link.neighbor_coredevice_id ?? link.neighbor_device_id ?? link.target_id;
+        const sourceDev = deviceMapById.get(sourceDeviceId) || (typeof link.source === "object" ? link.source : null);
+        const targetDev = deviceMapById.get(targetDeviceId) || (typeof link.target === "object" ? link.target : null);
         const sourceName =
-          link.source || sourceDev?.hostname || sourceDev?.name;
+          (typeof link.source === "string" ? link.source : null) || sourceDev?.hostname || sourceDev?.name;
         const targetName =
-          link.target || targetDev?.hostname || targetDev?.name;
+          (typeof link.target === "string" ? link.target : null) || targetDev?.hostname || targetDev?.name;
 
         return {
           ...link,
@@ -227,6 +251,11 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           chartName="P-Network"
           isOpen={isDrawerOpen}
           onOpenChange={setIsDrawerOpen}
+          markedLinkIds={markedLinkIds}
+          onToggleMarkLink={handleToggleMarkLink}
+          onMarkAll={handleMarkAll}
+          onClearMarks={handleClearMarks}
+          onHoverLink={setHoveredLinkId}
         />
         <ToggleDetailButton
           isDetailed={showDetailedLinks}
@@ -239,6 +268,8 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           theme={theme}
           showDetailedLinks={showDetailedLinks}
           isDrawerOpen={isDrawerOpen}
+          markedLinkIds={markedLinkIds}
+          hoveredLinkId={hoveredLinkId}
           onZoneClick={handleZoneClick}
           onLinkClick={handleLinkClick}
           onNodeClick={handleNodeClick}

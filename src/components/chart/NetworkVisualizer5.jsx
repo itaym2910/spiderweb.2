@@ -13,6 +13,8 @@ const NetworkVisualizer5 = ({
   data,
   showDetailedLinks,
   isDrawerOpen = false,
+  markedLinkIds = new Set(),
+  hoveredLinkId = null,
   onZoneClick,
   onLinkClick,
   onNodeClick,
@@ -240,6 +242,116 @@ const NetworkVisualizer5 = ({
       })
     );
   }, [onZoneClick, data, theme, onLinkClick, onNodeClick, showDetailedLinks, isDrawerOpen]);
+
+  useEffect(() => {
+    const svgElement = svgRef.current;
+    if (!svgElement) return;
+
+    const svg = d3.select(svgElement);
+    const isDark = theme === "dark";
+    const defaultLinkColor = isDark ? "#94a3b8" : "#6b7280";
+    const defaultNodeColor = "#29c6e0";
+    const defaultNodeStroke = isDark ? "#60a5fa" : "#1d4ed8";
+
+    const hasMarked =
+      (markedLinkIds && markedLinkIds.size > 0) || Boolean(hoveredLinkId);
+
+    if (!hasMarked) {
+      svg
+        .selectAll("line.visible-link")
+        .transition()
+        .duration(200)
+        .attr("stroke", defaultLinkColor)
+        .attr("stroke-opacity", 0.6)
+        .attr("stroke-width", 2);
+
+      svg
+        .selectAll("circle.node")
+        .transition()
+        .duration(200)
+        .style("opacity", 0.9)
+        .attr("fill", defaultNodeColor)
+        .attr("stroke", defaultNodeStroke)
+        .attr("stroke-width", 2);
+
+      svg
+        .selectAll("text.label")
+        .transition()
+        .duration(200)
+        .style("opacity", 1);
+      return;
+    }
+
+    const activeEndpoints = new Set();
+    const markedIdsSet = new Set(markedLinkIds || []);
+    if (hoveredLinkId) markedIdsSet.add(hoveredLinkId);
+
+    svg.selectAll("line.visible-link").each(function (d) {
+      if (!d) return;
+      const isMarked = markedIdsSet.has(d.id);
+      const isDown =
+        (d.status || d.physical_status || d.category || "").toLowerCase() === "down";
+      const isIssue =
+        (d.status || d.physical_status || d.category || "").toLowerCase() === "issue";
+      const highlightColor = isDown ? "#ef4444" : isIssue ? "#f59e0b" : "#10b981";
+
+      const sourceId = typeof d.source === "object" ? d.source.id : d.source;
+      const targetId = typeof d.target === "object" ? d.target.id : d.target;
+
+      if (isMarked) {
+        activeEndpoints.add(sourceId);
+        activeEndpoints.add(targetId);
+
+        d3.select(this)
+          .raise()
+          .transition()
+          .duration(200)
+          .attr("stroke", highlightColor)
+          .attr("stroke-opacity", 1)
+          .attr("stroke-width", 4.5);
+      } else {
+        d3.select(this)
+          .transition()
+          .duration(200)
+          .attr("stroke", defaultLinkColor)
+          .attr("stroke-opacity", 0.12)
+          .attr("stroke-width", 1.5);
+      }
+    });
+
+    svg.selectAll("circle.node").each(function (d) {
+      if (!d) return;
+      const isEndpoint = activeEndpoints.has(d.id);
+      if (isEndpoint) {
+        d3.select(this)
+          .raise()
+          .transition()
+          .duration(200)
+          .style("opacity", 1)
+          .attr("fill", "#fef08a")
+          .attr("stroke", "#f59e0b")
+          .attr("stroke-width", 3.5);
+      } else {
+        d3.select(this)
+          .transition()
+          .duration(200)
+          .style("opacity", 0.25)
+          .attr("fill", defaultNodeColor)
+          .attr("stroke", defaultNodeStroke)
+          .attr("stroke-width", 2);
+      }
+    });
+
+    svg.selectAll("text.label").each(function (d) {
+      if (!d) return;
+      const isEndpoint = activeEndpoints.has(d.id);
+      d3.select(this)
+        .transition()
+        .duration(200)
+        .style("opacity", isEndpoint ? 1 : 0.3)
+        .attr("font-weight", isEndpoint ? "bold" : "normal");
+    });
+  }, [markedLinkIds, hoveredLinkId, theme]);
 
   return (
     <div className="w-full h-full relative">

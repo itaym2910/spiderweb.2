@@ -117,15 +117,26 @@ const createInterfaceInfo = (deviceId) => ({
 
 // --- MODIFIED & CORRECTED ---
 // The `targetInterface` argument has been removed as it was unused.
-const createTenGigLink = (sourceDevice, targetDevice, sourceInterface) => ({
-  id: `link-10g-${faker.string.alphanumeric(8)}`,
-  source: sourceDevice.hostname,
-  target: targetDevice.hostname,
-  network_type_id: sourceDevice.network_type_id,
-  ip: faker.internet.ip(),
-  status: faker.helpers.arrayElement(["up", "down", "issue"]),
-  timestamp: faker.date.recent({ days: 7 }).toISOString(),
-  statusChangedAt: faker.date.recent({ days: 2 }).toISOString(),
+const createTenGigLink = (sourceDevice, targetDevice, sourceInterface) => {
+  // Varied distribution across < 24h, 1-7 days, and 7-30 days
+  const daysAgo = faker.helpers.arrayElement([
+    faker.number.float({ min: 0.05, max: 0.9, fractionDigits: 2 }), // < 24h
+    faker.number.float({ min: 1.1, max: 6.5, fractionDigits: 2 }),  // 1 to 7 days
+    faker.number.float({ min: 7.5, max: 28, fractionDigits: 2 }),   // 7 to 30 days
+  ]);
+  const statusChangedDate = new Date(
+    Date.now() - daysAgo * 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  return {
+    id: `link-10g-${faker.string.alphanumeric(8)}`,
+    source: sourceDevice.hostname,
+    target: targetDevice.hostname,
+    network_type_id: sourceDevice.network_type_id,
+    ip: faker.internet.ip(),
+    status: faker.helpers.arrayElement(["up", "down", "issue"]),
+    timestamp: statusChangedDate,
+    statusChangedAt: statusChangedDate,
 
   // --- NEW FIELDS ---
   // We'll use the source interface's data for the link's properties.
@@ -140,7 +151,8 @@ const createTenGigLink = (sourceDevice, targetDevice, sourceInterface) => ({
   CDP: sourceInterface.cdp || "N/A",
   TX: sourceInterface.tx ?? "N/A",
   RX: sourceInterface.rx ?? "N/A",
-});
+  };
+};
 
 // --- Main Export Function ---
 
