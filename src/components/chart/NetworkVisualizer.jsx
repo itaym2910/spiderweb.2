@@ -9,7 +9,6 @@ import {
   applyMarkedState,
 } from "./handleInteractions";
 
-// +++ ADD `showDetailedLinks` TO THE PROPS
 const NetworkVisualizer = ({
   theme,
   data,
@@ -23,6 +22,8 @@ const NetworkVisualizer = ({
 }) => {
   const svgRef = useRef();
   const markedLinkIdsRef = useRef(markedLinkIds);
+  const prevTopologyRef = useRef("");
+
   useEffect(() => {
     markedLinkIdsRef.current = markedLinkIds;
   }, [markedLinkIds]);
@@ -52,6 +53,7 @@ const NetworkVisualizer = ({
     };
   }, [theme]);
 
+  // Main graph render & layout effect
   useEffect(() => {
     const svgElement = svgRef.current;
     if (!svgElement) return;
@@ -59,13 +61,21 @@ const NetworkVisualizer = ({
     const width = svgElement.clientWidth || window.innerWidth;
     const height = svgElement.clientHeight || window.innerHeight;
 
-    const nodes = structuredClone(data.nodes || []);
-    const links = structuredClone(data.links || []);
+    const rawNodes = data.nodes || [];
+    const rawLinks = data.links || [];
 
-    if (nodes.length === 0) {
+    if (rawNodes.length === 0) {
       d3.select(svgElement).selectAll("*").remove();
+      prevTopologyRef.current = "";
       return;
     }
+
+    const currentTopology = `${rawNodes.length}-${rawLinks.length}-${rawNodes
+      .map((n) => n.id)
+      .join(",")}-${showDetailedLinks}-${theme}-${isDrawerOpen}-${width}x${height}`;
+
+    const nodes = structuredClone(rawNodes);
+    const links = structuredClone(rawLinks);
 
     const NODE_GROUPS = getNodeGroups(nodes);
 
@@ -92,8 +102,8 @@ const NetworkVisualizer = ({
     });
 
     links.forEach((link) => {
-      link.source = nodeMap[link.source];
-      link.target = nodeMap[link.target];
+      link.source = nodeMap[link.source] || link.source;
+      link.target = nodeMap[link.target] || link.target;
     });
 
     const svg = d3
@@ -102,7 +112,25 @@ const NetworkVisualizer = ({
       .attr("height", height)
       .style("background-color", palette.bg);
 
+    // If topology is unchanged, do a fast data update without tearing down the DOM
+    if (prevTopologyRef.current === currentTopology && !svg.select(".main-zoom-layer").empty()) {
+      const zoomLayer = svg.select(".main-zoom-layer");
+      const linkSelection = zoomLayer.selectAll("line.visible-link").data(links, (d) => d.id);
+      const linkHoverSelection = zoomLayer.selectAll("line.link-hover").data(links, (d) => d.id);
+
+      applyMarkedState({
+        svg,
+        markedLinkIds: markedLinkIdsRef.current,
+        hoveredLinkId,
+        palette,
+        theme,
+      });
+      return;
+    }
+
+    prevTopologyRef.current = currentTopology;
     svg.selectAll("*").remove();
+
     const zoomLayer = svg.append("g").attr("class", "main-zoom-layer");
     const tooltipLayer = svg.append("g").attr("class", "tooltip-layer-group");
 
@@ -193,7 +221,6 @@ const NetworkVisualizer = ({
         if (n.y > maxY) maxY = n.y;
       });
 
-      // Include zone boundaries (radii + labels) so everything fits comfortably inside the box
       if (NODE_GROUPS && NODE_GROUPS.length > 0) {
         NODE_GROUPS.forEach((zone) => {
           minX = Math.min(minX, zone.cx - 165);
@@ -238,26 +265,24 @@ const NetworkVisualizer = ({
       svg.call(zoomBehavior.transform, d3.zoomIdentity);
     }
 
-    requestAnimationFrame(() => {
-      setupInteractions({
-        link,
-        linkHover,
-        filteredLinks,
-        node,
-        tooltip,
-        palette,
-        zoomLayer,
-        onLinkClick,
-        getMarkedLinkIds: () => markedLinkIdsRef.current,
-      });
+    setupInteractions({
+      link,
+      linkHover,
+      filteredLinks,
+      node,
+      tooltip,
+      palette,
+      zoomLayer,
+      onLinkClick,
+      getMarkedLinkIds: () => markedLinkIdsRef.current,
+    });
 
-      applyMarkedState({
-        svg,
-        markedLinkIds: markedLinkIdsRef.current,
-        hoveredLinkId,
-        palette,
-        theme,
-      });
+    applyMarkedState({
+      svg,
+      markedLinkIds: markedLinkIdsRef.current,
+      hoveredLinkId,
+      palette,
+      theme,
     });
   }, [onZoneClick, data, palette, onLinkClick, onNodeClick, showDetailedLinks, isDrawerOpen]);
 
@@ -274,7 +299,7 @@ const NetworkVisualizer = ({
       palette,
       theme,
     });
-  }, [markedLinkIds, hoveredLinkId, palette, theme, data]);
+  }, [markedLinkIds, hoveredLinkId, palette, theme]);
 
   return (
     <div className="w-full h-full relative">

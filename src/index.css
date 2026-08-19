@@ -64,3 +64,22 @@ form[data-loading="true"] input:disabled {
 form[data-loading="true"] button:disabled {
   cursor: wait;
 }
+
+/* --- Hardware-accelerated Smooth SVG Chart Transitions --- */
+svg line.visible-link,
+svg path.duplicate-link {
+  transition: stroke 0.15s ease-out, stroke-width 0.15s ease-out, stroke-opacity 0.15s ease-out;
+  pointer-events: none;
+}
+
+svg circle.node {
+  transition: fill 0.15s ease-out, stroke 0.15s ease-out, stroke-width 0.15s ease-out, opacity 0.15s ease-out;
+}
+
+svg text.label {
+  transition: opacity 0.15s ease-out;
+}
+
+svg circle.zone {
+  transition: fill 0.15s ease-out, fill-opacity 0.15s ease-out;
+}
