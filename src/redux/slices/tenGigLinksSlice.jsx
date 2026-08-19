@@ -66,9 +66,15 @@ const tenGigLinksSlice = createSlice({
       const { id, ...updatedFields } = action.payload;
       const linkIndex = state.items.findIndex((link) => link.id === id);
       if (linkIndex !== -1) {
+        const existingLink = state.items[linkIndex];
+        const statusChanged =
+          updatedFields.status && updatedFields.status !== existingLink.status;
         state.items[linkIndex] = {
-          ...state.items[linkIndex],
+          ...existingLink,
           ...updatedFields,
+          ...(statusChanged && !updatedFields.statusChangedAt
+            ? { statusChangedAt: new Date().toISOString() }
+            : {}),
         };
       }
     },

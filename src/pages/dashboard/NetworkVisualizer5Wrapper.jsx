@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import NetworkVisualizer5 from "../../components/chart/NetworkVisualizer5";
 import LinkDetailPopup from "../../components/shared/LinkDetailPopup";
+import NetworkLinksSideDrawer from "../../components/chart/NetworkLinksSideDrawer";
 import { selectPikudimByTypeId } from "../../redux/slices/corePikudimSlice";
 import { selectDevicesByTypeId } from "../../redux/slices/devicesSlice";
 import { selectLinksByTypeId } from "../../redux/slices/tenGigLinksSlice";
@@ -96,6 +97,8 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
       };
     });
 
+    const nodeZoneMap = new Map(transformedNodes.map((n) => [n.id, n.zone]));
+
     const transformedLinks = linksRaw
       .map((link) => {
         const sourceDev = deviceMapById.get(link.coredevice_id);
@@ -106,10 +109,15 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           link.target || targetDev?.hostname || targetDev?.name;
 
         return {
+          ...link,
           id: link.id,
           source: sourceName,
           target: targetName,
-          category: link.physical_status || link.status || "Up",
+          sourceZone: nodeZoneMap.get(sourceName) || "Core",
+          targetZone: nodeZoneMap.get(targetName) || "Core",
+          category: link.physical_status || link.physicalStatus || link.status || "Up",
+          status: link.status || link.physical_status || link.physicalStatus || "up",
+          statusChangedAt: link.statusChangedAt || link.timestamp,
         };
       })
       .filter(
@@ -144,11 +152,13 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
 
   const handleLinkClick = useCallback(
     (linkDetailPayload) => {
-      const { sourceNode, targetNode } = linkDetailPayload;
+      const { sourceNode, targetNode, sourceName, targetName } = linkDetailPayload;
+      const src = sourceNode || sourceName;
+      const tgt = targetNode || targetName;
       setPopupLink({
         data: linkDetailPayload,
         type: "link",
-        title: `${sourceNode} - ${targetNode}`,
+        title: `${src} - ${tgt}`,
       });
     },
     []
@@ -208,7 +218,13 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
         theme={theme}
       />
 
-      <div className="flex-grow relative">
+      <div className="flex-grow relative overflow-hidden">
+        <NetworkLinksSideDrawer
+          links={graphData.links}
+          onLinkClick={handleLinkClick}
+          theme={theme}
+          chartName="P-Network"
+        />
         <ToggleDetailButton
           isDetailed={showDetailedLinks}
           onToggle={handleToggleDetailView}

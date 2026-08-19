@@ -124,6 +124,8 @@ const createTenGigLink = (sourceDevice, targetDevice, sourceInterface) => ({
   network_type_id: sourceDevice.network_type_id,
   ip: faker.internet.ip(),
   status: faker.helpers.arrayElement(["up", "down", "issue"]),
+  timestamp: faker.date.recent({ days: 7 }).toISOString(),
+  statusChangedAt: faker.date.recent({ days: 2 }).toISOString(),
 
   // --- NEW FIELDS ---
   // We'll use the source interface's data for the link's properties.
