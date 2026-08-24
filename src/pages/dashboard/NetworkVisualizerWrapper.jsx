@@ -185,22 +185,25 @@ const NetworkVisualizerWrapper = ({ theme }) => {
     };
   }, [pikudim, allDevicesForType, linksRaw, deviceMapById]);
 
-  const handleZoneClick = (zone) => {
-    navigate(
-      `/devices?tab=pikudim&siteId=${zone.id}&name=${encodeURIComponent(
-        zone.name
-      )}`
-    );
-  };
+  const handleZoneClick = useCallback(
+    (zoneId) => {
+      navigate(`zone/${zoneId}`);
+    },
+    [navigate]
+  );
 
-  const handleNodeClick = (node) => {
-    const deviceId = node.device?.id;
-    if (deviceId) {
-      navigate(`/devices?tab=devices&deviceId=${deviceId}`);
-    }
-  };
+  const handleNodeClick = useCallback(
+    (nodeData) => {
+      if (nodeData && nodeData.id && nodeData.zone) {
+        navigate(`zone/${nodeData.zone}/node/${nodeData.id}`);
+      } else {
+        console.warn("Node data incomplete for navigation:", nodeData);
+      }
+    },
+    [navigate]
+  );
 
-  const handleLinkClick = (linkData) => {
+  const handleLinkClick = useCallback((linkData) => {
     if (!linkData) return;
     const src =
       typeof linkData.source === "object"
@@ -216,7 +219,7 @@ const NetworkVisualizerWrapper = ({ theme }) => {
       type: "link",
       title: `${src || "Device A"} ⟷ ${tgt || "Device B"}`,
     });
-  };
+  }, []);
 
   const handleClosePopup = useCallback(() => {
     setPopupLink(null);

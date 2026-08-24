@@ -30,6 +30,7 @@ const LinkTable = ({
   linksData = [],
   otherDevicesInZone = [],
   theme = "dark",
+  chartType = "L",
 }) => {
   const navigate = useNavigate();
 
@@ -70,7 +71,8 @@ const LinkTable = ({
   };
 
   const handleDeviceButtonClick = (device) => {
-    navigate(`/l-chart/zone/${device.zoneName}/node/${device.hostname}`);
+    const basePath = chartType === "P" ? "/p-chart" : "/l-chart";
+    navigate(`${basePath}/zone/${device.zoneName}/node/${device.hostname}`);
   };
 
   const actionButtonBaseClasses =

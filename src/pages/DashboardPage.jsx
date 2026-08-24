@@ -131,6 +131,7 @@ function NodeDetailView({ chartType, theme }) {
         linksData={linksForTable}
         otherDevicesInZone={otherDevicesInZone}
         theme={theme}
+        chartType={chartType}
       />
     </div>
   );
