@@ -29,11 +29,8 @@ export const addCoreSite = createAsyncThunk(
   "corePikudim/addCoreSite",
   async (siteData, { dispatch, rejectWithValue }) => {
     try {
-      // This is where you call your real backend API
-      // await apiService.addCorePikudim(siteData);
-      await mockApi.addCoreSite(siteData);
-
-      //await api.addCorePikudim(siteData); // <-- 3. Use real api
+      // Call real backend API
+      await api.addCorePikudim(siteData);
 
       // On success, re-fetch the entire list to ensure data consistency
       dispatch(fetchCorePikudim());
@@ -50,11 +47,8 @@ export const deleteCoreSite = createAsyncThunk(
   "corePikudim/deleteCoreSite",
   async (siteId, { dispatch, rejectWithValue }) => {
     try {
-      // This is where you call your real backend API
-      // await apiService.deleteCorePikudim(siteId);
-      await mockApi.deleteCoreSite(siteId);
-
-      //await api.deleteCorePikudim(siteId); // <-- 4. Use real api
+      // Call real backend API
+      await api.deleteCorePikudim(siteId);
 
       // On success, re-fetch the list to reflect the deletion
       dispatch(fetchCorePikudim());

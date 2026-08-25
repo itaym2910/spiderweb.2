@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   ArrowUp,
   ArrowDown,
@@ -12,7 +12,10 @@ import {
   Eye,
   EyeOff,
   Sparkles,
+  AlertTriangle,
+  ArrowRight,
 } from "lucide-react";
+import { api } from "../../services/apiServices";
 
 /**
  * Formats elapsed time since a given date into a human readable duration string.
@@ -92,13 +95,36 @@ export default function NetworkLinksSideDrawer({
     onOpenChange?.(nextVal);
   };
 
-  const [activeFilter, setActiveFilter] = useState("up"); // 'up' | 'down' | 'all'
-  const [timeFilter, setTimeFilter] = useState("all"); // 'all' | '24h' | '7d' | '30d'
+  const [activeFilter, setActiveFilter] = useState("up"); // 'up' | 'down' | 'issue' | 'all'
+  const [timeFilter, setTimeFilter] = useState(null); // null | '24h' | '7d' | '30d'
   const [searchQuery, setSearchQuery] = useState("");
   // Local state to trigger re-computation of durations every 10 seconds
   const [, setTimerTick] = useState(0);
 
   const isDark = theme === "dark";
+
+  // State for the "All" tab event log
+  const [statusEvents, setStatusEvents] = useState([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+
+  // Fetch events when the "All" tab is active and time filter changes
+  const fetchEvents = useCallback(async (since) => {
+    setEventsLoading(true);
+    try {
+      const data = await api.getLinkStatusEvents(since || "24h");
+      setStatusEvents(data.events || []);
+    } catch {
+      setStatusEvents([]);
+    } finally {
+      setEventsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeFilter === "all") {
+      fetchEvents(timeFilter || "24h");
+    }
+  }, [activeFilter, timeFilter, fetchEvents]);
 
   // Re-calculate durations periodically
   useEffect(() => {
@@ -149,28 +175,44 @@ export default function NetworkLinksSideDrawer({
     [enrichedLinks]
   );
   const downCount = useMemo(
-    () => enrichedLinks.filter((l) => l.normalizedStatus !== "up").length,
+    () => enrichedLinks.filter((l) => l.normalizedStatus === "down").length,
+    [enrichedLinks]
+  );
+  const issueCount = useMemo(
+    () => enrichedLinks.filter((l) => l.normalizedStatus === "issue").length,
     [enrichedLinks]
   );
 
   // Time filter counts based on the active status tab
+  // For up/down/issue: count links stable for >= X time (status changed BEFORE cutoff)
+  // For all: count links changed within < X time (status changed AFTER cutoff)
   const timeCounts = useMemo(() => {
     const statusFiltered = enrichedLinks.filter((link) => {
       if (activeFilter === "up") return link.normalizedStatus === "up";
-      if (activeFilter === "down") return link.normalizedStatus !== "up";
+      if (activeFilter === "down") return link.normalizedStatus === "down";
+      if (activeFilter === "issue") return link.normalizedStatus === "issue";
       return true;
     });
 
-    const counts = { all: statusFiltered.length, "24h": 0, "7d": 0, "30d": 0 };
+    const isStabilityMode = activeFilter !== "all";
+    const counts = { "24h": 0, "7d": 0, "30d": 0 };
     const now = Date.now();
 
     statusFiltered.forEach((link) => {
       const d = new Date(link.statusDate);
       if (!isNaN(d.getTime())) {
         const diffHours = (now - d.getTime()) / (1000 * 60 * 60);
-        if (diffHours <= 24) counts["24h"]++;
-        if (diffHours <= 24 * 7) counts["7d"]++;
-        if (diffHours <= 24 * 30) counts["30d"]++;
+        if (isStabilityMode) {
+          // Stable for >= X: status changed at least X ago
+          if (diffHours >= 24) counts["24h"]++;
+          if (diffHours >= 24 * 7) counts["7d"]++;
+          if (diffHours >= 24 * 30) counts["30d"]++;
+        } else {
+          // Changed within < X: status changed within the last X
+          if (diffHours <= 24) counts["24h"]++;
+          if (diffHours <= 24 * 7) counts["7d"]++;
+          if (diffHours <= 24 * 30) counts["30d"]++;
+        }
       }
     });
 
@@ -179,19 +221,31 @@ export default function NetworkLinksSideDrawer({
 
   // Filtered links for the active view, time window, and search
   const filteredLinks = useMemo(() => {
+    const isStabilityMode = activeFilter !== "all";
+
     return enrichedLinks.filter((link) => {
       // Status filter
       if (activeFilter === "up" && link.normalizedStatus !== "up") return false;
-      if (activeFilter === "down" && link.normalizedStatus === "up") return false;
+      if (activeFilter === "down" && link.normalizedStatus !== "down") return false;
+      if (activeFilter === "issue" && link.normalizedStatus !== "issue") return false;
 
       // Time filter
-      if (timeFilter !== "all") {
+      if (timeFilter) {
         const targetDate = new Date(link.statusDate);
         if (!isNaN(targetDate.getTime())) {
           const diffHours = (Date.now() - targetDate.getTime()) / (1000 * 60 * 60);
-          if (timeFilter === "24h" && diffHours > 24) return false;
-          if (timeFilter === "7d" && diffHours > 24 * 7) return false;
-          if (timeFilter === "30d" && diffHours > 24 * 30) return false;
+          
+          if (isStabilityMode) {
+            // >= X time filter
+            if (timeFilter === "24h" && diffHours < 24) return false;
+            if (timeFilter === "7d" && diffHours < 24 * 7) return false;
+            if (timeFilter === "30d" && diffHours < 24 * 30) return false;
+          } else {
+            // < X time filter
+            if (timeFilter === "24h" && diffHours > 24) return false;
+            if (timeFilter === "7d" && diffHours > 24 * 7) return false;
+            if (timeFilter === "30d" && diffHours > 24 * 30) return false;
+          }
         }
       }
 
@@ -223,20 +277,32 @@ export default function NetworkLinksSideDrawer({
 
   // Helper to get links matching status and time window for marking on chart
   const getMatchingLinks = (statusF, timeF) => {
+    const isStabilityMode = statusF !== "all";
+
     return enrichedLinks.filter((link) => {
       // Status filter
       if (statusF === "up" && link.normalizedStatus !== "up") return false;
-      if (statusF === "down" && link.normalizedStatus === "up") return false;
+      if (statusF === "down" && link.normalizedStatus !== "down") return false;
+      if (statusF === "issue" && link.normalizedStatus !== "issue") return false;
 
       // Time filter
-      if (timeF && timeF !== "all") {
+      if (timeF) {
         const targetDate = new Date(link.statusDate);
         if (!isNaN(targetDate.getTime())) {
           const diffHours =
             (Date.now() - targetDate.getTime()) / (1000 * 60 * 60);
-          if (timeF === "24h" && diffHours > 24) return false;
-          if (timeF === "7d" && diffHours > 24 * 7) return false;
-          if (timeF === "30d" && diffHours > 24 * 30) return false;
+          
+          if (isStabilityMode) {
+            // >= X time filter
+            if (timeF === "24h" && diffHours < 24) return false;
+            if (timeF === "7d" && diffHours < 24 * 7) return false;
+            if (timeF === "30d" && diffHours < 24 * 30) return false;
+          } else {
+            // < X time filter
+            if (timeF === "24h" && diffHours > 24) return false;
+            if (timeF === "7d" && diffHours > 24 * 7) return false;
+            if (timeF === "30d" && diffHours > 24 * 30) return false;
+          }
         }
       }
       return true;
@@ -269,8 +335,6 @@ export default function NetworkLinksSideDrawer({
     const matching = getMatchingLinks(activeFilter, newTimeFilter);
     onMarkAll?.(matching.map((l) => l.id));
   };
-
-  const markedCount = markedLinkIds ? markedLinkIds.size : 0;
 
   return (
     <>
@@ -348,18 +412,42 @@ export default function NetworkLinksSideDrawer({
           </span>
         </button>
 
-        {/* Marked Indicator Badge (if any links marked on chart) */}
-        {markedCount > 0 && (
-          <button
-            type="button"
-            onClick={() => setIsOpen(true)}
-            title="Marked links active on chart"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-400/40 shadow-md backdrop-blur-md animate-pulse"
+        {/* ISSUE Links Button */}
+        <button
+          type="button"
+          onClick={() => handleButtonClick("issue")}
+          title={`View all Issue links (${issueCount})`}
+          className={`group flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold shadow-lg transition-all duration-200 border ${
+            isOpen && activeFilter === "issue"
+              ? "bg-amber-600 text-white border-amber-500 ring-2 ring-amber-400/50 shadow-amber-500/20"
+              : isDark
+              ? "bg-gray-800/90 hover:bg-gray-700/90 text-amber-400 border-gray-700/80 hover:border-amber-500/50 backdrop-blur-md shadow-black/20"
+              : "bg-white/95 hover:bg-amber-50/90 text-amber-700 border-gray-200 hover:border-amber-300 backdrop-blur-md shadow-gray-200/50"
+          }`}
+        >
+          <div
+            className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${
+              isOpen && activeFilter === "issue"
+                ? "bg-white/20 text-white"
+                : "bg-amber-500/15 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500 group-hover:text-white"
+            }`}
           >
-            <Eye className="w-3.5 h-3.5" />
-            <span>{markedCount} on chart</span>
-          </button>
-        )}
+            <Activity className="w-3.5 h-3.5 stroke-[2.5]" />
+          </div>
+          <span>Issue</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-xs font-bold transition-colors ${
+              isOpen && activeFilter === "issue"
+                ? "bg-amber-700 text-white"
+                : issueCount > 0
+                ? "bg-amber-500/20 text-amber-700 dark:text-amber-300"
+                : "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+            }`}
+          >
+            {issueCount}
+          </span>
+        </button>
+
       </div>
 
       {/* ========================================================= */}
@@ -406,7 +494,9 @@ export default function NetworkLinksSideDrawer({
                 {activeFilter === "up"
                   ? "Up Links"
                   : activeFilter === "down"
-                  ? "Down / Issue Links"
+                  ? "Down Links"
+                  : activeFilter === "issue"
+                  ? "Issue Links"
                   : "All Network Links"}
               </h2>
               <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -433,7 +523,7 @@ export default function NetworkLinksSideDrawer({
           }`}
         >
           {/* Status Tabs switch */}
-          <div className="grid grid-cols-3 gap-1 p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl">
+          <div className="grid grid-cols-4 gap-1 p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl">
             <button
               type="button"
               onClick={() => handleStatusTabClick("up")}
@@ -462,6 +552,19 @@ export default function NetworkLinksSideDrawer({
 
             <button
               type="button"
+              onClick={() => handleStatusTabClick("issue")}
+              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${
+                activeFilter === "issue"
+                  ? "bg-amber-600 text-white shadow-sm"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>Issue ({issueCount})</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => handleStatusTabClick("all")}
               className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${
                 activeFilter === "all"
@@ -482,18 +585,26 @@ export default function NetworkLinksSideDrawer({
             </span>
             <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none flex-1">
               {[
-                { id: "all", label: "All" },
-                { id: "24h", label: "< 24h" },
-                { id: "7d", label: "< 7d" },
-                { id: "30d", label: "< 1 Month" },
+                { id: "24h", labelAll: "< 24h", labelStability: "≥ 24h" },
+                { id: "7d", labelAll: "< 1 Week", labelStability: "≥ 1 Week" },
+                { id: "30d", labelAll: "< 1 Month", labelStability: "≥ 1 Month" },
               ].map((opt) => {
                 const isSelected = timeFilter === opt.id;
                 const count = timeCounts[opt.id] ?? 0;
+                const isStabilityMode = activeFilter !== "all";
+                const displayLabel = isStabilityMode ? opt.labelStability : opt.labelAll;
+                
                 return (
                   <button
                     key={opt.id}
                     type="button"
-                    onClick={() => handleTimeFilterClick(opt.id)}
+                    onClick={() => {
+                      if (timeFilter === opt.id) {
+                        handleTimeFilterClick(null); // toggle off
+                      } else {
+                        handleTimeFilterClick(opt.id);
+                      }
+                    }}
                     className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-all whitespace-nowrap flex items-center gap-1 ${
                       isSelected
                         ? "bg-blue-600 text-white shadow-sm font-semibold"
@@ -502,7 +613,7 @@ export default function NetworkLinksSideDrawer({
                         : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
                     }`}
                   >
-                    <span>{opt.label}</span>
+                    <span>{displayLabel}</span>
                     <span
                       className={`text-[10px] px-1 rounded-full ${
                         isSelected
@@ -545,233 +656,331 @@ export default function NetworkLinksSideDrawer({
                 </button>
               )}
             </div>
-
-            {/* Clear chart highlights button (if any marks are active) */}
-            {markedCount > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (onClearMarks) onClearMarks();
-                }}
-                title="Clear chart highlights"
-                className="px-2 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 text-gray-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-gray-200 dark:border-gray-700 transition-colors shrink-0"
-              >
-                <EyeOff className="w-3.5 h-3.5" />
-                <span>Clear ({markedCount})</span>
-              </button>
-            )}
           </div>
         </div>
 
-        {/* --- Links List (Scrollable) --- */}
+        {/* --- Content Area (Scrollable) --- */}
         <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2.5">
-          {filteredLinks.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center p-8 text-center">
-              <div
-                className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${
-                  activeFilter === "down"
-                    ? "bg-emerald-500/10 text-emerald-500"
-                    : "bg-gray-100 dark:bg-gray-800 text-gray-400"
-                }`}
-              >
-                {activeFilter === "down" ? (
-                  <CheckCircle2 className="w-6 h-6" />
-                ) : (
-                  <Search className="w-6 h-6" />
-                )}
+          {activeFilter === "all" ? (
+            /* ===== EVENT LOG for the "All" tab ===== */
+            eventsLoading ? (
+              <div className="h-full flex items-center justify-center">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Loading events...</span>
+                </div>
               </div>
-              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                {activeFilter === "down"
-                  ? "No Down Links Detected"
-                  : searchQuery
-                  ? "No Matching Links Found"
-                  : timeFilter !== "all"
-                  ? "No Links in Selected Timeframe"
-                  : "No Links Available"}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-[240px]">
-                {activeFilter === "down"
-                  ? "All chart links are currently healthy and operational."
-                  : searchQuery
-                  ? `No links matched your query "${searchQuery}".`
-                  : timeFilter !== "all"
-                  ? "No links matched the selected time range. Try selecting 'All Time'."
-                  : "No links found for the selected category."}
-              </p>
-              {timeFilter !== "all" && (
-                <button
-                  type="button"
-                  onClick={() => setTimeFilter("all")}
-                  className="mt-3 px-3 py-1 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-colors shadow-sm"
-                >
-                  Reset Time Filter
-                </button>
-              )}
-            </div>
-          ) : (
-            filteredLinks.map((link) => {
-              const isLinkUp = link.normalizedStatus === "up";
-              const isLinkIssue = link.normalizedStatus === "issue";
-              const isLinkMarked = markedLinkIds && markedLinkIds.has(link.id);
+            ) : statusEvents.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center p-8 text-center">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3 bg-gray-100 dark:bg-gray-800 text-gray-400">
+                  <Activity className="w-6 h-6" />
+                </div>
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  No Status Changes
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-[240px]">
+                  No link status changes were recorded in the selected time window.
+                </p>
+              </div>
+            ) : (
+              statusEvents
+                .filter((event) => {
+                  if (!searchQuery.trim()) return true;
+                  const q = searchQuery.toLowerCase().trim();
+                  return (
+                    (event.device_name || "").toLowerCase().includes(q) ||
+                    (event.remote_device_name || "").toLowerCase().includes(q) ||
+                    (event.coresite_name || "").toLowerCase().includes(q)
+                  );
+                })
+                .map((event) => {
+                  const statusColors = {
+                    up: { bg: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400", label: "UP" },
+                    down: { bg: "bg-rose-500", text: "text-rose-600 dark:text-rose-400", label: "DOWN" },
+                    issue: { bg: "bg-amber-500", text: "text-amber-600 dark:text-amber-400", label: "ISSUE" },
+                  };
+                  const oldStyle = statusColors[event.old_status] || statusColors.up;
+                  const newStyle = statusColors[event.new_status] || statusColors.down;
+                  const eventTime = formatExactTime(event.changed_at);
+                  const eventDuration = formatDuration(event.changed_at);
 
-              return (
+                  return (
+                    <div
+                      key={event.id}
+                      className={`group relative p-3 rounded-xl border transition-all duration-200 ${
+                        isDark
+                          ? "bg-gray-800/60 border-gray-700/60 hover:border-gray-600"
+                          : "bg-white border-gray-200/80 hover:border-gray-300 shadow-sm"
+                      }`}
+                    >
+                      {/* Status Change Badge */}
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider ${oldStyle.text}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${oldStyle.bg}`} />
+                            {oldStyle.label}
+                          </span>
+                          <ArrowRight className="w-3 h-3 text-gray-400" />
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider ${newStyle.text}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${newStyle.bg}`} />
+                            {newStyle.label}
+                          </span>
+                        </div>
+                        <div
+                          title={eventTime}
+                          className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                        >
+                          <Clock className="w-3 h-3 flex-shrink-0" />
+                          <span>{eventDuration} ago</span>
+                        </div>
+                      </div>
+
+                      {/* Link Name */}
+                      <div className="flex items-center justify-between text-xs font-semibold py-1">
+                        <div className="flex flex-col min-w-0 pr-2">
+                          <span className="truncate text-gray-800 dark:text-gray-100 font-mono">
+                            {event.device_name}
+                          </span>
+                        </div>
+                        <div className="text-gray-400 dark:text-gray-500 px-1 font-mono text-[10px]">
+                          ⟷
+                        </div>
+                        <div className="flex flex-col min-w-0 pl-2 text-right">
+                          <span className="truncate text-gray-800 dark:text-gray-100 font-mono">
+                            {event.remote_device_name}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Meta */}
+                      <div
+                        className={`mt-2 pt-2 border-t flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 ${
+                          isDark ? "border-gray-700/50" : "border-gray-100"
+                        }`}
+                      >
+                        <span>{event.coresite_name}</span>
+                        <span className="font-mono">{eventTime}</span>
+                      </div>
+                    </div>
+                  );
+                })
+            )
+          ) : (
+            /* ===== STANDARD LINK CARDS for Up/Down/Issue tabs ===== */
+            filteredLinks.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center p-8 text-center">
                 <div
-                  key={link.id || `${link.sourceName}-${link.targetName}`}
-                  onMouseEnter={() => onHoverLink?.(link.id)}
-                  onMouseLeave={() => onHoverLink?.(null)}
-                  onClick={() => {
-                    if (onLinkClick) {
-                      onLinkClick({
-                        ...link,
-                        sourceNode: link.sourceName,
-                        targetNode: link.targetName,
-                      });
-                    }
-                  }}
-                  className={`group relative p-3 rounded-xl border transition-all duration-200 cursor-pointer ${
-                    isLinkMarked
-                      ? isDark
-                        ? "bg-amber-950/20 border-amber-500/70 shadow-md shadow-amber-500/5 ring-1 ring-amber-500/50"
-                        : "bg-amber-50/70 border-amber-300 shadow-md shadow-amber-200/50 ring-1 ring-amber-400/50"
-                      : isDark
-                      ? "bg-gray-800/60 hover:bg-gray-800 border-gray-700/60 hover:border-gray-600"
-                      : "bg-white hover:bg-gray-50/80 border-gray-200/80 hover:border-gray-300 shadow-sm"
+                  className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${
+                    activeFilter === "down"
+                      ? "bg-emerald-500/10 text-emerald-500"
+                      : activeFilter === "issue"
+                      ? "bg-amber-500/10 text-amber-500"
+                      : "bg-gray-100 dark:bg-gray-800 text-gray-400"
                   }`}
                 >
-                  {/* Card Top: Status & Duration & Mark Button */}
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    {/* Status badge */}
-                    <div className="flex items-center gap-1.5">
-                      <span className="relative flex h-2 w-2">
-                        <span
-                          className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                            isLinkUp
-                              ? "bg-emerald-400"
-                              : isLinkIssue
-                              ? "bg-amber-400"
-                              : "bg-rose-400"
-                          }`}
-                        />
-                        <span
-                          className={`relative inline-flex rounded-full h-2 w-2 ${
-                            isLinkUp
-                              ? "bg-emerald-500"
-                              : isLinkIssue
-                              ? "bg-amber-500"
-                              : "bg-rose-500"
-                          }`}
-                        />
-                      </span>
-                      <span
-                        className={`text-xs font-bold uppercase tracking-wider ${
-                          isLinkUp
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : isLinkIssue
-                            ? "text-amber-600 dark:text-amber-400"
-                            : "text-rose-600 dark:text-rose-400"
-                        }`}
-                      >
-                        {isLinkUp ? "UP" : isLinkIssue ? "ISSUE" : "DOWN"}
-                      </span>
-                    </div>
+                  {activeFilter === "down" || activeFilter === "issue" ? (
+                    <CheckCircle2 className="w-6 h-6" />
+                  ) : (
+                    <Search className="w-6 h-6" />
+                  )}
+                </div>
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  {activeFilter === "down"
+                    ? "No Down Links Detected"
+                    : activeFilter === "issue"
+                    ? "No Issue Links Detected"
+                    : searchQuery
+                    ? "No Matching Links Found"
+                    : timeFilter
+                    ? "No Links in Selected Timeframe"
+                    : "No Links Available"}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-[240px]">
+                  {activeFilter === "down"
+                    ? "All chart links are currently healthy and operational."
+                    : activeFilter === "issue"
+                    ? "There are no links with issues on the chart."
+                    : searchQuery
+                    ? `No links matched your query "${searchQuery}".`
+                    : timeFilter
+                    ? "No links matched the selected time range. Try clearing the time filter."
+                    : "No links found for the selected category."}
+                </p>
+                {timeFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setTimeFilter(null)}
+                    className="mt-3 px-3 py-1 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-colors shadow-sm"
+                  >
+                    Clear Time Filter
+                  </button>
+                )}
+              </div>
+            ) : (
+              filteredLinks.map((link) => {
+                const isLinkUp = link.normalizedStatus === "up";
+                const isLinkIssue = link.normalizedStatus === "issue";
+                const isLinkMarked = markedLinkIds && markedLinkIds.has(link.id);
 
-                    <div className="flex items-center gap-2">
-                      {/* Duration */}
-                      <div
-                        title={
-                          link.exactTimeStr
-                            ? `Status change: ${link.exactTimeStr}`
-                            : undefined
-                        }
-                        className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                          isLinkUp
-                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
-                            : isLinkIssue
-                            ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20"
-                            : "bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20"
-                        }`}
-                      >
-                        <Clock className="w-3 h-3 flex-shrink-0" />
-                        <span>
-                          {isLinkUp ? "Up" : isLinkIssue ? "Issue" : "Down"} for{" "}
-                          <strong className="font-semibold">{link.durationStr}</strong>
+                return (
+                  <div
+                    key={link.id || `${link.sourceName}-${link.targetName}`}
+                    onMouseEnter={() => onHoverLink?.(link.id)}
+                    onMouseLeave={() => onHoverLink?.(null)}
+                    onClick={() => {
+                      if (onLinkClick) {
+                        onLinkClick({
+                          ...link,
+                          sourceNode: link.sourceName,
+                          targetNode: link.targetName,
+                        });
+                      }
+                    }}
+                    className={`group relative p-3 rounded-xl border transition-all duration-200 cursor-pointer ${
+                      isLinkMarked
+                        ? isDark
+                          ? "bg-amber-950/20 border-amber-500/70 shadow-md shadow-amber-500/5 ring-1 ring-amber-500/50"
+                          : "bg-amber-50/70 border-amber-300 shadow-md shadow-amber-200/50 ring-1 ring-amber-400/50"
+                        : isDark
+                        ? "bg-gray-800/60 hover:bg-gray-800 border-gray-700/60 hover:border-gray-600"
+                        : "bg-white hover:bg-gray-50/80 border-gray-200/80 hover:border-gray-300 shadow-sm"
+                    }`}
+                  >
+                    {/* Card Top: Status & Duration & Mark Button */}
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      {/* Status badge */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="relative flex h-2 w-2">
+                          <span
+                            className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                              isLinkUp
+                                ? "bg-emerald-400"
+                                : isLinkIssue
+                                ? "bg-amber-400"
+                                : "bg-rose-400"
+                            }`}
+                          />
+                          <span
+                            className={`relative inline-flex rounded-full h-2 w-2 ${
+                              isLinkUp
+                                ? "bg-emerald-500"
+                                : isLinkIssue
+                                ? "bg-amber-500"
+                                : "bg-rose-500"
+                            }`}
+                          />
+                        </span>
+                        <span
+                          className={`text-xs font-bold uppercase tracking-wider ${
+                            isLinkUp
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : isLinkIssue
+                              ? "text-amber-600 dark:text-amber-400"
+                              : "text-rose-600 dark:text-rose-400"
+                          }`}
+                        >
+                          {isLinkUp ? "UP" : isLinkIssue ? "ISSUE" : "DOWN"}
                         </span>
                       </div>
 
-                      {/* Mark on chart button */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (onToggleMarkLink) onToggleMarkLink(link.id);
-                        }}
-                        title={isLinkMarked ? "Unmark from chart" : "Mark link on chart"}
-                        className={`p-1 rounded-md transition-colors ${
-                          isLinkMarked
-                            ? "bg-amber-500 text-white shadow-sm"
-                            : "text-gray-400 hover:text-amber-500 hover:bg-gray-100 dark:hover:bg-gray-700"
-                        }`}
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
+                      <div className="flex items-center gap-2">
+                        {/* Duration */}
+                        <div
+                          title={
+                            link.exactTimeStr
+                              ? `Status change: ${link.exactTimeStr}`
+                              : undefined
+                          }
+                          className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                            isLinkUp
+                              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
+                              : isLinkIssue
+                              ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20"
+                              : "bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20"
+                          }`}
+                        >
+                          <Clock className="w-3 h-3 flex-shrink-0" />
+                          <span>
+                            {isLinkUp ? "Up" : isLinkIssue ? "Issue" : "Down"} for{" "}
+                            <strong className="font-semibold">{link.durationStr}</strong>
+                          </span>
+                        </div>
 
-                  {/* Card Middle: Source ⟷ Target */}
-                  <div className="flex items-center justify-between text-xs font-semibold py-1">
-                    <div className="flex flex-col min-w-0 pr-2">
-                      <span className="truncate text-gray-800 dark:text-gray-100 font-mono">
-                        {link.sourceName}
-                      </span>
-                      {link.sourceZone && (
-                        <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                          {link.sourceZone}
+                        {/* Mark on chart button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onToggleMarkLink) onToggleMarkLink(link.id);
+                          }}
+                          title={isLinkMarked ? "Unmark from chart" : "Mark link on chart"}
+                          className={`p-1 rounded-md transition-colors ${
+                            isLinkMarked
+                              ? "bg-amber-500 text-white shadow-sm"
+                              : "text-gray-400 hover:text-amber-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          }`}
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Card Middle: Source ⟷ Target */}
+                    <div className="flex items-center justify-between text-xs font-semibold py-1">
+                      <div className="flex flex-col min-w-0 pr-2">
+                        <span className="truncate text-gray-800 dark:text-gray-100 font-mono">
+                          {link.sourceName}
                         </span>
-                      )}
-                    </div>
+                        {link.sourceZone && (
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                            {link.sourceZone}
+                          </span>
+                        )}
+                      </div>
 
-                    <div className="text-gray-400 dark:text-gray-500 px-1 font-mono text-[10px]">
-                      ⟷
-                    </div>
+                      <div className="text-gray-400 dark:text-gray-500 px-1 font-mono text-[10px]">
+                        ⟷
+                      </div>
 
-                    <div className="flex flex-col min-w-0 pl-2 text-right">
-                      <span className="truncate text-gray-800 dark:text-gray-100 font-mono">
-                        {link.targetName}
-                      </span>
-                      {link.targetZone && (
-                        <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                          {link.targetZone}
+                      <div className="flex flex-col min-w-0 pl-2 text-right">
+                        <span className="truncate text-gray-800 dark:text-gray-100 font-mono">
+                          {link.targetName}
                         </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Card Bottom: Meta info & Inspect button */}
-                  <div
-                    className={`mt-2 pt-2 border-t flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 ${
-                      isDark ? "border-gray-700/50" : "border-gray-100"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span>{link.Bandwidth || link.bandwidth || "10 Gbps"}</span>
-                      <span>•</span>
-                      <span>{link.MediaType || link.media_type || "Fiber"}</span>
-                      {link.ip && (
-                        <>
-                          <span>•</span>
-                          <span className="font-mono">{link.ip}</span>
-                        </>
-                      )}
+                        {link.targetZone && (
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                            {link.targetZone}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-1 text-blue-500 dark:text-blue-400 font-medium group-hover:underline">
-                      <span>Inspect</span>
-                      <ExternalLink className="w-3 h-3" />
+                    {/* Card Bottom: Meta info & Inspect button */}
+                    <div
+                      className={`mt-2 pt-2 border-t flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 ${
+                        isDark ? "border-gray-700/50" : "border-gray-100"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>{link.Bandwidth || link.bandwidth || "10 Gbps"}</span>
+                        <span>•</span>
+                        <span>{link.MediaType || link.media_type || "Fiber"}</span>
+                        {link.ip && (
+                          <>
+                            <span>•</span>
+                            <span className="font-mono">{link.ip}</span>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1 text-blue-500 dark:text-blue-400 font-medium group-hover:underline">
+                        <span>Inspect</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })
+                );
+              })
+            )
           )}
         </div>
       </aside>

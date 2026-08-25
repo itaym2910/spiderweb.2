@@ -23,6 +23,33 @@ export const fetchDevices = createAsyncThunk(
   }
 );
 
+// --- ASYNC THUNKS FOR ADDING/DELETING ---
+export const addCoreDevice = createAsyncThunk(
+  "devices/addCoreDevice",
+  async (deviceData, { dispatch, rejectWithValue }) => {
+    try {
+      await api.addCoreDevice(deviceData);
+      dispatch(fetchDevices());
+      return deviceData;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+export const deleteCoreDevice = createAsyncThunk(
+  "devices/deleteCoreDevice",
+  async (deviceId, { dispatch, rejectWithValue }) => {
+    try {
+      await api.deleteDevice(deviceId);
+      dispatch(fetchDevices());
+      return deviceId;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
 // --- The Slice Definition ---
 const devicesSlice = createSlice({
   name: "devices",
@@ -32,16 +59,7 @@ const devicesSlice = createSlice({
     status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
     error: null,
   },
-  // Reducers for synchronous, direct state mutations
-  reducers: {
-    addCoreDevice: (state, action) => {
-      state.items.push(action.payload);
-    },
-    deleteCoreDevice: (state, action) => {
-      const deviceIdToDelete = action.payload;
-      state.items = state.items.filter((item) => item.id !== deviceIdToDelete);
-    },
-  },
+  reducers: {},
   // extraReducers handle the lifecycle of the async thunk
   extraReducers: (builder) => {
     builder
@@ -62,8 +80,7 @@ const devicesSlice = createSlice({
   },
 });
 
-// --- Export Actions ---
-export const { addCoreDevice, deleteCoreDevice } = devicesSlice.actions;
+
 
 // --- Export Selectors ---
 

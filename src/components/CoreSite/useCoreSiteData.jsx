@@ -156,18 +156,9 @@ export function useCoreSiteData(chartType) {
       return;
     }
 
-    // --- THIS IS THE CORE LOGIC ---
     if (clickedNodeData.id === selectedNodeId) {
-      // The user clicked on the node that is ALREADY focused.
-      // This is our trigger to navigate.
-      console.log(
-        `Navigating to details for already-focused node: ${clickedNodeData.id}`
-      );
       navigate(`node/${clickedNodeData.id}`);
     } else {
-      // The user clicked on a DIFFERENT node.
-      // The action is to change the focus.
-      console.log(`Setting focus to ${clickedNodeData.id}`);
       setSelectedNodeId(clickedNodeData.id);
     }
   };
