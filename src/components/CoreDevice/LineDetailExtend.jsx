@@ -3,16 +3,10 @@ import React from "react";
 
 const LinkDetailRow = ({ link, isParentSelectedAndDark }) => {
   // --- Check 1: Does the link object exist at all? ---
-  // This should ideally be handled before even calling LinkDetailRow,
-  // but a defensive check here is okay.
   if (!link) {
-    // This case should ideally not happen if LinkTable filters correctly
-    // or if the link object is guaranteed to exist when this component is rendered.
     return (
-      <td colSpan="6" className="relative -left-[4px]">
-        <div
-          className={`p-4 bg-gray-100 dark:bg-gray-700 text-sm text-gray-500 dark:text-gray-400`}
-        >
+      <td colSpan="7" className="relative">
+        <div className="p-4 m-2 rounded-lg bg-red-50 dark:bg-red-500/10 text-sm text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20">
           Error: Link data missing.
         </div>
       </td>
@@ -29,20 +23,18 @@ const LinkDetailRow = ({ link, isParentSelectedAndDark }) => {
     typeof link.issueType === "string" &&
     link.issueType.trim() !== "";
 
-  const tdClasses = `relative -left-[4px]`;
-
-  const detailRowBackground = isParentSelectedAndDark
-    ? "bg-slate-700"
-    : "bg-slate-100";
-  const valueTextColorForNoDetails = isParentSelectedAndDark
-    ? "text-slate-400"
-    : "text-slate-600";
+  const detailBg = isParentSelectedAndDark
+    ? "bg-slate-800/50"
+    : "bg-gray-50";
+  const borderLeft = isParentSelectedAndDark
+    ? "border-l-blue-400"
+    : "border-l-blue-500";
 
   if (!hasAdditionalDetails && !hasRelevantIssueType) {
     return (
-      <td colSpan="6" className={tdClasses}>
+      <td colSpan="7" className="relative">
         <div
-          className={`p-4 ${detailRowBackground} text-sm ${valueTextColorForNoDetails}`}
+          className={`p-4 mx-2 mb-2 rounded-lg ${detailBg} border-l-4 ${borderLeft} text-sm text-gray-500 dark:text-gray-400`}
         >
           No specific details available for this link.
         </div>
@@ -61,94 +53,67 @@ const LinkDetailRow = ({ link, isParentSelectedAndDark }) => {
     outputDataRate = "N/A",
     txPower = "N/A",
     rxPower = "N/A",
-  } = link.additionalDetails || {}; // Default to empty object if additionalDetails is null/undefined
+  } = link.additionalDetails || {};
 
-  const issueType = link.issueType || null; // Use null if not present, will be handled by hasRelevantIssueType
+  const issueType = link.issueType || null;
 
-  const labelTextColor = isParentSelectedAndDark
-    ? "text-slate-300"
-    : "text-slate-700";
-  const valueTextColor = isParentSelectedAndDark
-    ? "text-slate-400"
-    : "text-slate-600";
-  const issueLabelColor = isParentSelectedAndDark
-    ? "text-red-400"
-    : "text-red-500";
-  const issueValueColor = isParentSelectedAndDark
-    ? "text-red-400 font-semibold"
-    : "text-red-500 font-semibold";
-  const borderColor = isParentSelectedAndDark
-    ? "border-slate-600"
-    : "border-slate-300";
-  const detailItemClass = "py-1";
+  const labelColor = isParentSelectedAndDark
+    ? "text-gray-400"
+    : "text-gray-500";
+  const valueColor = isParentSelectedAndDark
+    ? "text-gray-200"
+    : "text-gray-800";
+
+  const DetailItem = ({ label, value, highlight = false }) => (
+    <div className="flex flex-col gap-0.5 py-1.5">
+      <span className={`text-[10px] font-medium uppercase tracking-wider ${labelColor}`}>
+        {label}
+      </span>
+      <span
+        className={`text-sm font-medium ${
+          highlight
+            ? "text-red-500 dark:text-red-400"
+            : valueColor
+        }`}
+      >
+        {value}
+      </span>
+    </div>
+  );
 
   return (
-    <td colSpan="6" className={tdClasses}>
+    <td colSpan="7" className="relative">
       <div
-        className={`p-4 ${detailRowBackground} transition-colors duration-150`}
+        className={`mx-2 mb-2 p-4 rounded-lg ${detailBg} border-l-4 ${borderLeft} transition-colors duration-150`}
       >
-        {hasRelevantIssueType &&
-          issueType && ( // issueType check is redundant due to hasRelevantIssueType but harmless
-            <div
-              className={`${detailItemClass} mb-3 border-b ${borderColor} pb-2`}
-            >
-              <span className={`font-medium ${issueLabelColor}`}>
-                Issue Type:
-              </span>{" "}
-              <span className={issueValueColor}>{issueType}</span>
+        {hasRelevantIssueType && issueType && (
+          <div className="mb-3 pb-3 border-b border-gray-200/50 dark:border-gray-700/50">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-red-500 dark:bg-red-400 animate-pulse"></span>
+              <span className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider">
+                Issue Type
+              </span>
             </div>
-          )}
+            <p className="mt-1 text-sm font-semibold text-red-600 dark:text-red-400">
+              {issueType}
+            </p>
+          </div>
+        )}
         {hasAdditionalDetails && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-2 text-sm">
-            <div className={detailItemClass}>
-              <span className={`font-medium ${labelTextColor}`}>
-                Media Type:
-              </span>{" "}
-              <span className={valueTextColor}>{mediaType}</span>
-            </div>
-            {/* ... other detail items ... */}
-            <div className={detailItemClass}>
-              <span className={`font-medium ${labelTextColor}`}>
-                CDP Neighbors:
-              </span>{" "}
-              <span className={valueTextColor}>{cdpNeighbors}</span>
-            </div>
-            <div className={detailItemClass}>
-              <span className={`font-medium ${labelTextColor}`}>
-                Container:
-              </span>{" "}
-              <span className={valueTextColor}>{containerName}</span>
-            </div>
-            <div className={detailItemClass}>
-              <span className={`font-medium ${labelTextColor}`}>MTU:</span>{" "}
-              <span className={valueTextColor}>{mtu}</span>
-            </div>
-            <div className={detailItemClass}>
-              <span className={`font-medium ${labelTextColor}`}>
-                CRC Errors:
-              </span>{" "}
-              <span className={valueTextColor}>{crcErrors}</span>
-            </div>
-            <div className={detailItemClass}>
-              <span className={`font-medium ${labelTextColor}`}>
-                Input Rate:
-              </span>{" "}
-              <span className={valueTextColor}>{inputDataRate}</span>
-            </div>
-            <div className={detailItemClass}>
-              <span className={`font-medium ${labelTextColor}`}>
-                Output Rate:
-              </span>{" "}
-              <span className={valueTextColor}>{outputDataRate}</span>
-            </div>
-            <div className={detailItemClass}>
-              <span className={`font-medium ${labelTextColor}`}>Tx Power:</span>{" "}
-              <span className={valueTextColor}>{txPower}</span>
-            </div>
-            <div className={detailItemClass}>
-              <span className={`font-medium ${labelTextColor}`}>Rx Power:</span>{" "}
-              <span className={valueTextColor}>{rxPower}</span>
-            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-1">
+            <DetailItem label="Media Type" value={mediaType} />
+            <DetailItem label="CDP Neighbors" value={cdpNeighbors} />
+            <DetailItem label="Container" value={containerName} />
+            <DetailItem label="MTU" value={mtu} />
+            <DetailItem
+              label="CRC Errors"
+              value={crcErrors}
+              highlight={crcErrors !== "N/A" && crcErrors !== 0 && crcErrors !== "0"}
+            />
+            <DetailItem label="Input Rate" value={inputDataRate} />
+            <DetailItem label="Output Rate" value={outputDataRate} />
+            <DetailItem label="Tx Power" value={txPower} />
+            <DetailItem label="Rx Power" value={rxPower} />
           </div>
         )}
       </div>

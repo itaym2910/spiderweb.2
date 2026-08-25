@@ -21,7 +21,7 @@ import LinkTable from "../components/CoreDevice/LinkTable";
 
 // Helper hooks and Redux selectors
 import { useRelatedDevices } from "../hooks/useRelatedDevices";
-import { selectAllDevices } from "../redux/slices/devicesSlice";
+import { selectAllDevices, selectDeviceInfo } from "../redux/slices/devicesSlice";
 import { selectAllSites } from "../redux/slices/sitesSlice";
 import { selectAllTenGigLinks } from "../redux/slices/tenGigLinksSlice";
 
@@ -51,7 +51,18 @@ function NodeDetailView({ chartType, theme }) {
   const allDevices = useSelector(selectAllDevices);
   const allSites = useSelector(selectAllSites);
   const allLinks = useSelector(selectAllTenGigLinks);
+  const deviceInfo = useSelector(selectDeviceInfo);
   const otherDevicesInZone = useRelatedDevices(deviceHostname, zoneId);
+
+  // Find the current device object and its interfaces
+  const currentDevice = React.useMemo(() => {
+    return allDevices.find((d) => d.hostname === deviceHostname) || null;
+  }, [allDevices, deviceHostname]);
+
+  const deviceInterfaces = React.useMemo(() => {
+    if (!currentDevice || !deviceInfo) return [];
+    return deviceInfo[currentDevice.id] || [];
+  }, [currentDevice, deviceInfo]);
 
   const linksForTable = React.useMemo(() => {
     if (
@@ -66,7 +77,6 @@ function NodeDetailView({ chartType, theme }) {
     const allCoreLinksForChart = allLinks.filter(
       (link) => link.network_type_id === typeId
     );
-    const currentDevice = allDevices.find((d) => d.hostname === deviceHostname);
     if (!currentDevice) return [];
 
     const deviceMapByHostname = new Map(allDevices.map((d) => [d.hostname, d]));
@@ -120,7 +130,7 @@ function NodeDetailView({ chartType, theme }) {
       }));
 
     return [...interCoreLinks, ...coreToSiteLinks];
-  }, [deviceHostname, chartType, allDevices, allSites, allLinks]);
+  }, [deviceHostname, chartType, allDevices, allSites, allLinks, currentDevice]);
 
   return (
     // The simple wrapper is correct. LinkTable will handle its own height.
@@ -132,6 +142,8 @@ function NodeDetailView({ chartType, theme }) {
         otherDevicesInZone={otherDevicesInZone}
         theme={theme}
         chartType={chartType}
+        interfaces={deviceInterfaces}
+        currentDevice={currentDevice}
       />
     </div>
   );
