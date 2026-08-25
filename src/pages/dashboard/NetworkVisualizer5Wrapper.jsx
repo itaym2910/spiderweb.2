@@ -171,10 +171,10 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
 
   const handleNodeClick = useCallback(
     (nodeData) => {
-      if (nodeData && nodeData.id && nodeData.zone) {
-        navigate(`zone/${nodeData.zone}/node/${nodeData.id}`);
-      } else {
-        console.warn("Node data incomplete for navigation:", nodeData);
+      const zone = nodeData?.zone || nodeData?.zoneName || "Zone";
+      const hostname = nodeData?.hostname || nodeData?.id || nodeData?.name;
+      if (hostname) {
+        navigate(`zone/${zone}/node/${hostname}`);
       }
     },
     [navigate]

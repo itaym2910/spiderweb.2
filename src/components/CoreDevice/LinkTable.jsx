@@ -481,7 +481,7 @@ const LinkTable = ({
 
   const handleDeviceButtonClick = (device) => {
     const basePath = chartType === "P" ? "/p-chart" : "/l-chart";
-    navigate(`${basePath}/zone/${device.zoneName}/node/${device.hostname}`);
+    navigate(`${basePath}/zone/${device.zoneName || coreSiteName}/node/${device.hostname}`);
   };
 
   const handleBackClick = () => {

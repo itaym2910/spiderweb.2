@@ -180,9 +180,10 @@ const NetworkVisualizerWrapper = ({ theme }) => {
   };
 
   const handleNodeClick = (node) => {
-    const deviceId = node.device?.id;
-    if (deviceId) {
-      navigate(`/devices?tab=devices&deviceId=${deviceId}`);
+    const zone = node.zone || node.zoneName || node.core_pikudim_site_id || "Zone";
+    const hostname = node.hostname || node.name || node.id;
+    if (hostname) {
+      navigate(`zone/${zone}/node/${hostname}`);
     }
   };
 
