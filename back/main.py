@@ -108,6 +108,82 @@ def get_all_alerts_severity():
 # ==============================================================================
 router_coredevice = APIRouter()
 
+@router_coredevice.get("/api/link-status-events")
+async def get_link_status_events(since: str = "24h", current_user: dict = Depends(user_role_checker)):
+    """Returns link status change events filtered by time window."""
+    # Parse the 'since' parameter into hours
+    hours_map = {"24h": 24, "7d": 24 * 7, "30d": 24 * 30}
+    max_hours = hours_map.get(since, 24)
+    cutoff = datetime.utcnow() - timedelta(hours=max_hours)
+
+    events = [
+        e for e in db.get("link_status_events", [])
+        if datetime.fromisoformat(e["changed_at"]) >= cutoff
+    ]
+    return {"events": events, "since": since, "count": len(events)}
+
+@router_coredevice.get("/api/core-topology")
+async def get_core_topology(current_user: dict = Depends(user_role_checker)):
+    """Returns the latest core-to-core link topology state."""
+    devices_out = []
+    for device in db["core_devices"]:
+        # Find the coresite name for this device
+        coresite = next((cs for cs in db["core_sites"] if cs["id"] == device["coresite_id"]), None)
+        coresite_name = coresite["name"] if coresite else "Unknown"
+        # Find the network name
+        network_id = device.get("network_type_id", 1)
+        network = next((n for n in db["networks"] if n["id"] == network_id), None)
+        network_name = network["name"] if network else "Unknown"
+        # Determine device status based on its links
+        device_links = [l for l in db["links"] if l["coredevice_id"] == device["id"] and l["neighbor_is_core"]]
+        if not device_links:
+            status = "unknown"
+        elif all(l["physical_status"] == "Up" for l in device_links):
+            status = "up"
+        elif all(l["physical_status"] == "Down" for l in device_links):
+            status = "down"
+        else:
+            status = "up"
+        # Build links list for this device
+        links_out = []
+        for link in device_links:
+            neighbor_device = next((d for d in db["core_devices"] if d["id"] == link["neighbor_coredevice_id"]), None)
+            links_out.append({
+                "id": link["id"],
+                "local_interface": f"GigabitEthernet0/{link['id'] % 4}",
+                "local_interface_description": link.get("description", ""),
+                "local_ip": device["ip"],
+                "remote_device_id": link["neighbor_coredevice_id"],
+                "remote_device_name": neighbor_device["name"] if neighbor_device else "Unknown",
+                "remote_interface": f"GigabitEthernet0/{(link['id'] + 1) % 4}",
+                "remote_ip": link.get("neighbor_ip", ""),
+                "oper_status": link.get("physical_status", "Up"),
+                "admin_status": "Up",
+                "bandwidth_mbps": link.get("bw", "10G"),
+                "ospf_state": "Full",
+                "is_ospf_full": True,
+                "last_up_at": link.get("created_at", datetime.utcnow().isoformat()),
+                "last_down_at": link.get("updated_at", datetime.utcnow().isoformat()),
+                "last_ospf_full_at": link.get("created_at", datetime.utcnow().isoformat()),
+                "last_seen_at": link.get("updated_at", datetime.utcnow().isoformat()),
+                "last_state_change_at": link.get("status_changed_at", link.get("updated_at", datetime.utcnow().isoformat())),
+                "link_drops_last_24h": 0,
+                "ospf_drops_last_24h": 0,
+            })
+        devices_out.append({
+            "id": device["id"],
+            "name": device["name"],
+            "ip": device["ip"],
+            "coresite_name": coresite_name,
+            "network_name": network_name,
+            "status": status,
+            "links": links_out,
+        })
+    return {
+        "generated_at": datetime.utcnow().isoformat(),
+        "devices": devices_out,
+    }
+
 @router_coredevice.get("/get_core_devices")
 @router_coredevice.get("/coredevices")
 async def get_all_core_devices(current_user: dict = Depends(user_role_checker)):
@@ -332,6 +408,15 @@ async def get_sites_of_coredevice(coredevice_id: int, current_user: dict = Depen
     sites = [s for s in db["sites"] if coredevice_id in s["coredevice_ids"]]
     return sites
 
+@router_site.get("/coresite/{coresite_id}/sites")
+async def get_sites_of_coresite(coresite_id: int, current_user: dict = Depends(user_role_checker)):
+    """Retrieves all sites associated with a core site."""
+    # Find all coredevices belonging to this coresite
+    coredevice_ids = [d["id"] for d in db["core_devices"] if d["coresite_id"] == coresite_id]
+    # Find all sites that have any of those coredevice_ids
+    sites = [s for s in db["sites"] if any(cd_id in s.get("coredevice_ids", []) for cd_id in coredevice_ids)]
+    return [{"id": s["id"], "name": s["name"], "topology": s.get("topology", "{}"), "description": s.get("description", "")} for s in sites]
+
 @router_site.get("/get_sites")
 @router_site.get("/sites", response_model=List[dict])
 async def get_all_sites(current_user: dict = Depends(user_role_checker)):
@@ -411,6 +496,62 @@ async def make_user_admin(user_id: int, current_user: dict = Depends(admin_role_
     else:
         raise HTTPException(status_code=404, detail="User not found")
 
+# ==============================================================================
+# STATE ROUTES (interface-states, ospf-states, mpls-states)
+# ==============================================================================
+router_states = APIRouter()
+
+@router_states.get("/interface-states")
+async def get_interface_states(current_user: dict = Depends(user_role_checker)):
+    """Returns interface states."""
+    interface_states = {}
+    for link in db["links"]:
+        device = next((d for d in db["core_devices"] if d["id"] == link["coredevice_id"]), None)
+        if device:
+            key = f"{device['name']}_GigabitEthernet0/{link['id'] % 4}"
+            interface_states[key] = {
+                "status": link.get("physical_status", "Up"),
+                "protocol": link.get("protocol_status", "Up"),
+                "bandwidth": link.get("bw", "10G"),
+                "input_rate": link.get("input_rate", "0"),
+                "output_rate": link.get("output_rate", "0"),
+            }
+    return {"interface_states": interface_states}
+
+@router_states.get("/ospf-states")
+async def get_ospf_states(current_user: dict = Depends(user_role_checker)):
+    """Returns OSPF states."""
+    ospf_states = {}
+    for link in db["links"]:
+        if link.get("neighbor_is_core"):
+            device = next((d for d in db["core_devices"] if d["id"] == link["coredevice_id"]), None)
+            if device:
+                key = f"{device['name']}_ospf_{link['id']}"
+                ospf_states[key] = {
+                    "state": "Full",
+                    "neighbor_id": link.get("neighbor_ip", ""),
+                    "area": "0.0.0.0",
+                    "interface": f"GigabitEthernet0/{link['id'] % 4}",
+                }
+    return {"ospf_states": ospf_states}
+
+@router_states.get("/mpls-states")
+async def get_mpls_states(current_user: dict = Depends(user_role_checker)):
+    """Returns MPLS states."""
+    mpls_states = {}
+    for link in db["links"]:
+        if link.get("mpls_ldp") == "Enabled":
+            device = next((d for d in db["core_devices"] if d["id"] == link["coredevice_id"]), None)
+            if device:
+                key = f"{device['name']}_mpls_{link['id']}"
+                mpls_states[key] = {
+                    "ldp_status": "Enabled",
+                    "neighbor_ip": link.get("neighbor_ip", ""),
+                    "interface": f"GigabitEthernet0/{link['id'] % 4}",
+                    "label_range": "16-100000",
+                }
+    return {"mpls_states": mpls_states}
+
 
 # --- Include all routers in the main FastAPI app ---
 app.include_router(router_alerts, tags=["Alerts"])
@@ -420,6 +561,7 @@ app.include_router(router_network, tags=["Networks"])
 app.include_router(router_link, tags=["Links"])
 app.include_router(router_site, tags=["Sites"])
 app.include_router(router_user, tags=["Users"])
+app.include_router(router_states, tags=["States"])
 
 
 # --- Root endpoint for health check ---
