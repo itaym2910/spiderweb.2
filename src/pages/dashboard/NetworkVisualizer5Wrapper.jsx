@@ -164,7 +164,7 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
   // All event handlers
   const handleZoneClick = useCallback(
     (zoneId) => {
-      navigate(`zone/${zoneId}`);
+      navigate(`/p-chart/zone/${zoneId}`);
     },
     [navigate]
   );
@@ -174,7 +174,7 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
       const zone = nodeData?.zone || nodeData?.zoneName || "Zone";
       const hostname = nodeData?.hostname || nodeData?.id || nodeData?.name;
       if (hostname) {
-        navigate(`zone/${zone}/node/${hostname}`);
+        navigate(`/p-chart/zone/${zone}/node/${hostname}`);
       }
     },
     [navigate]

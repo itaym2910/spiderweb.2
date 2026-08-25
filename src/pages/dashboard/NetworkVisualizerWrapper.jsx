@@ -172,18 +172,16 @@ const NetworkVisualizerWrapper = ({ theme }) => {
   }, [allTopologyDevices]);
 
   const handleZoneClick = (zone) => {
-    navigate(
-      `/devices?tab=pikudim&siteId=${zone.id}&name=${encodeURIComponent(
-        zone.name
-      )}`
-    );
+    // The 'zone' parameter here is simply the string ID passed from renderCoreDevices
+    const zoneId = typeof zone === 'object' ? (zone.id || zone.name || encodeURIComponent(zone)) : zone;
+    navigate(`/l-chart/zone/${zoneId}`);
   };
 
   const handleNodeClick = (node) => {
     const zone = node.zone || node.zoneName || node.core_pikudim_site_id || "Zone";
     const hostname = node.hostname || node.name || node.id;
     if (hostname) {
-      navigate(`zone/${zone}/node/${hostname}`);
+      navigate(`/l-chart/zone/${zone}/node/${hostname}`);
     }
   };
 
