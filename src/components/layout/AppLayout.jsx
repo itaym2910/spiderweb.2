@@ -199,7 +199,7 @@ function AppLayout() {
     );
   };
 
-  // --- Pages that have their own internal layout ---
+  // --- Pages that have their own non-scrollable layout ---
   const isNonScrollablePage =
     location.pathname.startsWith("/all_interfaces") ||
     location.pathname.startsWith("/l-chart") ||
