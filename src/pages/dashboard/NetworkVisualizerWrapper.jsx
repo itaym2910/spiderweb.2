@@ -4,23 +4,27 @@ import { useSelector, useDispatch } from "react-redux";
 import NetworkVisualizer from "../../components/chart/NetworkVisualizer";
 import LinkDetailPopup from "../../components/shared/LinkDetailPopup";
 import NetworkLinksSideDrawer from "../../components/chart/NetworkLinksSideDrawer";
-import { selectPikudimByTypeId } from "../../redux/slices/corePikudimSlice";
-import { selectDevicesByTypeId } from "../../redux/slices/devicesSlice";
-import { selectLinksByTypeId } from "../../redux/slices/tenGigLinksSlice";
 import ToggleDetailButton from "../../components/chart/ToggleDetailButton";
 import { fetchInitialData } from "../../redux/slices/authSlice";
+import {
+  selectTopologyDevices,
+  selectTopologyStatus,
+} from "../../redux/slices/coreTopologySlice";
 
 // Import feedback components
 import { LoadingSpinner } from "../../components/ui/feedback/LoadingSpinner";
 import { ErrorMessage } from "../../components/ui/feedback/ErrorMessage";
+
+// The network name used to filter devices for the L-Chart
+const L_CHART_NETWORK_NAME = "L-Chart Network";
 
 // Helper function to select top devices (no changes)
 function selectTopTwoDevices(devices) {
   if (devices.length <= 2) return devices;
   const priorityOrder = [4, 5, 1, 2, 7, 8];
   const sortedDevices = [...devices].sort((a, b) => {
-    const a_ending = parseInt(a.hostname.split("-").pop(), 10);
-    const b_ending = parseInt(b.hostname.split("-").pop(), 10);
+    const a_ending = parseInt(a.name.split("-").pop(), 10);
+    const b_ending = parseInt(b.name.split("-").pop(), 10);
     const a_priority = priorityOrder.indexOf(a_ending);
     const b_priority = priorityOrder.indexOf(b_ending);
     const final_a_priority = a_priority === -1 ? 99 : a_priority;
@@ -34,12 +38,11 @@ const NetworkVisualizerWrapper = ({ theme }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  // Get data fetching status from Redux
-  const pikudimStatus = useSelector((state) => state.corePikudim.status);
-  const devicesStatus = useSelector((state) => state.devices.status);
-  const linksStatus = useSelector((state) => state.tenGigLinks.status);
+  // Get topology data from the unified coreTopology slice
+  const allTopologyDevices = useSelector(selectTopologyDevices);
+  const topologyStatus = useSelector(selectTopologyStatus);
 
-  // Existing state and selectors...
+  // Local UI state
   const [popupLink, setPopupLink] = useState(null);
   const [showDetailedLinks, setShowDetailedLinks] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -66,144 +69,124 @@ const NetworkVisualizerWrapper = ({ theme }) => {
     setMarkedLinkIds(new Set());
   };
 
-  // --- These selectors correctly get the filtered data ---
-  const pikudim = useSelector((state) => selectPikudimByTypeId(state, 1));
-  const allDevicesForType = useSelector((state) =>
-    selectDevicesByTypeId(state, 1)
-  );
-  const linksRaw = useSelector((state) => selectLinksByTypeId(state, 1));
-
-  const deviceMapById = useMemo(() => {
-    return new Map(allDevicesForType.map((d) => [d.id, d]));
-  }, [allDevicesForType]);
-
+  // Build graph data from the core-topology endpoint
   const graphData = useMemo(() => {
-    if (!pikudim.length || !allDevicesForType.length) {
+    // Filter devices for this chart's network
+    const devicesForChart = allTopologyDevices.filter(
+      (d) => d.network_name === L_CHART_NETWORK_NAME
+    );
+
+    if (devicesForChart.length === 0) {
       return { nodes: [], links: [] };
     }
 
-    const devicesByPikudId = allDevicesForType.reduce((acc, device) => {
-      const siteId = device.core_pikudim_site_id || device.coresite_id;
-      if (siteId !== undefined) {
-        if (!acc[siteId]) {
-          acc[siteId] = [];
-        }
-        acc[siteId].push(device);
+    // Group devices by coresite_name (replaces pikudim lookup)
+    const devicesBySite = devicesForChart.reduce((acc, device) => {
+      const siteName = device.coresite_name || "Unknown";
+      if (!acc[siteName]) {
+        acc[siteName] = [];
       }
+      acc[siteName].push(device);
       return acc;
     }, {});
 
-    const topDevicesPerPikud = Object.values(devicesByPikudId).flatMap(
+    // Apply selectTopTwoDevices per zone group
+    const topDevicesPerSite = Object.values(devicesBySite).flatMap(
       (deviceGroup) => selectTopTwoDevices(deviceGroup)
     );
 
-    const visibleDeviceHostnames = new Set(
-      topDevicesPerPikud.map((d) => d.hostname || d.name)
-    );
+    const visibleDeviceNames = new Set(topDevicesPerSite.map((d) => d.name));
 
-    const pikudimMap = pikudim.reduce((acc, p) => {
-      acc[p.id] = p;
-      return acc;
-    }, {});
+    // Build a map of device id -> device for link resolution
+    const deviceMapById = new Map(devicesForChart.map((d) => [d.id, d]));
 
-    const transformedNodes = topDevicesPerPikud.map((device) => {
-      const siteId = device.core_pikudim_site_id || device.coresite_id;
-      const zoneName =
-        pikudimMap[siteId]?.core_site_name ||
-        pikudimMap[siteId]?.name ||
-        `Pikud ${siteId}`;
+    // Build nodes
+    const transformedNodes = topDevicesPerSite.map((device) => ({
+      id: device.name,
+      name: device.name,
+      ip: device.ip,
+      zone: device.coresite_name,
+      pikudId: device.coresite_name,
+      nodeType: "router",
+      device: device,
+    }));
 
-      return {
-        id: device.hostname || device.name,
-        name: device.hostname || device.name,
-        ip: device.ip,
-        zone: zoneName,
-        pikudId: siteId,
-        nodeType: device.node_type || "router",
-        device: device,
-      };
-    });
+    // Extract and deduplicate links from devices
+    const seenLinkIds = new Set();
+    const transformedLinks = [];
 
-    const transformedLinks = linksRaw
-      .filter((link) => {
-        const sourceDeviceId = link.coredevice_id ?? link.source_device_id ?? link.source_id;
-        const neighborDeviceId = link.neighbor_coredevice_id ?? link.neighbor_device_id ?? link.target_id;
-        const sourceDevice = deviceMapById.get(sourceDeviceId) || (typeof link.source === "object" ? link.source : null);
-        const neighborDevice = deviceMapById.get(neighborDeviceId) || (typeof link.target === "object" ? link.target : null);
-        if (!sourceDevice || !neighborDevice) return false;
+    topDevicesPerSite.forEach((device) => {
+      if (!device.links) return;
 
-        const sourceHostname = sourceDevice.hostname || sourceDevice.name || link.source;
-        const neighborHostname = neighborDevice.hostname || neighborDevice.name || link.target;
+      device.links.forEach((link) => {
+        // Skip duplicates (each link appears on both endpoints)
+        if (seenLinkIds.has(link.id)) return;
 
-        return (
-          visibleDeviceHostnames.has(sourceHostname) &&
-          visibleDeviceHostnames.has(neighborHostname)
-        );
-      })
-      .map((link) => {
-        const sourceDeviceId = link.coredevice_id ?? link.source_device_id ?? link.source_id;
-        const neighborDeviceId = link.neighbor_coredevice_id ?? link.neighbor_device_id ?? link.target_id;
-        const sourceDevice = deviceMapById.get(sourceDeviceId) || (typeof link.source === "object" ? link.source : null);
-        const neighborDevice = deviceMapById.get(neighborDeviceId) || (typeof link.target === "object" ? link.target : null);
-        const sourceHostname = sourceDevice?.hostname || sourceDevice?.name || link.source;
-        const neighborHostname = neighborDevice?.hostname || neighborDevice?.name || link.target;
-        const sourceSiteId = sourceDevice?.core_pikudim_site_id || sourceDevice?.coresite_id;
-        const targetSiteId = neighborDevice?.core_pikudim_site_id || neighborDevice?.coresite_id;
-        const sourceZone = pikudimMap[sourceSiteId]?.core_site_name || pikudimMap[sourceSiteId]?.name || `Pikud ${sourceSiteId}`;
-        const targetZone = pikudimMap[targetSiteId]?.core_site_name || pikudimMap[targetSiteId]?.name || `Pikud ${targetSiteId}`;
+        // Only include links where the remote device is also visible
+        const remoteDevice = deviceMapById.get(link.remote_device_id);
+        if (!remoteDevice || !visibleDeviceNames.has(remoteDevice.name)) return;
 
-        const normalized = (link.status || link.physical_status || "").toLowerCase().includes("down")
+        seenLinkIds.add(link.id);
+
+        // Normalize oper_status to up/down/issue
+        const operStatus = (link.oper_status || "").toLowerCase();
+        const normalized = operStatus.includes("down")
           ? "down"
-          : (link.status || link.physical_status || "").toLowerCase().includes("issue")
+          : operStatus.includes("issue")
           ? "issue"
           : "up";
 
-        return {
-          ...link,
+        transformedLinks.push({
           id: link.id,
-          source: sourceHostname,
-          target: neighborHostname,
-          sourceName: sourceHostname,
-          targetName: neighborHostname,
-          sourceZone,
-          targetZone,
-          physical_status: link.physical_status,
-          protocol_status: link.protocol_status,
+          source: device.name,
+          target: remoteDevice.name,
+          sourceName: device.name,
+          targetName: remoteDevice.name,
+          sourceZone: device.coresite_name,
+          targetZone: remoteDevice.coresite_name,
+          physical_status: link.oper_status,
+          protocol_status: link.admin_status,
           category: normalized,
           status: normalized,
           normalizedStatus: normalized,
-          statusChangedAt: link.statusChangedAt || link.status_changed_at || link.updated_at || link.timestamp,
+          statusChangedAt: link.last_state_change_at,
           linkType: "core",
-          bandwidth: link.bandwidth || link.bw || "10G",
+          bandwidth: link.bandwidth_mbps || "10G",
+          local_interface: link.local_interface,
+          remote_interface: link.remote_interface,
+          local_ip: link.local_ip,
+          remote_ip: link.remote_ip,
+          ospf_state: link.ospf_state,
+          is_ospf_full: link.is_ospf_full,
+          link_drops_last_24h: link.link_drops_last_24h,
+          ospf_drops_last_24h: link.ospf_drops_last_24h,
           rawLink: link,
-        };
+        });
       });
+    });
 
     return {
       nodes: transformedNodes,
       links: transformedLinks,
     };
-  }, [pikudim, allDevicesForType, linksRaw, deviceMapById]);
+  }, [allTopologyDevices]);
 
-  const handleZoneClick = useCallback(
-    (zoneId) => {
-      navigate(`zone/${zoneId}`);
-    },
-    [navigate]
-  );
+  const handleZoneClick = (zone) => {
+    navigate(
+      `/devices?tab=pikudim&siteId=${zone.id}&name=${encodeURIComponent(
+        zone.name
+      )}`
+    );
+  };
 
-  const handleNodeClick = useCallback(
-    (nodeData) => {
-      if (nodeData && nodeData.id && nodeData.zone) {
-        navigate(`zone/${nodeData.zone}/node/${nodeData.id}`);
-      } else {
-        console.warn("Node data incomplete for navigation:", nodeData);
-      }
-    },
-    [navigate]
-  );
+  const handleNodeClick = (node) => {
+    const deviceId = node.device?.id;
+    if (deviceId) {
+      navigate(`/devices?tab=devices&deviceId=${deviceId}`);
+    }
+  };
 
-  const handleLinkClick = useCallback((linkData) => {
+  const handleLinkClick = (linkData) => {
     if (!linkData) return;
     const src =
       typeof linkData.source === "object"
@@ -219,7 +202,7 @@ const NetworkVisualizerWrapper = ({ theme }) => {
       type: "link",
       title: `${src || "Device A"} ⟷ ${tgt || "Device B"}`,
     });
-  }, []);
+  };
 
   const handleClosePopup = useCallback(() => {
     setPopupLink(null);
@@ -232,16 +215,8 @@ const NetworkVisualizerWrapper = ({ theme }) => {
   const handleRetry = () => dispatch(fetchInitialData());
 
   // --- Loading and Error Rendering Logic ---
-  const isLoading =
-    pikudimStatus === "loading" ||
-    devicesStatus === "loading" ||
-    linksStatus === "loading";
-  const hasError =
-    pikudimStatus === "failed" ||
-    devicesStatus === "failed" ||
-    linksStatus === "failed";
-
-  // This state is derived after loading/errors are handled
+  const isLoading = topologyStatus === "loading";
+  const hasError = topologyStatus === "failed";
   const isDataEmpty = !isLoading && !hasError && graphData.nodes.length === 0;
 
   if (isLoading) {

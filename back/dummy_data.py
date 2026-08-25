@@ -266,6 +266,43 @@ def generate_dummy_data():
         {"id": 2, "name": "P-Chart Network"},
     ]
 
+    # --- Link Status Events (history of status changes) ---
+    link_status_events = []
+    event_id_counter = 1
+    statuses = ["up", "down", "issue"]
+    # Generate ~80 random status change events spread across the last 60 days
+    for _ in range(80):
+        link = random.choice(links)
+        device = next((d for d in core_devices if d["id"] == link["coredevice_id"]), None)
+        neighbor = next((d for d in core_devices if d["id"] == link["neighbor_coredevice_id"]), None)
+        if not device or not neighbor:
+            continue
+        coresite = next((cs for cs in core_sites if cs["id"] == device["coresite_id"]), None)
+        old_status = random.choice(statuses)
+        new_status = random.choice([s for s in statuses if s != old_status])
+        changed_at = datetime.utcnow() - timedelta(
+            hours=random.choice([
+                random.uniform(0.1, 23),      # within last 24h
+                random.uniform(25, 167),       # within last week
+                random.uniform(168, 720),      # within last month
+                random.uniform(720, 1440),     # older than a month
+            ])
+        )
+        link_status_events.append({
+            "id": event_id_counter,
+            "link_id": link["id"],
+            "device_name": device["name"],
+            "remote_device_name": neighbor["name"],
+            "coresite_name": coresite["name"] if coresite else "Unknown",
+            "network_name": next((n["name"] for n in networks if n["id"] == device.get("network_type_id", 1)), "Unknown"),
+            "old_status": old_status,
+            "new_status": new_status,
+            "changed_at": changed_at.isoformat(),
+        })
+        event_id_counter += 1
+    # Sort events newest first
+    link_status_events.sort(key=lambda e: e["changed_at"], reverse=True)
+
     print("Dummy data generation complete.")
     return {
         "net_types": net_types,
@@ -276,6 +313,7 @@ def generate_dummy_data():
         "users": users,
         "alerts": alerts,
         "networks": networks,
+        "link_status_events": link_status_events,
         "crawler_cycle": {"id": 1, "count": 125}
     }
 

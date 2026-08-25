@@ -9,6 +9,7 @@ import { fetchDevices } from "./devicesSlice";
 import { fetchSites } from "./sitesSlice";
 import { fetchTenGigLinks } from "./tenGigLinksSlice";
 import { fetchNetTypes } from "./netTypesSlice";
+import { fetchCoreTopology } from "./coreTopologySlice";
 
 import { api } from "../../services/apiServices";
 
@@ -21,6 +22,7 @@ export const fetchInitialData = createAsyncThunk(
     dispatch(fetchSites());
     dispatch(fetchTenGigLinks());
     dispatch(fetchNetTypes());
+    dispatch(fetchCoreTopology());
   }
 );
 

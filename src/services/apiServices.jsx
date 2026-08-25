@@ -60,6 +60,9 @@ export const api = {
   getNetTypes: () => handleApiCall(apiClient.get("/get_net_types")),
   getCorePikudim: () => handleApiCall(apiClient.get("/get_core_pikudim")),
   getCoreDevices: () => handleApiCall(apiClient.get("/get_core_devices")),
+  getCoreTopology: () => handleApiCall(apiClient.get("/api/core-topology")),
+  getLinkStatusEvents: (since = "24h") =>
+    handleApiCall(apiClient.get("/api/link-status-events", { params: { since } })),
   getSites: () => handleApiCall(apiClient.get("/get_sites")),
   getDeviceInfo: (deviceId) =>
     handleApiCall(apiClient.get(`/get_device_info/${deviceId}`)).catch(() => []),
