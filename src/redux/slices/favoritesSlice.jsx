@@ -30,14 +30,10 @@ export const fetchFavoriteLinks = createAsyncThunk(
 export const toggleFavoriteLink = createAsyncThunk(
   "favorites/toggleFavoriteLink",
   async (linkId, { getState, rejectWithValue }) => {
-    const stringId = String(linkId);
+    // The state was already optimistically updated by the .pending reducer.
+    // Therefore, the current state IS the new state we want to send to the server.
     const { ids: currentIds } = getState().favorites;
-    const currentStringIds = (Array.isArray(currentIds) ? currentIds : []).map(String);
-    const isCurrentlyFavorite = currentStringIds.includes(stringId);
-
-    const newIds = isCurrentlyFavorite
-      ? currentStringIds.filter((id) => id !== stringId)
-      : [...currentStringIds, stringId];
+    const newIds = (Array.isArray(currentIds) ? currentIds : []).map(String);
 
     try {
       await api.updateFavoriteLinks(newIds);

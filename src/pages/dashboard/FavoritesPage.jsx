@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useInterfaceData } from "../useInterfaceData"; // The shared "brain"
 import {
   Table,
@@ -17,9 +17,35 @@ import { FavoriteButton } from "../../components/ui/FavoriteButton";
 export default function FavoritesPage() {
   const { interfaces, handleToggleFavorite } = useInterfaceData();
 
-  const favoriteInterfaces = useMemo(() => {
-    return interfaces.filter((iface) => iface.isFavorite);
+  // Track which favorites we have seen so far in this session/page load.
+  // This prevents items from disappearing immediately when they are unmarked.
+  const [displayedFavoriteIds, setDisplayedFavoriteIds] = useState(() => {
+    const initialIds = new Set();
+    interfaces.filter((i) => i.isFavorite).forEach((i) => initialIds.add(i.id));
+    return initialIds;
+  });
+
+  useEffect(() => {
+    // Whenever new favorites appear (e.g. from another tab or real-time data),
+    // we add them to the set. We do not remove items that become unfavorited.
+    setDisplayedFavoriteIds((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      interfaces
+        .filter((i) => i.isFavorite)
+        .forEach((i) => {
+          if (!next.has(i.id)) {
+            next.add(i.id);
+            changed = true;
+          }
+        });
+      return changed ? next : prev;
+    });
   }, [interfaces]);
+
+  const favoriteInterfaces = useMemo(() => {
+    return interfaces.filter((iface) => displayedFavoriteIds.has(iface.id));
+  }, [interfaces, displayedFavoriteIds]);
 
   const renderContent = () => {
     if (favoriteInterfaces.length > 0) {

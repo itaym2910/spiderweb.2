@@ -5,6 +5,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { selectAllSites } from "../redux/slices/sitesSlice";
 import { selectAllTenGigLinks } from "../redux/slices/tenGigLinksSlice";
 import { selectAllDevices } from "../redux/slices/devicesSlice";
+import { selectTopologyDevices } from "../redux/slices/coreTopologySlice";
 import {
   selectFavoriteIds,
   toggleFavoriteLink,
@@ -21,6 +22,7 @@ export function useInterfaceData() {
   const allSites = useSelector(selectAllSites);
   const allTenGigLinks = useSelector(selectAllTenGigLinks);
   const allDevices = useSelector(selectAllDevices);
+  const allTopologyDevices = useSelector(selectTopologyDevices);
   const favoriteIds = useSelector(selectFavoriteIds);
 
   // 2. Create device lookup map
@@ -165,8 +167,51 @@ export function useInterfaceData() {
       };
     });
 
-    return [...siteConnections, ...tenGigCoreLinks];
-  }, [allSites, allTenGigLinks, deviceMap]);
+    // --- C. Transform Core Topology Links ---
+    const coreTopologyLinks = [];
+    const seenTopologyLinkIds = new Set();
+    
+    // Add IDs we already have from siteConnections and tenGigCoreLinks to prevent duplicates
+    siteConnections.forEach(s => seenTopologyLinkIds.add(s.id));
+    tenGigCoreLinks.forEach(l => seenTopologyLinkIds.add(l.id));
+
+    if (Array.isArray(allTopologyDevices)) {
+      allTopologyDevices.forEach(device => {
+        if (Array.isArray(device.links)) {
+          device.links.forEach(link => {
+            if (seenTopologyLinkIds.has(link.id)) return;
+            seenTopologyLinkIds.add(link.id);
+
+            const rawStatus = link.oper_status || link.admin_status || "Up";
+            const formattedStatus =
+              typeof rawStatus === "string" && rawStatus.length > 0
+                ? rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1)
+                : "Up";
+
+            const remoteDevice = deviceMap.get(link.remote_device_id) || allTopologyDevices.find(d => d.id === link.remote_device_id);
+            const remoteDeviceName = remoteDevice?.name || remoteDevice?.hostname || `Device-${link.remote_device_id}`;
+            const linkId = String(link.id);
+
+            coreTopologyLinks.push({
+              id: linkId,
+              deviceName: `${device.name} <-> ${remoteDeviceName}`,
+              interfaceName: link.local_interface ? `Core: ${link.local_interface}` : `Core Link`,
+              description: link.description || `Core topology connection`,
+              status: formattedStatus === "Issue" ? "Down" : formattedStatus,
+              trafficIn: link.input_rate || `${getDeterministicVal(linkId, "tIn", 1, 9, true)} Gbps`,
+              trafficOut: link.output_rate || `${getDeterministicVal(linkId, "tOut", 1, 9, true)} Gbps`,
+              errors: {
+                in: Number(link.input_errors ?? getDeterministicVal(linkId, "errIn", 0, 10)),
+                out: Number(link.output_errors ?? getDeterministicVal(linkId, "errOut", 0, 10)),
+              },
+            });
+          });
+        }
+      });
+    }
+
+    return [...siteConnections, ...tenGigCoreLinks, ...coreTopologyLinks];
+  }, [allSites, allTenGigLinks, allTopologyDevices, deviceMap]);
 
   // 5. Inject favorite flag based on Redux favorite IDs
   const interfaces = useMemo(() => {

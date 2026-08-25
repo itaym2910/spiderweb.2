@@ -6,6 +6,7 @@ import LinkDetailPopup from "../../components/shared/LinkDetailPopup";
 import NetworkLinksSideDrawer from "../../components/chart/NetworkLinksSideDrawer";
 import ToggleDetailButton from "../../components/chart/ToggleDetailButton";
 import { fetchInitialData } from "../../redux/slices/authSlice";
+import { toggleFavoriteLink } from "../../redux/slices/favoritesSlice";
 import {
   selectTopologyDevices,
   selectTopologyStatus,
@@ -59,6 +60,8 @@ const NetworkVisualizerWrapper = ({ theme }) => {
       }
       return next;
     });
+    // Sync the manually marked link with global favorites
+    dispatch(toggleFavoriteLink(linkId));
   };
 
   const handleMarkAll = (linkIds) => {
