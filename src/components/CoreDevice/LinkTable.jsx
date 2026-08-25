@@ -143,7 +143,7 @@ const StatCard = ({ icon: Icon, label, value, color, subValue }) => {
 const FilterPill = ({ active, onClick, children }) => (
   <button
     onClick={onClick}
-    className={`px-1.5 py-[1px] text-[8px] font-bold rounded-full transition-all duration-200 border leading-none ${
+    className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all duration-200 border leading-none ${
       active
         ? "bg-blue-600 dark:bg-blue-500 text-white border-blue-600 dark:border-blue-500 shadow-sm"
         : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400"
@@ -382,7 +382,7 @@ const DetailModal = ({ popup, onClose, theme }) => {
         <div className="flex items-center justify-end px-5 py-3 border-t border-gray-200 dark:border-gray-700/80 bg-gray-50/80 dark:bg-gray-700/40">
           <button
             onClick={onClose}
-            className="px-6 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700 transition-colors"
+            className="px-8 py-3 text-base font-semibold text-white bg-blue-600 rounded-xl shadow-sm hover:bg-blue-700 transition-colors"
           >
             Close
           </button>
@@ -500,10 +500,10 @@ const LinkTable = ({
         <div className="flex items-center gap-3">
           <button
             onClick={handleBackClick}
-            className="p-2.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-all duration-200"
+            className="p-3 rounded-xl text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-all duration-200"
             title="Back to site view"
           >
-            <ArrowLeft className="w-6 h-6" />
+            <ArrowLeft className="w-8 h-8" />
           </button>
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
@@ -540,10 +540,10 @@ const LinkTable = ({
                 <button
                   key={device.id}
                   onClick={() => handleDeviceButtonClick(device)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-all duration-200"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 text-base font-medium rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-all duration-200"
                   title={`View ${device.hostname}`}
                 >
-                  <Cpu className="w-4 h-4" />
+                  <Cpu className="w-5 h-5" />
                   {device.hostname}
                 </button>
               ))}
@@ -601,7 +601,7 @@ const LinkTable = ({
         >
           <button
             onClick={() => toggleSection("interfaces")}
-            className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors flex-shrink-0"
+            className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors flex-shrink-0"
           >
             <div className="flex items-center gap-2">
               <div className="p-1 rounded-lg bg-blue-500/10 dark:bg-blue-400/10">
@@ -833,7 +833,7 @@ const LinkTable = ({
         >
           <button
             onClick={() => toggleSection("links")}
-            className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors flex-shrink-0"
+            className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors flex-shrink-0"
           >
             <div className="flex items-center gap-2">
               <div className="p-1 rounded-lg bg-purple-500/10 dark:bg-purple-400/10">
@@ -1023,7 +1023,7 @@ const LinkTable = ({
                         setLinkTypeFilter("all");
                         setStatusFilter("all");
                       }}
-                      className="mt-1.5 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                      className="mt-3 px-5 py-2.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"
                     >
                       Clear filters
                     </button>
