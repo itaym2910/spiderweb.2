@@ -62,11 +62,11 @@ const StatusBadge = ({ status, size = "sm" }) => {
 
   const c = config[status] || config["N/A"];
   const sizeClasses =
-    size === "sm" ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-0.5 text-xs";
+    size === "sm" ? "px-1.5 py-0.5 text-[8px] font-semibold" : "px-2 py-0.5 text-[9px] font-semibold";
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full font-medium ${c.bg} ${c.text} ${sizeClasses}`}
+      className={`inline-flex items-center gap-0.5 rounded-full ${c.bg} ${c.text} ${sizeClasses}`}
     >
       <span className={`w-1 h-1 rounded-full ${c.dot}`}></span>
       {c.label}
@@ -113,23 +113,23 @@ const StatCard = ({ icon: Icon, label, value, color, subValue }) => {
 
   return (
     <div
-      className={`rounded-xl border ${c.border} ${c.bg} p-3 transition-all duration-200 hover:scale-[1.02] hover:shadow-md`}
+      className={`rounded-xl border ${c.border} ${c.bg} p-2.5 transition-all duration-200 hover:scale-[1.02] hover:shadow-md`}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
         <div
-          className={`p-2 rounded-lg bg-white/60 dark:bg-white/5 ${c.icon}`}
+          className={`p-1.5 rounded-lg bg-white/60 dark:bg-white/5 ${c.icon}`}
         >
-          <Icon className="w-4 h-4" />
+          <Icon className="w-3.5 h-3.5" />
         </div>
         <div className="min-w-0">
-          <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+          <p className="text-[9px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
             {label}
           </p>
-          <p className={`text-xl font-bold ${c.value} leading-tight`}>
+          <p className={`text-lg font-bold ${c.value} leading-tight`}>
             {value}
           </p>
           {subValue && (
-            <p className="text-[10px] text-gray-400 dark:text-gray-500">
+            <p className="text-[9px] text-gray-400 dark:text-gray-500">
               {subValue}
             </p>
           )}
@@ -143,7 +143,7 @@ const StatCard = ({ icon: Icon, label, value, color, subValue }) => {
 const FilterPill = ({ active, onClick, children }) => (
   <button
     onClick={onClick}
-    className={`px-2 py-0.5 text-[11px] font-medium rounded-full transition-all duration-200 border ${
+    className={`px-1.5 py-[1px] text-[8px] font-bold rounded-full transition-all duration-200 border leading-none ${
       active
         ? "bg-blue-600 dark:bg-blue-500 text-white border-blue-600 dark:border-blue-500 shadow-sm"
         : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400"
@@ -626,8 +626,8 @@ const LinkTable = ({
           {expandedSection.interfaces && (
             <div className="px-4 pb-3 flex-1 min-h-0 flex flex-col overflow-hidden">
               {/* Interface Filters */}
-              <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-100 dark:border-gray-700/50 flex-shrink-0">
-                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 mr-1">
+              <div className="flex items-center gap-0.5 mb-1 pb-1 border-b border-gray-100 dark:border-gray-700/50 flex-shrink-0">
+                <span className="text-[9px] font-medium text-gray-500 dark:text-gray-400 mr-0.5">
                   Status:
                 </span>
                 <FilterPill
@@ -858,9 +858,9 @@ const LinkTable = ({
           {expandedSection.links && (
             <div className="px-4 pb-3 flex-1 min-h-0 flex flex-col overflow-hidden">
               {/* Link Filters */}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2 pb-2 border-b border-gray-100 dark:border-gray-700/50 flex-shrink-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mb-1 pb-1 border-b border-gray-100 dark:border-gray-700/50 flex-shrink-0">
+                <div className="flex items-center gap-0.5">
+                  <span className="text-[9px] font-medium text-gray-500 dark:text-gray-400">
                     Type:
                   </span>
                   <FilterPill
@@ -890,9 +890,9 @@ const LinkTable = ({
                     Inter-Core (Same)
                   </FilterPill>
                 </div>
-                <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block"></div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                <div className="h-2.5 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block"></div>
+                <div className="flex items-center gap-0.5">
+                  <span className="text-[9px] font-medium text-gray-500 dark:text-gray-400">
                     Status:
                   </span>
                   <FilterPill
