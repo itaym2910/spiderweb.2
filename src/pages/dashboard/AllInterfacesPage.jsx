@@ -95,7 +95,7 @@ export default function AllInterfacesPage() {
         accessorKey: "status",
         header: "Status",
         size: 1.5,
-        cell: ({ row }) => <StatusIndicator status={row.status} />,
+        cell: ({ row }) => <StatusIndicator status={row.status} size="lg" />,
       },
       {
         accessorKey: "traffic",

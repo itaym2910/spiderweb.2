@@ -382,7 +382,7 @@ const DetailModal = ({ popup, onClose, theme }) => {
         <div className="flex items-center justify-end px-5 py-3 border-t border-gray-200 dark:border-gray-700/80 bg-gray-50/80 dark:bg-gray-700/40">
           <button
             onClick={onClose}
-            className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700 transition-colors"
+            className="px-6 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700 transition-colors"
           >
             Close
           </button>
@@ -500,10 +500,10 @@ const LinkTable = ({
         <div className="flex items-center gap-3">
           <button
             onClick={handleBackClick}
-            className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-all duration-200"
+            className="p-2.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-all duration-200"
             title="Back to site view"
           >
-            <ArrowLeft className="w-4.5 h-4.5" />
+            <ArrowLeft className="w-6 h-6" />
           </button>
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
@@ -540,10 +540,10 @@ const LinkTable = ({
                 <button
                   key={device.id}
                   onClick={() => handleDeviceButtonClick(device)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-all duration-200"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-all duration-200"
                   title={`View ${device.hostname}`}
                 >
-                  <Cpu className="w-3 h-3" />
+                  <Cpu className="w-4 h-4" />
                   {device.hostname}
                 </button>
               ))}
