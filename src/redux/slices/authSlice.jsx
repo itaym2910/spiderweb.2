@@ -31,23 +31,28 @@ export const loginUser = createAsyncThunk(
   "auth/loginUser",
   async ({ username, password }, { dispatch, rejectWithValue }) => {
     try {
-      const token = await api.login(username, password);
+      const { token, role } = await api.login(username, password);
 
-      // Set the token in a cookie for session persistence
-      Cookies.set("authToken", token, {
-        expires: 1,
-        secure: true,
-        sameSite: "strict",
-      });
-
-      // **KEY STEP:** After a successful login, trigger the fetch for all initial app data.
       dispatch(fetchInitialData());
 
-      // Return the token to be saved in the auth state
-      return token;
+      return { token, role };
     } catch (error) {
-      // If login fails, pass the error message to the 'rejected' case
-      return rejectWithValue(error.message);
+      if (error.response) {
+        if (
+          error.response.status === 401 ||
+          error.response.status === 403 ||
+          error.response.status === 500
+        ) {
+          return rejectWithValue("Incorrect username or password");
+        }
+        return rejectWithValue(
+          "A server error occurred. Please try again later."
+        );
+      }
+
+      return rejectWithValue(
+        "Could not connect to the server. Please try again later."
+      );
     }
   }
 );
@@ -80,7 +85,8 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.status = "succeeded";
-        state.token = action.payload;
+        state.token = action.payload.token;
+        state.role = action.payload.role;
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.status = "failed";

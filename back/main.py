@@ -387,6 +387,7 @@ async def update_favorite_links(data: FavoriteLinksUpdate, current_user: dict = 
     return {"success": True, "updated_ids": data.link_ids}
 
 @router_link.get("/get_ten_gig_lines")
+@router_link.get("/links")
 @router_link.get("/links/topology")
 def get_links_with_neighbors():
     return db["links"]
@@ -418,6 +419,7 @@ async def get_sites_of_coresite(coresite_id: int, current_user: dict = Depends(u
     return [{"id": s["id"], "name": s["name"], "topology": s.get("topology", "{}"), "description": s.get("description", "")} for s in sites]
 
 @router_site.get("/get_sites")
+@router_site.get("/sites")
 @router_site.get("/sites", response_model=List[dict])
 async def get_all_sites(current_user: dict = Depends(user_role_checker)):
     return [{"id": s["id"], "name": s["name"]} for s in db["sites"]]
@@ -479,7 +481,8 @@ def login(request: LoginRequest):
     user = next((u for u in db["users"] if u["username"] == username), None)
     if user:
         token = generate_token(user_id=user["id"])
-        return {"access_token": token, "token_type": "bearer", "role": user["role"]}
+        # Returning a list to match the real backend's exact format
+        return [{"access_token": token, "token_type": "bearer"}, {"role": user["role"]}]
     else:
         raise HTTPException(status_code=401, detail="Incorrect username or password")
 

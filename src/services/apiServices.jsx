@@ -52,18 +52,42 @@ export const api = {
   // --- AUTHENTICATION ---
   login: async (username, password) => {
     const response = await apiClient.post("/login", { username, password });
-    return response.data.access_token;
+
+    const [authInfo, roleInfo] = response.data;
+
+    const token = authInfo.access_token;
+    const role = roleInfo.role;
+
+    if (token && role) {
+      Cookies.set("authToken", token, {
+        expires: 7,
+      });
+      Cookies.set("userRrole", role.toLowerCase(), {
+        expires: 7,
+      });
+    }
+
+    return { token, role: role ? role.toLowerCase() : null };
   },
 
   // --- GET Endpoints ---
-  getTenGigLines: () => handleApiCall(apiClient.get("/get_ten_gig_lines")),
-  getNetTypes: () => handleApiCall(apiClient.get("/get_net_types")),
-  getCorePikudim: () => handleApiCall(apiClient.get("/get_core_pikudim")),
-  getCoreDevices: () => handleApiCall(apiClient.get("/get_core_devices")),
+  getTenGigLines: () => handleApiCall(apiClient.get("/links")),
+  getNetTypes: () => handleApiCall(apiClient.get("/networks/")),
+  getCorePikudim: async () => {
+    // The bulk endpoint was removed from the real API, so we derive core sites from the topology
+    const topo = await handleApiCall(apiClient.get("/api/core-topology"));
+    const uniqueSites = [...new Set(topo.devices.map(d => d.coresite_name).filter(Boolean))];
+    return uniqueSites.map((name, index) => ({ id: index + 1, name: name, core_site_name: name }));
+  },
+  getCoreDevices: async () => {
+    // The bulk endpoint was removed from the real API, so we derive devices from the topology
+    const topo = await handleApiCall(apiClient.get("/api/core-topology"));
+    return topo.devices;
+  },
   getCoreTopology: () => handleApiCall(apiClient.get("/api/core-topology")),
   getLinkStatusEvents: (since = "24h") =>
     handleApiCall(apiClient.get("/api/link-status-events", { params: { since } })),
-  getSites: () => handleApiCall(apiClient.get("/get_sites")),
+  getSites: () => handleApiCall(apiClient.get("/sites")),
   getDeviceInfo: (deviceId) =>
     handleApiCall(apiClient.get(`/get_device_info/${deviceId}`)).catch(() => []),
   getDevicesByCorePikudim: (corePikudimId) =>
