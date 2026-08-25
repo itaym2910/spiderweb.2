@@ -30,7 +30,7 @@ export function drawCoreSiteChart(
       .attr("class", "zone-visualization-circle")
       .attr("cx", centerX)
       .attr("cy", centerY)
-      .attr("r", 150)
+      .attr("r", 147)
       .attr("fill", themeColors.zoneCircleFill)
       .attr("fill-opacity", themeColors.zoneCircleOpacity);
 

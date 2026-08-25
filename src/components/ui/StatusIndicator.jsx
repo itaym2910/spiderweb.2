@@ -19,8 +19,8 @@ export const StatusIndicator = ({ status }) => {
   }[status] || { color: "text-gray-500", Icon: XCircle, label: "Unknown" };
 
   return (
-    <div className={`flex items-center gap-2 font-medium ${config.color}`}>
-      <config.Icon className="h-4 w-4" />
+    <div className={`flex items-center gap-1.5 font-medium text-xs ${config.color}`}>
+      <config.Icon className="h-3.5 w-3.5" />
       <span>{config.label}</span>
     </div>
   );

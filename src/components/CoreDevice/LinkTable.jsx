@@ -62,13 +62,13 @@ const StatusBadge = ({ status, size = "sm" }) => {
 
   const c = config[status] || config["N/A"];
   const sizeClasses =
-    size === "sm" ? "px-2.5 py-0.5 text-xs" : "px-3 py-1 text-sm";
+    size === "sm" ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-0.5 text-xs";
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full font-medium ${c.bg} ${c.text} ${sizeClasses}`}
+      className={`inline-flex items-center gap-1 rounded-full font-medium ${c.bg} ${c.text} ${sizeClasses}`}
     >
-      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`}></span>
+      <span className={`w-1 h-1 rounded-full ${c.dot}`}></span>
       {c.label}
     </span>
   );
@@ -143,7 +143,7 @@ const StatCard = ({ icon: Icon, label, value, color, subValue }) => {
 const FilterPill = ({ active, onClick, children }) => (
   <button
     onClick={onClick}
-    className={`px-2.5 py-1 text-xs font-medium rounded-full transition-all duration-200 border ${
+    className={`px-2 py-0.5 text-[11px] font-medium rounded-full transition-all duration-200 border ${
       active
         ? "bg-blue-600 dark:bg-blue-500 text-white border-blue-600 dark:border-blue-500 shadow-sm"
         : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400"
