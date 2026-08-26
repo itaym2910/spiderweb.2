@@ -12,10 +12,10 @@ import { api } from "../../services/apiServices";
 // --- ASYNC THUNK: For fetching the 10-Gigabit links ---
 export const fetchTenGigLinks = createAsyncThunk(
   "tenGigLinks/fetchTenGigLinks",
-  async (_, { rejectWithValue }) => {
+  async ({ skip = 0, limit = 20, coredevice_id = null, start_date = null, end_date = null } = {}, { rejectWithValue }) => {
     try {
-      const response = await api.getTenGigLines();
-      return response;
+      const response = await api.getTenGigLines(skip, limit, coredevice_id, start_date, end_date);
+      return { data: response, skip, limit, coredevice_id, start_date, end_date };
     } catch (error) {
       return rejectWithValue(
         error.message || "Failed to fetch 10-Gigabit links"
@@ -25,33 +25,14 @@ export const fetchTenGigLinks = createAsyncThunk(
 );
 
 // --- The Slice Definition ---
-// Shape of a Link object in the state:
-// {
-//   id: "link-10g-xyz",
-//   source: "rtr-abcd-1",
-//   target: "rtr-efgh-2",
-//   status: "up" | "down" | "issue",
-//   network_type_id: 1,
-//   ip: "...",
-//
-//   // --- NEW ENRICHED FIELDS ---
-//   physicalStatus: "Up" | "Down" | "N/A",
-//   protocolStatus: "Up" | "Down" | "N/A",
-//   MPLS: "Enabled" | "N/A",
-//   OSPF: "Enabled" | "N/A",
-//   Bandwidth: 10000 | "N/A",
-//   Description: "Some description text..." | "N/A",
-//   MediaType: "Fiber" | "N/A",
-//   CDP: "neighbor-switch-xyz" | "N/A",
-//   TX: -3.4 | "N/A",
-//   RX: -4.1 | "N/A"
-// }
 const tenGigLinksSlice = createSlice({
   name: "tenGigLinks",
   initialState: {
     items: [], // Start with an empty array for the links
-    status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
+    status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed' — only for initial load
+    paginationStatus: "idle", // separate status for "load more" fetches
     error: null,
+    hasMore: true,
   },
   // Reducers for synchronous actions
   reducers: {
@@ -82,17 +63,36 @@ const tenGigLinksSlice = createSlice({
   // extraReducers handle the lifecycle of the `fetchTenGigLinks` async thunk
   extraReducers: (builder) => {
     builder
-      .addCase(fetchTenGigLinks.pending, (state) => {
-        state.status = "loading";
+      .addCase(fetchTenGigLinks.pending, (state, action) => {
+        const skip = action.meta.arg?.skip ?? 0;
+        if (skip === 0 && state.status === "idle") {
+          // Very first app load — set main status so AppInitializer shows spinner
+          state.status = "loading";
+        } else {
+          // Pagination or Filter change — only set paginationStatus
+          state.paginationStatus = "loading";
+        }
         state.error = null;
       })
       .addCase(fetchTenGigLinks.fulfilled, (state, action) => {
-        state.status = "succeeded";
-        // Populate the state with the fetched link data
-        state.items = action.payload;
+        const { data, skip, limit } = action.payload;
+        if (skip === 0) {
+          state.status = "succeeded";
+          state.paginationStatus = "succeeded";
+          state.items = data;
+        } else {
+          state.paginationStatus = "succeeded";
+          state.items = [...state.items, ...data];
+        }
+        state.hasMore = data.length > 0;
       })
       .addCase(fetchTenGigLinks.rejected, (state, action) => {
-        state.status = "failed";
+        const skip = action.meta.arg?.skip ?? 0;
+        if (skip === 0 && state.status === "idle") {
+          state.status = "failed";
+        } else {
+          state.paginationStatus = "failed";
+        }
         state.error = action.payload;
       });
   },
@@ -104,6 +104,10 @@ export const { addTenGigLink, deleteTenGigLink, updateTenGigLink } =
 
 // --- Export Selectors ---
 export const selectAllTenGigLinks = (state) => state.tenGigLinks.items;
+export const selectTenGigLinksHasMore = (state) => state.tenGigLinks.hasMore;
+export const selectTenGigLinksStatus = (state) => state.tenGigLinks.status;
+export const selectTenGigLinksPaginationStatus = (state) => state.tenGigLinks.paginationStatus;
+export const selectTenGigLinksError = (state) => state.tenGigLinks.error;
 
 // --- MEMOIZED SELECTOR ---
 const selectLinkItems = (state) => state.tenGigLinks.items;

@@ -71,18 +71,47 @@ export const api = {
   },
 
   // --- GET Endpoints ---
-  getTenGigLines: () => handleApiCall(apiClient.get("/links")),
-  getNetTypes: () => handleApiCall(apiClient.get("/networks/")),
+  getTenGigLines: (skip = 0, limit = 20, coredevice_id = null, start_date = null, end_date = null) => {
+    const params = { skip, limit };
+    if (coredevice_id) params.coredevice_id = coredevice_id;
+    if (start_date) params.start_date = start_date;
+    if (end_date) params.end_date = end_date;
+    return handleApiCall(apiClient.get("/links", { params }));
+  },
+  getNetTypes: () => handleApiCall(apiClient.get("/networks")),
   getCorePikudim: async () => {
-    // The bulk endpoint was removed from the real API, so we derive core sites from the topology
     const topo = await handleApiCall(apiClient.get("/api/core-topology"));
     const uniqueSites = [...new Set(topo.devices.map(d => d.coresite_name).filter(Boolean))];
     return uniqueSites.map((name, index) => ({ id: index + 1, name: name, core_site_name: name }));
   },
   getCoreDevices: async () => {
-    // The bulk endpoint was removed from the real API, so we derive devices from the topology
-    const topo = await handleApiCall(apiClient.get("/api/core-topology"));
-    return topo.devices;
+    // 1. Fetch all networks
+    const networks = await handleApiCall(apiClient.get("/networks")).catch(() => []);
+    const allDevices = [];
+
+    // 2. Fetch sites for each network, then devices for each site
+    await Promise.all(networks.map(async (network) => {
+      try {
+        const sites = await handleApiCall(apiClient.get(`/network/${network.id}/coresites`));
+        
+        await Promise.all(sites.map(async (site) => {
+          try {
+            const devices = await handleApiCall(
+              apiClient.get(`/network/${network.id}/coresite/${site.id}/coredevices`)
+            );
+            if (Array.isArray(devices)) {
+              allDevices.push(...devices);
+            }
+          } catch (e) {
+            console.error(`Failed to fetch devices for network ${network.id}, site ${site.id}`, e);
+          }
+        }));
+      } catch (e) {
+        console.error(`Failed to fetch sites for network ${network.id}`, e);
+      }
+    }));
+
+    return allDevices;
   },
   getCoreTopology: () => handleApiCall(apiClient.get("/api/core-topology")),
   getLinkStatusEvents: (since = "24h") =>

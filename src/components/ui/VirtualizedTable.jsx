@@ -1,22 +1,27 @@
-import React, { useRef } from "react";
+import React, { useRef, useCallback } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { TableSkeleton } from "./feedback/TableSkeleton"; // We'll reuse our skeleton loader
+import { TableSkeleton } from "./feedback/TableSkeleton";
 
 /**
  * A reusable, high-performance virtualized table component.
- * It uses divs with ARIA roles for maximum rendering flexibility and performance.
  *
  * @param {object[]} data - The array of data to render.
- * @param {object[]} columns - An array of column definitions.
- *   Each column object should have:
- *   - `header`: The string or JSX for the column header.
- *   - `accessorKey`: The key in the data object for this column.
- *   - `cell`: A render function for the cell: (info) => JSX.
- *   - `size`: The flex-grow proportion for the column (e.g., 1, 2, 3).
+ * @param {object[]} columns - Column definitions with header, accessorKey, cell, size.
  * @param {boolean} isLoading - If true, shows a skeleton loader.
  * @param {React.ReactNode} emptyMessage - JSX to display when data is empty.
+ * @param {Function} onScrollEnd - Optional. Called when user scrolls near the bottom.
+ * @param {boolean} isFetchingMore - Optional. True if currently loading next page.
+ * @param {boolean} hasMore - Optional. True if more data can be loaded.
  */
-export function VirtualizedTable({ data, columns, isLoading, emptyMessage }) {
+export function VirtualizedTable({
+  data,
+  columns,
+  isLoading,
+  emptyMessage,
+  onScrollEnd,
+  isFetchingMore,
+  hasMore,
+}) {
   const parentRef = useRef(null);
 
   const rowVirtualizer = useVirtualizer({
@@ -26,7 +31,16 @@ export function VirtualizedTable({ data, columns, isLoading, emptyMessage }) {
     overscan: 5,
   });
 
-  if (isLoading) {
+  const handleScroll = useCallback(() => {
+    const el = parentRef.current;
+    if (!el || !onScrollEnd) return;
+    // Fire when within 300px of the bottom
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 300) {
+      onScrollEnd();
+    }
+  }, [onScrollEnd]);
+
+  if (isLoading && data.length === 0) {
     return <TableSkeleton rows={10} cols={columns.length} />;
   }
 
@@ -34,9 +48,12 @@ export function VirtualizedTable({ data, columns, isLoading, emptyMessage }) {
     return <div className="p-4">{emptyMessage}</div>;
   }
 
+  const virtualItems = rowVirtualizer.getVirtualItems();
+
   return (
     <div
       ref={parentRef}
+      onScroll={handleScroll}
       role="grid"
       className="h-full w-full overflow-auto border dark:border-gray-700/50 rounded-lg"
     >
@@ -70,7 +87,7 @@ export function VirtualizedTable({ data, columns, isLoading, emptyMessage }) {
           height: `${rowVirtualizer.getTotalSize()}px`,
         }}
       >
-        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+        {virtualItems.map((virtualRow) => {
           const row = data[virtualRow.index];
           return (
             <div
@@ -87,7 +104,6 @@ export function VirtualizedTable({ data, columns, isLoading, emptyMessage }) {
                   key={column.accessorKey}
                   role="gridcell"
                   className="px-4 py-2 truncate"
-                  // 👇 CHANGE HERE: Use flex-basis: 0% to ensure columns align perfectly
                   style={{ flex: `${column.size} 0 0%` }}
                 >
                   {column.cell({ row })}
@@ -97,6 +113,26 @@ export function VirtualizedTable({ data, columns, isLoading, emptyMessage }) {
           );
         })}
       </div>
+
+      {/* Loading indicator at bottom */}
+      {isFetchingMore && (
+        <div className="flex justify-center items-center gap-3 p-4 text-blue-500 font-medium">
+          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-current"></div>
+          Loading more...
+        </div>
+      )}
+      
+      {/* Manual load more button when auto-scroll doesn't trigger */}
+      {hasMore && !isFetchingMore && onScrollEnd && (
+        <div className="flex justify-center p-4">
+          <button
+            onClick={onScrollEnd}
+            className="px-6 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-blue-400 font-medium rounded-lg transition-colors duration-200"
+          >
+            Load More
+          </button>
+        </div>
+      )}
     </div>
   );
 }

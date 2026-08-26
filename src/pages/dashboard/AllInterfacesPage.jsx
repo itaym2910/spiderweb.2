@@ -1,8 +1,9 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useRef } from "react";
 import { useInterfaceData } from "../useInterfaceData";
 import { Button } from "../../components/ui/button";
 import { Search, X, RotateCcw } from "lucide-react";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
+import { fetchTenGigLinks, selectTenGigLinksHasMore, selectAllTenGigLinks, selectTenGigLinksPaginationStatus } from "../../redux/slices/tenGigLinksSlice";
 
 // Import extracted reusable components
 import { VirtualizedTable } from "../../components/ui/VirtualizedTable";
@@ -11,27 +12,75 @@ import { StatusIndicator } from "../../components/ui/StatusIndicator";
 import { FavoriteButton } from "../../components/ui/FavoriteButton";
 
 export default function AllInterfacesPage() {
-  const { interfaces, handleToggleFavorite, deviceFilterOptions, siteCount, linkCount } =
+  const dispatch = useDispatch();
+  const { interfaces, handleToggleFavorite, deviceFilterOptions } =
     useInterfaceData();
 
   const sitesStatus = useSelector((state) => state.sites.status);
   const linksStatus = useSelector((state) => state.tenGigLinks.status);
+  
+  const hasMoreLinks = useSelector(selectTenGigLinksHasMore);
+  const allTenGigLinks = useSelector(selectAllTenGigLinks);
+  const paginationStatus = useSelector(selectTenGigLinksPaginationStatus);
 
   const isLoading = sitesStatus === "loading" || linksStatus === "loading";
+  const isFetchingMore = paginationStatus === "loading";
   const hasError = sitesStatus === "failed" || linksStatus === "failed";
 
+  // Use a ref to prevent multiple simultaneous fetches - this avoids
+  // stale-closure issues that useCallback + Redux status can cause
+  const isFetchingRef = useRef(false);
+
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [deviceFilter, setDeviceFilter] = useState("all");
 
+  const loadMore = useCallback(() => {
+    if (isFetchingRef.current || !hasMoreLinks) return;
+    isFetchingRef.current = true;
+    const skip = allTenGigLinks.length;
+    const coredevice_id = deviceFilter !== "all" ? parseInt(deviceFilter, 10) : null;
+    dispatch(fetchTenGigLinks({ 
+      skip, 
+      limit: 20, 
+      coredevice_id,
+      start_date: startDate || null,
+      end_date: endDate || null
+    }))
+      .finally(() => {
+        isFetchingRef.current = false;
+      });
+  }, [dispatch, hasMoreLinks, allTenGigLinks.length, deviceFilter, startDate, endDate]);
+
   const hasActiveFilters =
-    searchTerm !== "" || statusFilter !== "all" || deviceFilter !== "all";
+    searchTerm !== "" || statusFilter !== "all" || deviceFilter !== "all" || startDate !== "" || endDate !== "";
 
   const handleResetFilters = useCallback(() => {
     setSearchTerm("");
     setStatusFilter("all");
     setDeviceFilter("all");
+    setStartDate("");
+    setEndDate("");
   }, []);
+
+  // Fetch when backend filters change
+  const isFirstRender = useRef(true);
+  React.useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return; // Skip initial mount since authSlice fetches it
+    }
+    const coredevice_id = deviceFilter !== "all" ? parseInt(deviceFilter, 10) : null;
+    dispatch(fetchTenGigLinks({ 
+      skip: 0, 
+      limit: 20, 
+      coredevice_id,
+      start_date: startDate || null,
+      end_date: endDate || null
+    }));
+  }, [deviceFilter, startDate, endDate, dispatch]);
 
   const filteredInterfaces = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -40,15 +89,7 @@ export default function AllInterfacesPage() {
       // 1. Status Filter
       if (statusFilter !== "all" && iface.status !== statusFilter) return false;
 
-      // 2. Device Filter (exact hostname or trunk token match)
-      if (deviceFilter !== "all") {
-        const devices = (iface.deviceName || "")
-          .split("<->")
-          .map((d) => d.trim());
-        if (!devices.includes(deviceFilter)) return false;
-      }
-
-      // 3. Keyword Search (null-safe)
+      // 2. Keyword Search (null-safe)
       if (term) {
         const interfaceMatch =
           iface.interfaceName?.toLowerCase().includes(term) ?? false;
@@ -62,7 +103,7 @@ export default function AllInterfacesPage() {
 
       return true;
     });
-  }, [interfaces, searchTerm, statusFilter, deviceFilter]);
+  }, [interfaces, searchTerm, statusFilter]);
 
   const columns = useMemo(
     () => [
@@ -156,33 +197,11 @@ export default function AllInterfacesPage() {
             Search, filter, and manage all interfaces across the network.
           </p>
         </div>
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-lg border dark:border-gray-700 shadow-sm">
-            Showing{" "}
-            <span className="font-semibold text-gray-800 dark:text-gray-200">
-              {filteredInterfaces.length}
-            </span>{" "}
-            of{" "}
-            <span className="font-semibold text-gray-800 dark:text-gray-200">
-              {interfaces.length}
-            </span>{" "}
-            interfaces
-          </div>
-          <div className="text-xs text-gray-400 dark:text-gray-500 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-lg border dark:border-gray-700 shadow-sm flex items-center gap-2">
-            <span>
-              <span className="font-semibold text-blue-600 dark:text-blue-400">{siteCount}</span> Sites
-            </span>
-            <span className="text-gray-300 dark:text-gray-600">|</span>
-            <span>
-              <span className="font-semibold text-purple-600 dark:text-purple-400">{linkCount}</span> Trunk Links
-            </span>
-          </div>
-        </div>
       </header>
 
       {/* Filter Control Bar */}
       <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md flex-shrink-0">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {/* Keyword Search */}
           <div>
             <label
@@ -228,9 +247,9 @@ export default function AllInterfacesPage() {
               onChange={(e) => setDeviceFilter(e.target.value)}
               className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
             >
-              {deviceFilterOptions.map((name) => (
-                <option key={name} value={name}>
-                  {name === "all" ? "All Devices" : name}
+              {deviceFilterOptions.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.id === "all" ? "All Devices" : opt.label}
                 </option>
               ))}
             </select>
@@ -256,6 +275,40 @@ export default function AllInterfacesPage() {
               <option value="Admin Down">Admin Down</option>
             </select>
           </div>
+
+          {/* Start Date Filter */}
+          <div>
+            <label
+              htmlFor="start-date"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+            >
+              Start Date
+            </label>
+            <input
+              id="start-date"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            />
+          </div>
+
+          {/* End Date Filter */}
+          <div>
+            <label
+              htmlFor="end-date"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+            >
+              End Date
+            </label>
+            <input
+              id="end-date"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            />
+          </div>
         </div>
       </div>
 
@@ -265,6 +318,9 @@ export default function AllInterfacesPage() {
           data={filteredInterfaces}
           columns={columns}
           isLoading={isLoading}
+          hasMore={hasMoreLinks}
+          isFetchingMore={isFetchingMore}
+          onScrollEnd={loadMore}
           emptyMessage={
             hasError ? (
               <ErrorMessage />

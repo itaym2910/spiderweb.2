@@ -25,193 +25,64 @@ export function useInterfaceData() {
   const allTopologyDevices = useSelector(selectTopologyDevices);
   const favoriteIds = useSelector(selectFavoriteIds);
 
-  // 2. Create device lookup map
-  const deviceMap = useMemo(() => {
-    const map = new Map();
-    if (Array.isArray(allDevices)) {
-      allDevices.forEach((d) => {
-        if (d && d.id !== undefined) {
-          map.set(d.id, d);
-        }
-      });
-    }
-    return map;
-  }, [allDevices]);
-
   // 3. Create list of device options for filter dropdown
   const deviceFilterOptions = useMemo(() => {
-    if (!Array.isArray(allDevices)) return ["all"];
-    const hostnames = allDevices
-      .map((device) => device.hostname || device.name)
-      .filter(Boolean);
-    const uniqueHostnames = Array.from(new Set(hostnames)).sort();
-    return ["all", ...uniqueHostnames];
+    if (!Array.isArray(allDevices)) return [{ id: "all", label: "all" }];
+    
+    const options = allDevices
+      .filter((d) => d && d.id && (d.hostname || d.name))
+      .map((d) => ({ id: String(d.id), label: d.hostname || d.name }));
+      
+    // Deduplicate by ID
+    const uniqueMap = new Map();
+    options.forEach((opt) => {
+      if (!uniqueMap.has(opt.id)) {
+        uniqueMap.set(opt.id, opt.label);
+      }
+    });
+    
+    const uniqueOptions = Array.from(uniqueMap.entries())
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+      
+    return [{ id: "all", label: "all" }, ...uniqueOptions];
   }, [allDevices]);
-
-  // Fallback deterministic value generator for unpopulated metrics
-  const getDeterministicVal = (id, salt, min, max, isFloat = false) => {
-    let hash = 0;
-    const str = `${id}-${salt}`;
-    for (let i = 0; i < str.length; i++) {
-      hash = (hash << 5) - hash + str.charCodeAt(i);
-      hash |= 0;
-    }
-    const val = Math.abs(hash);
-    if (isFloat) {
-      const floatVal = min + (val % ((max - min) * 10)) / 10;
-      return floatVal.toFixed(1);
-    }
-    return min + (val % (max - min + 1));
-  };
 
   // 4. Transform and merge data from backend endpoints
   const rawLinks = useMemo(() => {
-    // --- A. Transform Site Connections ---
-    const siteConnections = (Array.isArray(allSites) ? allSites : []).map(
-      (site) => {
-        const device = site.device_id ? deviceMap.get(site.device_id) : null;
-        const siteKey = `site-${site.id || Math.random()}`;
-        const siteName =
-          site.site_name_english ||
-          site.name ||
-          site.site_name ||
-          `Site ${site.id}`;
-        const deviceName =
-          device?.hostname ||
-          device?.name ||
-          site.deviceName ||
-          "Core Device";
-        const interfaceName = site.interface_id
-          ? `Port ${site.interface_id}`
-          : site.interfaceName || `Port ${site.id}`;
-        const rawStatus = site.physicalStatus || site.status || "Up";
+    // Transform 10-Gigabit Core Links
+    return (Array.isArray(allTenGigLinks) ? allTenGigLinks : []).map((link) => {
+      // Status logic: down if physical status or protocol status is down, else up
+      const physStatus = (link.pysical_status || link.physical_status || "").toLowerCase();
+      const protoStatus = (link.protocol_status || "").toLowerCase();
+      const status = (physStatus.includes("down") || protoStatus.includes("down")) ? "Down" : "Up";
 
-        return {
-          id: siteKey,
-          deviceName,
-          interfaceName,
-          description: site.description || `Connection to site: ${siteName}`,
-          status: rawStatus === "Issue" ? "Down" : rawStatus,
-          trafficIn:
-            site.trafficIn ||
-            `${getDeterministicVal(siteKey, "tIn", 10, 800)} Mbps`,
-          trafficOut:
-            site.trafficOut ||
-            `${getDeterministicVal(siteKey, "tOut", 10, 800)} Mbps`,
-          errors: {
-            in: Number(
-              site.input_errors ??
-                site.errors?.in ??
-                getDeterministicVal(siteKey, "errIn", 0, 5)
-            ),
-            out: Number(
-              site.output_errors ??
-                site.errors?.out ??
-                getDeterministicVal(siteKey, "errOut", 0, 2)
-            ),
-          },
-        };
-      }
-    );
+      // Device logic: coredevice.name <-> neighbor_site.name
+      const coreDeviceName = link.coredevice?.name || "Unknown Device";
+      // Fallback to neighbor_coredevice if neighbor_site is null, just in case
+      const neighborName = link.neighbor_site?.name || link.neighbor_coredevice?.name || "Unknown Site";
+      const deviceName = `${coreDeviceName} <-> ${neighborName}`;
 
-    // --- B. Transform 10-Gigabit Core Links ---
-    const tenGigCoreLinks = (
-      Array.isArray(allTenGigLinks) ? allTenGigLinks : []
-    ).map((link) => {
-      const rawStatus = link.physical_status || link.status || "Up";
-      const formattedStatus =
-        typeof rawStatus === "string" && rawStatus.length > 0
-          ? rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1)
-          : "Up";
-
-      const sourceDevice = deviceMap.get(link.coredevice_id);
-      const targetDevice = deviceMap.get(link.neighbor_coredevice_id);
-
-      const sourceName =
-        link.source ||
-        sourceDevice?.hostname ||
-        sourceDevice?.name ||
-        `Device-${link.coredevice_id || "A"}`;
-      const targetName =
-        link.target ||
-        targetDevice?.hostname ||
-        targetDevice?.name ||
-        `Device-${link.neighbor_coredevice_id || "B"}`;
+      // Interface Name: replace with link.name
+      const interfaceName = link.name || "Unknown Interface";
 
       const linkId = String(link.id ?? `link-${Math.random()}`);
 
       return {
         id: linkId,
-        deviceName: `${sourceName} <-> ${targetName}`,
-        interfaceName: link.espf_interface_address
-          ? `10G (${link.espf_interface_address})`
-          : `10G Inter-Core Link`,
-        description:
-          link.description ||
-          `Inter-site trunk (${link.bandwidth || link.bw || "10G"})`,
-        status: formattedStatus === "Issue" ? "Down" : formattedStatus,
-        trafficIn:
-          link.input_rate ||
-          `${getDeterministicVal(linkId, "tIn", 1, 9, true)} Gbps`,
-        trafficOut:
-          link.output_rate ||
-          `${getDeterministicVal(linkId, "tOut", 1, 9, true)} Gbps`,
+        deviceName: deviceName,
+        interfaceName: interfaceName,
+        description: link.description || "",
+        status: status,
+        trafficIn: link.input_rate != null ? String(link.input_rate) : "N/A",
+        trafficOut: link.output_rate != null ? String(link.output_rate) : "N/A",
         errors: {
-          in: Number(
-            link.input_errors ?? getDeterministicVal(linkId, "errIn", 0, 20)
-          ),
-          out: Number(
-            link.output_errors ?? getDeterministicVal(linkId, "errOut", 0, 15)
-          ),
+          in: Number(link.input_errors ?? 0),
+          out: Number(link.output_errors ?? 0),
         },
       };
     });
-
-    // --- C. Transform Core Topology Links ---
-    const coreTopologyLinks = [];
-    const seenTopologyLinkIds = new Set();
-    
-    // Add IDs we already have from siteConnections and tenGigCoreLinks to prevent duplicates
-    siteConnections.forEach(s => seenTopologyLinkIds.add(s.id));
-    tenGigCoreLinks.forEach(l => seenTopologyLinkIds.add(l.id));
-
-    if (Array.isArray(allTopologyDevices)) {
-      allTopologyDevices.forEach(device => {
-        if (Array.isArray(device.links)) {
-          device.links.forEach(link => {
-            if (seenTopologyLinkIds.has(link.id)) return;
-            seenTopologyLinkIds.add(link.id);
-
-            const rawStatus = link.oper_status || link.admin_status || "Up";
-            const formattedStatus =
-              typeof rawStatus === "string" && rawStatus.length > 0
-                ? rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1)
-                : "Up";
-
-            const remoteDevice = deviceMap.get(link.remote_device_id) || allTopologyDevices.find(d => d.id === link.remote_device_id);
-            const remoteDeviceName = remoteDevice?.name || remoteDevice?.hostname || `Device-${link.remote_device_id}`;
-            const linkId = String(link.id);
-
-            coreTopologyLinks.push({
-              id: linkId,
-              deviceName: `${device.name} <-> ${remoteDeviceName}`,
-              interfaceName: link.local_interface ? `Core: ${link.local_interface}` : `Core Link`,
-              description: link.description || `Core topology connection`,
-              status: formattedStatus === "Issue" ? "Down" : formattedStatus,
-              trafficIn: link.input_rate || `${getDeterministicVal(linkId, "tIn", 1, 9, true)} Gbps`,
-              trafficOut: link.output_rate || `${getDeterministicVal(linkId, "tOut", 1, 9, true)} Gbps`,
-              errors: {
-                in: Number(link.input_errors ?? getDeterministicVal(linkId, "errIn", 0, 10)),
-                out: Number(link.output_errors ?? getDeterministicVal(linkId, "errOut", 0, 10)),
-              },
-            });
-          });
-        }
-      });
-    }
-
-    return [...siteConnections, ...tenGigCoreLinks, ...coreTopologyLinks];
-  }, [allSites, allTenGigLinks, allTopologyDevices, deviceMap]);
+  }, [allTenGigLinks]);
 
   // 5. Inject favorite flag based on Redux favorite IDs
   const interfaces = useMemo(() => {
