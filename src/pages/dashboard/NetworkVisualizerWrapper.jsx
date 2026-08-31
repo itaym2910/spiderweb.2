@@ -114,10 +114,18 @@ const NetworkVisualizerWrapper = ({ theme }) => {
     // Build a map of device id -> device for link resolution
     const deviceMapById = new Map(devicesForChart.map((d) => [d.id, d]));
 
+    // Helper to get short name
+    const getShortName = (name) => {
+      if (!name) return name;
+      const matches = name.match(/[a-zA-Z]\d+/g);
+      return matches ? matches[matches.length - 1].toUpperCase() : name;
+    };
+
     // Build nodes
     const transformedNodes = topDevicesPerSite.map((device) => ({
       id: device.name,
       name: device.name,
+      shortName: getShortName(device.name),
       ip: device.ip,
       zone: device.coresite_name,
       pikudId: device.coresite_name,
