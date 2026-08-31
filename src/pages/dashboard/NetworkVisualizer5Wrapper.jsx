@@ -16,20 +16,28 @@ import {
 import { LoadingSpinner } from "../../components/ui/feedback/LoadingSpinner";
 import { ErrorMessage } from "../../components/ui/feedback/ErrorMessage";
 
-// The network name used to filter devices for the P-Chart
-const P_CHART_NETWORK_NAME = "P-Chart Network";
-
-// Helper function to select top devices (no changes)
+// Helper function to select top devices
 function selectTopTwoDevices(devices) {
   if (devices.length <= 2) return devices;
   const priorityOrder = [4, 5, 1, 2, 7, 8];
+  
+  const getEnding = (name) => {
+    if (!name) return NaN;
+    // Extract the last sequence of digits in the string
+    const match = name.match(/(\d+)(?!.*\d)/);
+    return match ? parseInt(match[1], 10) : NaN;
+  };
+
   const sortedDevices = [...devices].sort((a, b) => {
-    const a_ending = parseInt(a.name.split("-").pop(), 10);
-    const b_ending = parseInt(b.name.split("-").pop(), 10);
+    const a_ending = getEnding(a.name);
+    const b_ending = getEnding(b.name);
+    
     const a_priority = priorityOrder.indexOf(a_ending);
     const b_priority = priorityOrder.indexOf(b_ending);
+    
     const final_a_priority = a_priority === -1 ? 99 : a_priority;
     const final_b_priority = b_priority === -1 ? 99 : b_priority;
+    
     return final_a_priority - final_b_priority;
   });
   return sortedDevices.slice(0, 2);
@@ -75,9 +83,12 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
   // Build graph data from the core-topology endpoint
   const graphData = useMemo(() => {
     // Filter devices for this chart's network
-    const devicesForChart = allTopologyDevices.filter(
-      (d) => d.network_name === P_CHART_NETWORK_NAME
-    );
+    const devicesForChart = allTopologyDevices.filter((d) => {
+      if (!d.name || !d.network_name) return false;
+      const hasSharedName = ["H1", "H2", "H4", "H5", "H7", "H8"].some((str) => d.name.includes(str));
+      const isPNetwork = d.network_name.includes("anan-lekaman");
+      return hasSharedName || isPNetwork;
+    });
 
     if (devicesForChart.length === 0) {
       return { nodes: [], links: [] };
@@ -107,10 +118,13 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
     const transformedNodes = topDevicesPerSite.map((device) => ({
       id: device.name,
       group: "node",
+      name: device.name,
+      ip: device.ip,
       zone: device.coresite_name,
+      pikudId: device.coresite_name,
+      nodeType: "router",
+      device: device,
     }));
-
-    const nodeZoneMap = new Map(transformedNodes.map((n) => [n.id, n.zone]));
 
     // Extract and deduplicate links from devices
     const seenLinkIds = new Set();
@@ -141,19 +155,24 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           id: link.id,
           source: device.name,
           target: remoteDevice.name,
-          sourceZone: nodeZoneMap.get(device.name) || "Core",
-          targetZone: nodeZoneMap.get(remoteDevice.name) || "Core",
+          sourceName: device.name,
+          targetName: remoteDevice.name,
+          sourceZone: device.coresite_name,
+          targetZone: remoteDevice.coresite_name,
+          physical_status: link.oper_status,
+          protocol_status: link.admin_status,
           category: normalized,
           status: normalized,
           normalizedStatus: normalized,
           statusChangedAt: link.last_state_change_at,
+          linkType: "core",
           bandwidth: link.bandwidth_mbps || "10G",
           local_interface: link.local_interface,
           remote_interface: link.remote_interface,
-          local_ip: link.local_ip,
-          remote_ip: link.remote_ip,
+          local_ip: link.local_link_ip || link.local_ip,
+          remote_ip: link.remote_link_ip || link.remote_ip || link.remote_interface_ip,
           ospf_state: link.ospf_state,
-          is_ospf_full: link.is_ospf_full,
+          is_ospf_full: link.ospf_state === "FULL" || link.is_ospf_full,
           link_drops_last_24h: link.link_drops_last_24h,
           ospf_drops_last_24h: link.ospf_drops_last_24h,
           rawLink: link,
@@ -161,7 +180,10 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
       });
     });
 
-    return { nodes: transformedNodes, links: transformedLinks };
+    return {
+      nodes: transformedNodes,
+      links: transformedLinks,
+    };
   }, [allTopologyDevices]);
 
   // All event handlers

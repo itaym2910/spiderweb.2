@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from "react";
+import React, { useRef, useCallback, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { TableSkeleton } from "./feedback/TableSkeleton";
 
@@ -12,6 +12,7 @@ import { TableSkeleton } from "./feedback/TableSkeleton";
  * @param {Function} onScrollEnd - Optional. Called when user scrolls near the bottom.
  * @param {boolean} isFetchingMore - Optional. True if currently loading next page.
  * @param {boolean} hasMore - Optional. True if more data can be loaded.
+ * @param {Function} renderExpandedRow - Optional. Renders the expanded content for a row.
  */
 export function VirtualizedTable({
   data,
@@ -21,8 +22,10 @@ export function VirtualizedTable({
   onScrollEnd,
   isFetchingMore,
   hasMore,
+  renderExpandedRow,
 }) {
   const parentRef = useRef(null);
+  const [expandedRowId, setExpandedRowId] = useState(null);
 
   const rowVirtualizer = useVirtualizer({
     count: data.length,
@@ -39,6 +42,11 @@ export function VirtualizedTable({
       onScrollEnd();
     }
   }, [onScrollEnd]);
+
+  const toggleRow = useCallback((row) => {
+    if (!renderExpandedRow) return;
+    setExpandedRowId((prev) => (prev === row.id ? null : row.id));
+  }, [renderExpandedRow]);
 
   if (isLoading && data.length === 0) {
     return <TableSkeleton rows={10} cols={columns.length} />;
@@ -89,26 +97,46 @@ export function VirtualizedTable({
       >
         {virtualItems.map((virtualRow) => {
           const row = data[virtualRow.index];
+          const isExpanded = expandedRowId === row.id;
+
           return (
             <div
               key={virtualRow.key}
+              data-index={virtualRow.index}
+              ref={rowVirtualizer.measureElement}
               role="row"
-              className="flex absolute top-0 left-0 w-full items-center border-b dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/20"
+              className="absolute top-0 left-0 w-full border-b dark:border-gray-800/50 transition-colors"
               style={{
-                height: `${virtualRow.size}px`,
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
-              {columns.map((column) => (
-                <div
-                  key={column.accessorKey}
-                  role="gridcell"
-                  className="px-4 py-2 truncate"
-                  style={{ flex: `${column.size} 0 0%` }}
-                >
-                  {column.cell({ row })}
+              <div 
+                className={`flex items-center w-full min-h-[64px] hover:bg-gray-50 dark:hover:bg-gray-800/20 ${renderExpandedRow ? "cursor-pointer" : ""} ${isExpanded ? "bg-blue-50/50 dark:bg-blue-900/10" : ""}`}
+                onClick={() => toggleRow(row)}
+              >
+                {columns.map((column) => (
+                  <div
+                    key={column.accessorKey}
+                    role="gridcell"
+                    className="px-4 py-2 truncate"
+                    style={{ flex: `${column.size} 0 0%` }}
+                    onClick={(e) => {
+                      // Prevent expanding if clicking on an interactive element inside cell (e.g. favorite button)
+                      if (e.target.closest('button')) {
+                        e.stopPropagation();
+                      }
+                    }}
+                  >
+                    {column.cell({ row })}
+                  </div>
+                ))}
+              </div>
+              
+              {isExpanded && renderExpandedRow && (
+                <div className="border-t border-gray-200 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-800/40 p-4">
+                  {renderExpandedRow({ row })}
                 </div>
-              ))}
+              )}
             </div>
           );
         })}
@@ -136,3 +164,4 @@ export function VirtualizedTable({
     </div>
   );
 }
+

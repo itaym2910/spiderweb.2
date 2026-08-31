@@ -10,6 +10,7 @@ import { VirtualizedTable } from "../../components/ui/VirtualizedTable";
 import { ErrorMessage } from "../../components/ui/feedback/ErrorMessage";
 import { StatusIndicator } from "../../components/ui/StatusIndicator";
 import { FavoriteButton } from "../../components/ui/FavoriteButton";
+import { ExpandedInterfaceDetails } from "./ExpandedInterfaceDetails";
 
 export default function AllInterfacesPage() {
   const dispatch = useDispatch();
@@ -321,6 +322,7 @@ export default function AllInterfacesPage() {
           hasMore={hasMoreLinks}
           isFetchingMore={isFetchingMore}
           onScrollEnd={loadMore}
+          renderExpandedRow={({ row }) => <ExpandedInterfaceDetails row={row} />}
           emptyMessage={
             hasError ? (
               <ErrorMessage />
@@ -354,3 +356,4 @@ export default function AllInterfacesPage() {
     </div>
   );
 }
+

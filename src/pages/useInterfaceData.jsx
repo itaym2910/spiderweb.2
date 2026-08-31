@@ -80,6 +80,7 @@ export function useInterfaceData() {
           in: Number(link.input_errors ?? 0),
           out: Number(link.output_errors ?? 0),
         },
+        raw: link,
       };
     });
   }, [allTenGigLinks]);
