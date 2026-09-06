@@ -359,7 +359,7 @@ export function drawCoreSiteChart(
     .duration(ANIMATION_DURATION)
     .attr("x", (d) => d.x)
     .attr("y", (d) => d.y)
-    .text((d) => d.id)
+    .text((d) => d.shortName || d.id)
     .style("opacity", 1)
     .attr("fill", themeColors.nodeTextFill)
     .attr("font-size", (d) => (d.id === focusedNodeId ? "18px" : "14px"))

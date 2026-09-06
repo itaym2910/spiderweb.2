@@ -86,7 +86,7 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
     const devicesForChart = allTopologyDevices.filter((d) => {
       if (!d.name || !d.network_name) return false;
       const hasSharedName = ["H1", "H2", "H4", "H5", "H7", "H8"].some((str) => d.name.includes(str));
-      const isPNetwork = d.network_name.includes("anan-lekaman");
+      const isPNetwork = d.network_name.includes("anan-lekaman") || d.network_name.includes("anan_lekaman");
       return hasSharedName || isPNetwork;
     });
 
@@ -117,8 +117,32 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
     // Helper to get short name
     const getShortName = (name) => {
       if (!name) return name;
-      const matches = name.match(/[a-zA-Z]\d+/g);
-      return matches ? matches[matches.length - 1].toUpperCase() : name;
+
+      // 1. Shared site logic (Original method)
+      const isSharedSite = ["H1", "H2", "H4", "H5", "H7", "H8"].some((str) => name.includes(str));
+      if (isSharedSite) {
+        const matches = name.match(/[a-zA-Z]\d+/g);
+        return matches ? matches[matches.length - 1].toUpperCase() : name;
+      }
+
+      // 2. Format: aa<number>_bbb_L<1, 2 or 3>-<1 or 2>-ccc -> L<1, 2 or 3>-<1 or 2>
+      const lMatch = name.match(/L[123]-[12]/i);
+      if (lMatch) {
+        return lMatch[0].toUpperCase();
+      }
+
+      // 3. Format: xx_yy_zzz_aaaaa<number> -> yy zzz <number>
+      const parts = name.split('_');
+      if (parts.length === 4) {
+        const lastPartMatch = parts[3].match(/\d+$/);
+        if (lastPartMatch) {
+          const num = lastPartMatch[0];
+          return `${parts[1]} ${parts[2]} ${num}`;
+        }
+      }
+
+      // Fallback
+      return name;
     };
 
     // Build nodes

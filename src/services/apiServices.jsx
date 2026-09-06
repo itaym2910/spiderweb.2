@@ -117,6 +117,9 @@ export const api = {
   getLinkStatusEvents: (since = "24h") =>
     handleApiCall(apiClient.get("/api/link-status-events", { params: { since } })),
   getSites: () => handleApiCall(apiClient.get("/sites")),
+  getLinksTopology: () => handleApiCall(apiClient.get("/links/topology")),
+  getCoreSites: (networkId) => handleApiCall(apiClient.get(`/network/${networkId}/coresites`)),
+  getCoreDevicesBySite: (networkId, coresiteId) => handleApiCall(apiClient.get(`/network/${networkId}/coresite/${coresiteId}/coredevices`)),
   getDeviceInfo: (deviceId) =>
     handleApiCall(apiClient.get(`/get_device_info/${deviceId}`)).catch(() => []),
   getDevicesByCorePikudim: (corePikudimId) =>

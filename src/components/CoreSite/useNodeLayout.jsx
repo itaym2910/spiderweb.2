@@ -65,13 +65,23 @@ export function useNodeLayout(
     // This layout shows devices from index 0 to 3.
     currentDevices = devicesForZone.slice(0, 4);
 
-    // Define the 4 fixed positions for this view
-    nodePositions = [
-      { x: upperLeftX, y: layout1_UpperPairY },
-      { x: upperRightX, y: layout1_UpperPairY },
-      { x: lowerLeftX, y: layout1_LowerPairY },
-      { x: lowerRightX, y: layout1_LowerPairY },
-    ];
+    if (devicesForZone.length <= 2) {
+      // Center the two devices
+      nodePositions = [
+        { x: upperLeftX, y: mainZoneCenterY },
+        { x: upperRightX, y: mainZoneCenterY },
+        { x: lowerLeftX, y: layout1_LowerPairY },
+        { x: lowerRightX, y: layout1_LowerPairY },
+      ];
+    } else {
+      // Define the 4 fixed positions for this view
+      nodePositions = [
+        { x: upperLeftX, y: layout1_UpperPairY },
+        { x: upperRightX, y: layout1_UpperPairY },
+        { x: lowerLeftX, y: layout1_LowerPairY },
+        { x: lowerRightX, y: layout1_LowerPairY },
+      ];
+    }
   }
 
   // Map the selected devices to the calculated positions
@@ -79,6 +89,7 @@ export function useNodeLayout(
     const device = currentDevices[i] || null;
     return {
       id: device ? device.hostname : "None",
+      shortName: device ? device.shortName : undefined,
       x: pos.x,
       y: pos.y,
     };

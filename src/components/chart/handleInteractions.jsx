@@ -114,6 +114,33 @@ export function getLinkColorByCategory(linkData, palette) {
 }
 
 // ===================================================================
+// Helper to generate directional tooltip text based on node positions
+// ===================================================================
+export function getTooltipDirectionalText(d, sourceNode, targetNode) {
+  const localIf = d.local_interface || "Unknown";
+  const remoteIf = d.remote_interface || "Unknown";
+  
+  if (!d.local_interface && !d.remote_interface) return d.id;
+
+  const sX = sourceNode ? sourceNode.x : (d.source.x || 0);
+  const tX = targetNode ? targetNode.x : (d.target.x || 0);
+  const sY = sourceNode ? sourceNode.y : (d.source.y || 0);
+  const tY = targetNode ? targetNode.y : (d.target.y || 0);
+
+  // Consider source to be "left" if its X is strictly less, OR if X is equal and Y is less
+  const sourceIsLeft = sX < tX || (sX === tX && sY < tY);
+
+  if (sourceIsLeft) {
+    // local is on the left, remote is on the right
+    return `${localIf} -> ${remoteIf}`;
+  } else {
+    // remote is on the left, local is on the right
+    // arrow points from local (right) to remote (left)
+    return `${remoteIf} <- ${localIf}`;
+  }
+}
+
+// ===================================================================
 // Fast Apply / Restore Marked Links & Nodes State (Hardware CSS Accelerated)
 // ===================================================================
 export function applyMarkedState({
@@ -138,7 +165,8 @@ export function applyMarkedState({
       .selectAll("line.visible-link")
       .attr("stroke", defaultLinkColor)
       .attr("stroke-opacity", 0.6)
-      .attr("stroke-width", 2);
+      .attr("stroke-width", 2)
+      .style("opacity", 1);
 
     svg
       .selectAll("circle.node")
@@ -417,10 +445,11 @@ export function drawAllParallelLinks({
           });
 
           const [px, py] = d3.pointer(event, svgNode);
+          const tooltipText = getTooltipDirectionalText(d_hover, sourceNode, targetNode);
           tooltip
             .attr("x", px + 12)
             .attr("y", py - 12)
-            .text(d_hover.id)
+            .text(tooltipText)
             .attr("opacity", 1);
         })
         .on("mousemove", function (event) {
@@ -608,7 +637,8 @@ export function handleNodeMouseOut(
     .selectAll("line.visible-link")
     .attr("stroke", palette.link)
     .attr("stroke-opacity", 0.6)
-    .attr("stroke-width", 2);
+    .attr("stroke-width", 2)
+    .style("opacity", 1);
 
   svg
     .selectAll("path.duplicate-link")
@@ -630,6 +660,130 @@ export function handleNodeMouseOut(
 }
 
 // ===================================================================
+// Draw temporary parallel links for a specific source/target pair
+// ===================================================================
+export function drawTempParallelLinks({
+  zoomLayer,
+  sourceId,
+  targetId,
+  allLinks,
+  allNodes,
+  palette,
+  tooltip,
+  onLinkClick,
+}) {
+  if (!zoomLayer) return;
+
+  const duplicates = allLinks.filter(l => {
+    const ls = typeof l.source === "object" ? l.source.id : l.source;
+    const lt = typeof l.target === "object" ? l.target.id : l.target;
+    return (ls === sourceId && lt === targetId) || (ls === targetId && lt === sourceId);
+  });
+
+  if (duplicates.length <= 1) return;
+
+  const nodeMap = new Map();
+  allNodes.forEach((n) => nodeMap.set(n.id, n));
+  
+  const sourceNode = nodeMap.get(sourceId);
+  const targetNode = nodeMap.get(targetId);
+  if (!sourceNode || !targetNode) return;
+
+  const nodeRadius = 60;
+  const { x1, y1, x2, y2 } = linkPositionFromEdges(
+    { source: sourceNode, target: targetNode },
+    nodeRadius
+  );
+
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const length = Math.sqrt(dx * dx + dy * dy);
+  if (length === 0) return;
+
+  const ux = dx / length;
+  const uy = dy / length;
+  const perpX = -uy;
+  const perpY = ux;
+
+  // Hide the straight visible link for this pair
+  zoomLayer.selectAll("line.visible-link").filter(l => {
+    if (!l) return false;
+    const ls = typeof l.source === "object" ? l.source.id : l.source;
+    const lt = typeof l.target === "object" ? l.target.id : l.target;
+    return (ls === sourceId && lt === targetId) || (ls === targetId && lt === sourceId);
+  }).style("opacity", 0);
+
+  // Dynamically increase the hitbox of the straight line so the mouse doesn't fall into the gaps
+  const maxOffset = 10 * ((duplicates.length - 1) / 2);
+  const hoverWidth = maxOffset * 2 + 30; // 30 is base padding
+  zoomLayer.selectAll("line.link-hover").filter(l => {
+    if (!l) return false;
+    const ls = typeof l.source === "object" ? l.source.id : l.source;
+    const lt = typeof l.target === "object" ? l.target.id : l.target;
+    return (ls === sourceId && lt === targetId) || (ls === targetId && lt === sourceId);
+  }).attr("stroke-width", Math.max(20, hoverWidth));
+
+  const svgNode = zoomLayer.node().ownerSVGElement;
+  const svg = d3.select(svgNode);
+
+  duplicates.forEach((linkData, index) => {
+    const offset = 10 * (index - (duplicates.length - 1) / 2);
+    const startX = x1 + perpX * offset;
+    const startY = y1 + perpY * offset;
+    const endX = x2 + perpX * offset;
+    const endY = y2 + perpY * offset;
+
+    zoomLayer
+      .append("path")
+      .datum(linkData)
+      .attr("class", "temp-duplicate-link")
+      .attr("d", `M${startX},${startY} L${endX},${endY}`)
+      .attr("fill", "none")
+      .attr("stroke", getLinkColorByCategory(linkData, palette))
+      .attr("stroke-width", 3)
+      .style("pointer-events", "stroke")
+      .style("cursor", "pointer")
+      .on("mouseover", function(event, d_temp) {
+         d3.select(this).attr("stroke", getLinkColorByCategory(d_temp, palette)).attr("stroke-width", 5);
+         if (tooltip) {
+           const [px, py] = d3.pointer(event, svgNode);
+           const tooltipText = getTooltipDirectionalText(d_temp, sourceNode, targetNode);
+           tooltip
+             .attr("x", px + 12)
+             .attr("y", py - 12)
+             .text(tooltipText)
+             .attr("opacity", 1);
+         }
+      })
+      .on("mousemove", function (event) {
+         if (tooltip) {
+           const [px, py] = d3.pointer(event, svgNode);
+           tooltip.attr("x", px + 12).attr("y", py - 12);
+         }
+      })
+      .on("mouseout", function(event) {
+         d3.select(this).attr("stroke-width", 3);
+         
+         if (event && event.relatedTarget && event.relatedTarget.classList && 
+             (event.relatedTarget.classList.contains("temp-duplicate-link") || 
+              event.relatedTarget.classList.contains("link-hover"))) {
+             return;
+         }
+         
+         svg.selectAll(".temp-duplicate-link").remove();
+         svg.selectAll("line.visible-link").style("opacity", 1);
+         if (tooltip) tooltip.attr("opacity", 0);
+      })
+      .on("click", function(event, d_temp) {
+         if (onLinkClick) {
+            onLinkClick(createLinkPopupPayload(d_temp));
+         }
+         event.stopPropagation();
+      });
+  });
+}
+
+// ===================================================================
 // Straight Link Mouse Over Handler
 // ===================================================================
 function handleMouseOver(
@@ -638,7 +792,11 @@ function handleMouseOver(
   tooltip,
   palette,
   getMarkedLinkIds,
-  event
+  event,
+  zoomLayer,
+  filteredLinks,
+  allNodes,
+  onLinkClick
 ) {
   if (!d_link) return;
   const markedIds = getMarkedLinkIds ? getMarkedLinkIds() : null;
@@ -651,6 +809,20 @@ function handleMouseOver(
 
   const sId = typeof d_link.source === "object" ? d_link.source.id : d_link.source;
   const tId = typeof d_link.target === "object" ? d_link.target.id : d_link.target;
+
+  // Temporarily show parallel links for this hovered pair
+  if (zoomLayer && filteredLinks && allNodes) {
+    drawTempParallelLinks({
+      zoomLayer,
+      sourceId: sId,
+      targetId: tId,
+      allLinks: filteredLinks,
+      allNodes,
+      palette,
+      tooltip,
+      onLinkClick,
+    });
+  }
 
   // Highlight hovered link, dim others
   svg.selectAll("line.visible-link").each(function (l) {
@@ -683,10 +855,13 @@ function handleMouseOver(
 
   if (event) {
     const [px, py] = d3.pointer(event, svgNode);
+    const sourceNode = allNodes ? allNodes.find(n => n.id === sId) : d_link.source;
+    const targetNode = allNodes ? allNodes.find(n => n.id === tId) : d_link.target;
+    const tooltipText = getTooltipDirectionalText(d_link, sourceNode, targetNode);
     tooltip
       .attr("x", px + 12)
       .attr("y", py - 12)
-      .text(d_link.id)
+      .text(tooltipText)
       .attr("opacity", 1);
   }
 }
@@ -694,12 +869,28 @@ function handleMouseOver(
 // ===================================================================
 // Straight Link Mouse Out Handler
 // ===================================================================
-function handleMouseOut(linkSelection, tooltip, palette, getMarkedLinkIds) {
+function handleMouseOut(linkSelection, tooltip, palette, getMarkedLinkIds, event) {
+  // If moving to a temporary duplicate link, do NOT tear down!
+  if (
+    event &&
+    event.relatedTarget &&
+    event.relatedTarget.classList &&
+    event.relatedTarget.classList.contains("temp-duplicate-link")
+  ) {
+    return;
+  }
+
   tooltip.attr("opacity", 0);
   const markedIds = getMarkedLinkIds ? getMarkedLinkIds() : null;
   const svgNode = linkSelection?.node()?.ownerSVGElement;
   const svg = svgNode ? d3.select(svgNode) : d3.select("svg");
 
+  // Remove temporary parallel links
+  svg.selectAll(".temp-duplicate-link").remove();
+  
+  // Restore the straight link hover area
+  svg.selectAll("line.link-hover").attr("stroke-width", 20);
+  
   if (markedIds && markedIds.size > 0) {
     applyMarkedState({ svg, markedLinkIds: markedIds, palette });
     return;
@@ -709,7 +900,8 @@ function handleMouseOut(linkSelection, tooltip, palette, getMarkedLinkIds) {
     .selectAll("line.visible-link")
     .attr("stroke", palette.link)
     .attr("stroke-opacity", 0.6)
-    .attr("stroke-width", 2);
+    .attr("stroke-width", 2)
+    .style("opacity", 1);
 
   svg
     .selectAll("circle.node")
@@ -788,7 +980,11 @@ export function setupInteractions({
         tooltip,
         palette,
         getMarkedLinkIds,
-        event
+        event,
+        zoomLayer,
+        filteredLinks,
+        node ? node.data() : [],
+        onLinkClick
       );
     })
     .on("mousemove", function (event, d_hovered) {
@@ -799,8 +995,8 @@ export function setupInteractions({
       const [px, py] = d3.pointer(event, svgNode);
       tooltip.attr("x", px + 12).attr("y", py - 12);
     })
-    .on("mouseout", function () {
-      handleMouseOut(link, tooltip, palette, getMarkedLinkIds);
+    .on("mouseout", function (event) {
+      handleMouseOut(link, tooltip, palette, getMarkedLinkIds, event);
     })
     .on("click", function (event, d_clicked) {
       if (onLinkClick) {
