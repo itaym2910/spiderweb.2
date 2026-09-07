@@ -102,11 +102,23 @@ export function useCoreSiteData(chartType) {
           );
           const allDeviceLinks = linksArrays.flat();
 
-          // Deduplicate links by ID
+          // Deduplicate links by ID and by switched ports (bi-directional copies)
           const uniqueLinksMap = new Map();
+          const seenSignatures = new Set();
           allDeviceLinks.forEach((link) => {
             if (link && link.id) {
-              uniqueLinksMap.set(link.id, link);
+              // Extract device names from the nested objects
+              const localName = link.coredevice?.name || "unknown1";
+              const remoteName = link.neighbor_coredevice?.name || "unknown2";
+              
+              const ep1 = `${localName}::${link.local_interface || ""}`;
+              const ep2 = `${remoteName}::${link.remote_interface || ""}`;
+              const signature = [ep1, ep2].sort().join("---");
+              
+              if (!seenSignatures.has(signature)) {
+                seenSignatures.add(signature);
+                uniqueLinksMap.set(link.id, link);
+              }
             }
           });
           setLocalLinks(Array.from(uniqueLinksMap.values()));

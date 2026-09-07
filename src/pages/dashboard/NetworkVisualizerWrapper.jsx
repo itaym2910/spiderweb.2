@@ -135,20 +135,29 @@ const NetworkVisualizerWrapper = ({ theme }) => {
 
     // Extract and deduplicate links from devices
     const seenLinkIds = new Set();
+    const seenSignatures = new Set();
     const transformedLinks = [];
 
     topDevicesPerSite.forEach((device) => {
       if (!device.links) return;
 
       device.links.forEach((link) => {
-        // Skip duplicates (each link appears on both endpoints)
+        // Skip duplicates by ID
         if (seenLinkIds.has(link.id)) return;
 
         // Only include links where the remote device is also visible
         const remoteDevice = deviceMapById.get(link.remote_device_id);
         if (!remoteDevice || !visibleDeviceNames.has(remoteDevice.name)) return;
 
+        // Deduplicate switched ports
+        const ep1 = `${device.name}::${link.local_interface || ""}`;
+        const ep2 = `${remoteDevice.name}::${link.remote_interface || ""}`;
+        const signature = [ep1, ep2].sort().join("---");
+        
+        if (seenSignatures.has(signature)) return;
+
         seenLinkIds.add(link.id);
+        seenSignatures.add(signature);
 
         // Normalize oper_status to up/down/issue
         const operStatus = (link.oper_status || "").toLowerCase();
