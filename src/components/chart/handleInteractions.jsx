@@ -119,7 +119,7 @@ export function getLinkColorByCategory(linkData, palette) {
 export function getTooltipDirectionalText(d, sourceNode, targetNode) {
   const localIf = d.local_interface || "Unknown";
   const remoteIf = d.remote_interface || "Unknown";
-  
+
   if (!d.local_interface && !d.remote_interface) return d.id;
 
   const sX = sourceNode ? sourceNode.x : (d.source.x || 0);
@@ -684,7 +684,7 @@ export function drawTempParallelLinks({
 
   const nodeMap = new Map();
   allNodes.forEach((n) => nodeMap.set(n.id, n));
-  
+
   const sourceNode = nodeMap.get(sourceId);
   const targetNode = nodeMap.get(targetId);
   if (!sourceNode || !targetNode) return;
@@ -743,42 +743,42 @@ export function drawTempParallelLinks({
       .attr("stroke-width", 3)
       .style("pointer-events", "stroke")
       .style("cursor", "pointer")
-      .on("mouseover", function(event, d_temp) {
-         d3.select(this).attr("stroke", getLinkColorByCategory(d_temp, palette)).attr("stroke-width", 5);
-         if (tooltip) {
-           const [px, py] = d3.pointer(event, svgNode);
-           const tooltipText = getTooltipDirectionalText(d_temp, sourceNode, targetNode);
-           tooltip
-             .attr("x", px + 12)
-             .attr("y", py - 12)
-             .text(tooltipText)
-             .attr("opacity", 1);
-         }
+      .on("mouseover", function (event, d_temp) {
+        d3.select(this).attr("stroke", getLinkColorByCategory(d_temp, palette)).attr("stroke-width", 5);
+        if (tooltip) {
+          const [px, py] = d3.pointer(event, svgNode);
+          const tooltipText = getTooltipDirectionalText(d_temp, sourceNode, targetNode);
+          tooltip
+            .attr("x", px + 12)
+            .attr("y", py - 12)
+            .text(tooltipText)
+            .attr("opacity", 1);
+        }
       })
       .on("mousemove", function (event) {
-         if (tooltip) {
-           const [px, py] = d3.pointer(event, svgNode);
-           tooltip.attr("x", px + 12).attr("y", py - 12);
-         }
+        if (tooltip) {
+          const [px, py] = d3.pointer(event, svgNode);
+          tooltip.attr("x", px + 12).attr("y", py - 12);
+        }
       })
-      .on("mouseout", function(event) {
-         d3.select(this).attr("stroke-width", 3);
-         
-         if (event && event.relatedTarget && event.relatedTarget.classList && 
-             (event.relatedTarget.classList.contains("temp-duplicate-link") || 
-              event.relatedTarget.classList.contains("link-hover"))) {
-             return;
-         }
-         
-         svg.selectAll(".temp-duplicate-link").remove();
-         svg.selectAll("line.visible-link").style("opacity", 1);
-         if (tooltip) tooltip.attr("opacity", 0);
+      .on("mouseout", function (event) {
+        d3.select(this).attr("stroke-width", 3);
+
+        if (event && event.relatedTarget && event.relatedTarget.classList &&
+          (event.relatedTarget.classList.contains("temp-duplicate-link") ||
+            event.relatedTarget.classList.contains("link-hover"))) {
+          return;
+        }
+
+        svg.selectAll(".temp-duplicate-link").remove();
+        svg.selectAll("line.visible-link").style("opacity", 1);
+        if (tooltip) tooltip.attr("opacity", 0);
       })
-      .on("click", function(event, d_temp) {
-         if (onLinkClick) {
-            onLinkClick(createLinkPopupPayload(d_temp));
-         }
-         event.stopPropagation();
+      .on("click", function (event, d_temp) {
+        if (onLinkClick) {
+          onLinkClick(createLinkPopupPayload(d_temp));
+        }
+        event.stopPropagation();
       });
   });
 }
@@ -887,10 +887,10 @@ function handleMouseOut(linkSelection, tooltip, palette, getMarkedLinkIds, event
 
   // Remove temporary parallel links
   svg.selectAll(".temp-duplicate-link").remove();
-  
+
   // Restore the straight link hover area
   svg.selectAll("line.link-hover").attr("stroke-width", 20);
-  
+
   if (markedIds && markedIds.size > 0) {
     applyMarkedState({ svg, markedLinkIds: markedIds, palette });
     return;
