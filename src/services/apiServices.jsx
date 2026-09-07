@@ -93,7 +93,7 @@ export const api = {
     await Promise.all(networks.map(async (network) => {
       try {
         const sites = await handleApiCall(apiClient.get(`/network/${network.id}/coresites`));
-        
+
         await Promise.all(sites.map(async (site) => {
           try {
             const devices = await handleApiCall(
@@ -118,6 +118,7 @@ export const api = {
     handleApiCall(apiClient.get("/api/link-status-events", { params: { since } })),
   getSites: () => handleApiCall(apiClient.get("/sites")),
   getLinksTopology: () => handleApiCall(apiClient.get("/links/topology")),
+  getLinksTopologyByDevice: (deviceId) => handleApiCall(apiClient.get(`/link/topology/${deviceId}`)),
   getCoreSites: (networkId) => handleApiCall(apiClient.get(`/network/${networkId}/coresites`)),
   getCoreDevicesBySite: (networkId, coresiteId) => handleApiCall(apiClient.get(`/network/${networkId}/coresite/${coresiteId}/coredevices`)),
   getDeviceInfo: (deviceId) =>

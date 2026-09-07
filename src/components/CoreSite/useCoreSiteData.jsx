@@ -93,13 +93,27 @@ export function useCoreSiteData(chartType) {
             shortName: getShortName(d.hostname || d.name),
           }));
           setLocalDevices(normalizedDevices);
+
+          // Fetch links for each device in the zone
+          const linksArrays = await Promise.all(
+            devices.map(async (d) => {
+              return await api.getLinksTopologyByDevice(d.id).catch(() => []);
+            })
+          );
+          const allDeviceLinks = linksArrays.flat();
+
+          // Deduplicate links by ID
+          const uniqueLinksMap = new Map();
+          allDeviceLinks.forEach((link) => {
+            if (link && link.id) {
+              uniqueLinksMap.set(link.id, link);
+            }
+          });
+          setLocalLinks(Array.from(uniqueLinksMap.values()));
         }
 
         const sites = await api.getSites().catch(() => []);
         setLocalSites(sites);
-
-        const topologyLinks = await api.getLinksTopology().catch(() => []);
-        setLocalLinks(topologyLinks);
       } catch (err) {
         console.error("Failed to fetch zone data", err);
       }
