@@ -286,16 +286,11 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           onClearMarks={handleClearMarks}
           onHoverLink={setHoveredLinkId}
         />
-        <ToggleDetailButton
-          isDetailed={showDetailedLinks}
-          onToggle={handleToggleDetailView}
-          theme={theme}
-        />
         <NetworkVisualizer
-          key={`${theme}-${showDetailedLinks}`}
+          key={`${theme}-detailed`}
           data={graphData}
           theme={theme}
-          showDetailedLinks={showDetailedLinks}
+          showDetailedLinks={true}
           isDrawerOpen={isDrawerOpen}
           markedLinkIds={markedLinkIds}
           hoveredLinkId={hoveredLinkId}

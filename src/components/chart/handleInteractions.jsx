@@ -179,9 +179,9 @@ export function applyMarkedState({
 
     svg
       .selectAll("path.duplicate-link")
-      .attr("stroke", (d) => getLinkColorByCategory(d, palette))
-      .attr("stroke-opacity", 1.0)
-      .attr("stroke-width", 3);
+      .attr("stroke", defaultLinkColor)
+      .attr("stroke-opacity", 0.6)
+      .attr("stroke-width", 2);
 
     svg
       .selectAll("line.link-hover, path.duplicate-link-hover")
@@ -393,8 +393,9 @@ export function drawAllParallelLinks({
         .attr("class", "duplicate-link")
         .attr("d", `M${startX},${startY} L${endX},${endY}`)
         .attr("fill", "none")
-        .attr("stroke", getLinkColorByCategory(linkData, palette))
-        .attr("stroke-width", 3)
+        .attr("stroke", palette.link)
+        .attr("stroke-opacity", 0.6)
+        .attr("stroke-width", 2)
         .style("pointer-events", "none");
 
       zoomLayer
@@ -477,9 +478,9 @@ export function drawAllParallelLinks({
 
           svg
             .selectAll("path.duplicate-link")
-            .attr("stroke", (d) => getLinkColorByCategory(d, palette))
-            .attr("stroke-opacity", 1.0)
-            .attr("stroke-width", 3);
+            .attr("stroke", palette.link)
+            .attr("stroke-opacity", 0.6)
+            .attr("stroke-width", 2);
         })
         .on("click", function (event, d_clicked) {
           if (onLinkClick) {
@@ -642,9 +643,9 @@ export function handleNodeMouseOut(
 
   svg
     .selectAll("path.duplicate-link")
-    .attr("stroke", (d) => getLinkColorByCategory(d, palette))
-    .attr("stroke-opacity", 1.0)
-    .attr("stroke-width", 3);
+    .attr("stroke", palette.link)
+    .attr("stroke-opacity", 0.6)
+    .attr("stroke-width", 2);
 
   svg
     .selectAll("circle.node")
