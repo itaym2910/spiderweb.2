@@ -109,7 +109,7 @@ export function useCoreSiteData(chartType) {
             if (link && link.id) {
               // Extract device names from the nested objects
               const localName = link.coredevice?.name || "unknown1";
-              const remoteName = link.neighbor_coredevice?.name || "unknown2";
+              const remoteName = link.neighbor_coredevice?.name || link.neighbor_site?.name || `unknown2-${link.id}`;
               
               const ep1 = `${localName}::${link.local_interface || ""}`;
               const ep2 = `${remoteName}::${link.remote_interface || ""}`;
