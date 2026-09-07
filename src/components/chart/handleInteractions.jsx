@@ -445,24 +445,67 @@ export function drawAllParallelLinks({
             }
           });
 
-          const [px, py] = d3.pointer(event, svgNode);
-          const tooltipText = getTooltipDirectionalText(d_hover, sourceNode, targetNode);
-          tooltip
-            .attr("x", px + 12)
-            .attr("y", py - 12)
-            .text(tooltipText)
-            .attr("opacity", 1);
+          // Remove the mouse-tracking tooltip logic
+          // tooltip.attr("opacity", 0);
+
+          // Calculate inner points near the nodes
+          const edgeMargin = 25; // Pixels inward from the node edge
+          const lift = 8; // Pixels perpendicular to the line to lift the text
+
+          const localX = startX + ux * edgeMargin - perpX * lift;
+          const localY = startY + uy * edgeMargin - perpY * lift;
+          const remoteX = endX - ux * edgeMargin - perpX * lift;
+          const remoteY = endY - uy * edgeMargin - perpY * lift;
+
+          // Cleanup any existing temporary labels
+          zoomLayer.selectAll(".edge-label-temp").remove();
+
+          if (d_hover.local_interface) {
+            zoomLayer
+              .append("text")
+              .attr("class", "edge-label-temp")
+              .attr("x", localX)
+              .attr("y", localY)
+              .attr("text-anchor", "middle")
+              .attr("dominant-baseline", "central")
+              .attr("font-size", "12px")
+              .attr("font-weight", "bold")
+              .attr("fill", palette.label || "#fff")
+              .attr("stroke", palette.bg || "#000")
+              .attr("stroke-width", 3)
+              .style("paint-order", "stroke")
+              .style("pointer-events", "none")
+              .text(d_hover.local_interface);
+          }
+
+          if (d_hover.remote_interface) {
+            zoomLayer
+              .append("text")
+              .attr("class", "edge-label-temp")
+              .attr("x", remoteX)
+              .attr("y", remoteY)
+              .attr("text-anchor", "middle")
+              .attr("dominant-baseline", "central")
+              .attr("font-size", "12px")
+              .attr("font-weight", "bold")
+              .attr("fill", palette.label || "#fff")
+              .attr("stroke", palette.bg || "#000")
+              .attr("stroke-width", 3)
+              .style("paint-order", "stroke")
+              .style("pointer-events", "none")
+              .text(d_hover.remote_interface);
+          }
         })
         .on("mousemove", function (event) {
           const markedIds = getMarkedLinkIds ? getMarkedLinkIds() : null;
           if (markedIds && markedIds.size > 0 && !markedIds.has(linkData.id)) {
             return;
           }
-          const [px, py] = d3.pointer(event, svgNode);
-          tooltip.attr("x", px + 12).attr("y", py - 12);
+          // Intentionally do nothing on mousemove now since the labels are fixed to the edges
         })
         .on("mouseleave", function () {
           tooltip.attr("opacity", 0);
+          zoomLayer.selectAll(".edge-label-temp").remove();
           const markedIds = getMarkedLinkIds ? getMarkedLinkIds() : null;
           if (markedIds && markedIds.size > 0) {
             applyMarkedState({ svg, markedLinkIds: markedIds, palette });
@@ -746,24 +789,61 @@ export function drawTempParallelLinks({
       .style("cursor", "pointer")
       .on("mouseover", function (event, d_temp) {
         d3.select(this).attr("stroke", getLinkColorByCategory(d_temp, palette)).attr("stroke-width", 5);
-        if (tooltip) {
-          const [px, py] = d3.pointer(event, svgNode);
-          const tooltipText = getTooltipDirectionalText(d_temp, sourceNode, targetNode);
-          tooltip
-            .attr("x", px + 12)
-            .attr("y", py - 12)
-            .text(tooltipText)
-            .attr("opacity", 1);
+
+        // Calculate inner points near the nodes
+        const edgeMargin = 25; // Pixels inward from the node edge
+        const lift = 8; // Pixels perpendicular to the line to lift the text
+
+        const localX = startX + ux * edgeMargin - perpX * lift;
+        const localY = startY + uy * edgeMargin - perpY * lift;
+        const remoteX = endX - ux * edgeMargin - perpX * lift;
+        const remoteY = endY - uy * edgeMargin - perpY * lift;
+
+        // Cleanup any existing temporary labels
+        zoomLayer.selectAll(".edge-label-temp").remove();
+
+        if (d_temp.local_interface) {
+          zoomLayer
+            .append("text")
+            .attr("class", "edge-label-temp")
+            .attr("x", localX)
+            .attr("y", localY)
+            .attr("text-anchor", "middle")
+            .attr("dominant-baseline", "central")
+            .attr("font-size", "12px")
+            .attr("font-weight", "bold")
+            .attr("fill", palette.label || "#fff")
+            .attr("stroke", palette.bg || "#000")
+            .attr("stroke-width", 3)
+            .style("paint-order", "stroke")
+            .style("pointer-events", "none")
+            .text(d_temp.local_interface);
+        }
+
+        if (d_temp.remote_interface) {
+          zoomLayer
+            .append("text")
+            .attr("class", "edge-label-temp")
+            .attr("x", remoteX)
+            .attr("y", remoteY)
+            .attr("text-anchor", "middle")
+            .attr("dominant-baseline", "central")
+            .attr("font-size", "12px")
+            .attr("font-weight", "bold")
+            .attr("fill", palette.label || "#fff")
+            .attr("stroke", palette.bg || "#000")
+            .attr("stroke-width", 3)
+            .style("paint-order", "stroke")
+            .style("pointer-events", "none")
+            .text(d_temp.remote_interface);
         }
       })
       .on("mousemove", function (event) {
-        if (tooltip) {
-          const [px, py] = d3.pointer(event, svgNode);
-          tooltip.attr("x", px + 12).attr("y", py - 12);
-        }
+        // Intentionally left blank as labels are static
       })
       .on("mouseout", function (event) {
         d3.select(this).attr("stroke-width", 3);
+        zoomLayer.selectAll(".edge-label-temp").remove();
 
         if (event && event.relatedTarget && event.relatedTarget.classList &&
           (event.relatedTarget.classList.contains("temp-duplicate-link") ||
@@ -854,17 +934,7 @@ function handleMouseOver(
     }
   });
 
-  if (event) {
-    const [px, py] = d3.pointer(event, svgNode);
-    const sourceNode = allNodes ? allNodes.find(n => n.id === sId) : d_link.source;
-    const targetNode = allNodes ? allNodes.find(n => n.id === tId) : d_link.target;
-    const tooltipText = getTooltipDirectionalText(d_link, sourceNode, targetNode);
-    tooltip
-      .attr("x", px + 12)
-      .attr("y", py - 12)
-      .text(tooltipText)
-      .attr("opacity", 1);
-  }
+  // Tooltip tracking removed in favor of edge labels
 }
 
 // ===================================================================
