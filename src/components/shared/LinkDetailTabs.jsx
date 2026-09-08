@@ -157,7 +157,7 @@ const LinkDetailTabs = ({
                     Description:
                   </span>
                   <span className="text-lg font-medium text-gray-800 dark:text-gray-100">
-                    Core fiber link
+                    {itemData.description || "N/A"}
                   </span>
                 </div>
                 <div>
@@ -165,15 +165,7 @@ const LinkDetailTabs = ({
                     Media Type:
                   </span>
                   <span className="text-lg font-medium text-gray-800 dark:text-gray-100">
-                    Fiber Optic
-                  </span>
-                </div>
-                <div>
-                  <span className="text-base text-gray-500 dark:text-gray-400 mr-2">
-                    CDP Neighbors:
-                  </span>
-                  <span className="text-lg font-medium text-gray-800 dark:text-gray-100">
-                    2
+                    {itemData.mediaType || "N/A"}
                   </span>
                 </div>
                 <div>
@@ -181,7 +173,7 @@ const LinkDetailTabs = ({
                     TX:
                   </span>
                   <span className="text-lg font-medium text-gray-800 dark:text-gray-100">
-                    8.2 Gbps
+                    {itemData.tx || "N/A"}
                   </span>
                 </div>
                 <div>
@@ -189,7 +181,15 @@ const LinkDetailTabs = ({
                     RX:
                   </span>
                   <span className="text-lg font-medium text-gray-800 dark:text-gray-100">
-                    7.1 Gbps
+                    {itemData.rx || "N/A"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-base text-gray-500 dark:text-gray-400 mr-2">
+                    MTU:
+                  </span>
+                  <span className="text-lg font-medium text-gray-800 dark:text-gray-100">
+                    {itemData.mtu || "N/A"}
                   </span>
                 </div>
               </div>

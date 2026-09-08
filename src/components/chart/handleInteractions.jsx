@@ -33,9 +33,9 @@ export function createLinkPopupPayload(linkDataObject) {
     linkDataObject.protocolStatus ||
     (status === "down" ? "Down" : "Up");
 
-  const mpls = raw.MPLS || raw.mpls || linkDataObject.MPLS || linkDataObject.mpls || "Enabled";
-  const ospf = raw.OSPF || raw.ospf || linkDataObject.OSPF || linkDataObject.ospf || "Enabled";
-  const rawBw = raw.bandwidth ?? raw.Bandwidth ?? raw.bw ?? linkDataObject.bandwidth ?? "10 Gbps";
+  const mpls = raw.mpls_ldp || raw.MPLS || raw.mpls || linkDataObject.MPLS || linkDataObject.mpls || "Enabled";
+  const ospf = raw.ospf || raw.ospf_state || raw.OSPF || linkDataObject.OSPF || linkDataObject.ospf || "Enabled";
+  const rawBw = raw.bw ?? raw.bandwidth ?? raw.Bandwidth ?? linkDataObject.bandwidth ?? "10 Gbps";
   const bandwidth =
     typeof rawBw === "number"
       ? rawBw >= 1000
@@ -54,11 +54,12 @@ export function createLinkPopupPayload(linkDataObject) {
     raw.mediaType ||
     linkDataObject.mediaType ||
     "Fiber Optic";
-  const cdp = raw.cdp || raw.CDP || linkDataObject.cdp || "N/A";
   const rawTx = raw.tx ?? raw.TX ?? linkDataObject.tx ?? "N/A";
   const rawRx = raw.rx ?? raw.RX ?? linkDataObject.rx ?? "N/A";
+  const rawMtu = raw.mtu ?? raw.MTU ?? linkDataObject.mtu ?? "N/A";
   const tx = typeof rawTx === "number" ? `${rawTx} dBm` : String(rawTx);
   const rx = typeof rawRx === "number" ? `${rawRx} dBm` : String(rawRx);
+  const mtu = typeof rawMtu === "number" ? String(rawMtu) : String(rawMtu);
   const ip = raw.ip || linkDataObject.ip || "N/A";
   const sourceZone = linkDataObject.sourceZone || raw.sourceZone || "N/A";
   const targetZone = linkDataObject.targetZone || raw.targetZone || "N/A";
@@ -91,9 +92,9 @@ export function createLinkPopupPayload(linkDataObject) {
     bandwidth,
     description,
     mediaType,
-    cdp,
     tx,
     rx,
+    mtu,
     ip,
   };
 }

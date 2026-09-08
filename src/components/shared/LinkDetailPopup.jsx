@@ -21,16 +21,14 @@ const StatusBulb = ({ status }) => {
 const DetailRow = ({ label, value, isDark }) => (
   <div className="flex items-center justify-between py-2 px-1">
     <span
-      className={`text-sm font-medium ${
-        isDark ? "text-gray-400" : "text-gray-500"
-      }`}
+      className={`text-sm font-medium ${isDark ? "text-gray-400" : "text-gray-500"
+        }`}
     >
       {label}
     </span>
     <span
-      className={`text-sm font-semibold ${
-        isDark ? "text-gray-100" : "text-gray-800"
-      }`}
+      className={`text-sm font-semibold ${isDark ? "text-gray-100" : "text-gray-800"
+        }`}
     >
       {value || "N/A"}
     </span>
@@ -115,32 +113,28 @@ const LinkDetailPopup = ({
   return (
     // Backdrop
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${
-        isVisible && !isClosing
-          ? "bg-black/40 backdrop-blur-sm"
-          : "bg-transparent"
-      }`}
+      className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${isVisible && !isClosing
+        ? "bg-black/40 backdrop-blur-sm"
+        : "bg-transparent"
+        }`}
       onClick={handleBackdropClick}
       style={{ pointerEvents: linkData ? "auto" : "none" }}
     >
       {/* Popup Container */}
       <div
         ref={popupRef}
-        className={`relative w-full max-w-lg mx-4 rounded-2xl shadow-2xl border transition-all duration-200 ${
-          isVisible && !isClosing
-            ? "opacity-100 scale-100 translate-y-0"
-            : "opacity-0 scale-95 translate-y-4"
-        } ${
-          isDark
+        className={`relative w-full max-w-lg mx-4 rounded-2xl shadow-2xl border transition-all duration-200 ${isVisible && !isClosing
+          ? "opacity-100 scale-100 translate-y-0"
+          : "opacity-0 scale-95 translate-y-4"
+          } ${isDark
             ? "bg-gray-800 border-gray-700"
             : "bg-white border-gray-200"
-        }`}
+          }`}
       >
         {/* Header */}
         <div
-          className={`flex items-center justify-between px-6 py-4 border-b ${
-            isDark ? "border-gray-700" : "border-gray-200"
-          }`}
+          className={`flex items-center justify-between px-6 py-4 border-b ${isDark ? "border-gray-700" : "border-gray-200"
+            }`}
         >
           <div className="flex items-center space-x-3">
             <StatusBulb
@@ -153,20 +147,18 @@ const LinkDetailPopup = ({
               }
             />
             <h3
-              className={`text-lg font-bold ${
-                isDark ? "text-gray-100" : "text-gray-800"
-              }`}
+              className={`text-lg font-bold ${isDark ? "text-gray-100" : "text-gray-800"
+                }`}
             >
               {linkTitle || itemData.name || "Link Details"}
             </h3>
           </div>
           <button
             onClick={handleClose}
-            className={`p-2 rounded-full transition-colors ${
-              isDark
-                ? "text-gray-400 hover:bg-gray-700 hover:text-gray-200"
-                : "text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-            }`}
+            className={`p-2 rounded-full transition-colors ${isDark
+              ? "text-gray-400 hover:bg-gray-700 hover:text-gray-200"
+              : "text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              }`}
           >
             <MdClose size={20} />
           </button>
@@ -178,9 +170,8 @@ const LinkDetailPopup = ({
           {itemType === "link" && itemData && (
             <div className="space-y-1">
               <div
-                className={`divide-y ${
-                  isDark ? "divide-gray-700" : "divide-gray-100"
-                }`}
+                className={`divide-y ${isDark ? "divide-gray-700" : "divide-gray-100"
+                  }`}
               >
                 <DetailRow
                   label="Physical Status"
@@ -225,21 +216,18 @@ const LinkDetailPopup = ({
 
               {/* Expanded details section */}
               <div
-                className={`mt-4 pt-4 border-t ${
-                  isDark ? "border-gray-700" : "border-gray-200"
-                }`}
+                className={`mt-4 pt-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"
+                  }`}
               >
                 <p
-                  className={`text-xs font-semibold uppercase tracking-wider mb-3 ${
-                    isDark ? "text-gray-500" : "text-gray-400"
-                  }`}
+                  className={`text-xs font-semibold uppercase tracking-wider mb-3 ${isDark ? "text-gray-500" : "text-gray-400"
+                    }`}
                 >
                   Extended Details
                 </p>
                 <div
-                  className={`divide-y ${
-                    isDark ? "divide-gray-700" : "divide-gray-100"
-                  }`}
+                  className={`divide-y ${isDark ? "divide-gray-700" : "divide-gray-100"
+                    }`}
                 >
                   <DetailRow
                     label="Description"
@@ -252,18 +240,18 @@ const LinkDetailPopup = ({
                     isDark={isDark}
                   />
                   <DetailRow
-                    label="CDP Neighbor"
-                    value={itemData.cdp || itemData.CDP || itemData.cdpNeighbors || "N/A"}
-                    isDark={isDark}
-                  />
-                  <DetailRow
                     label="TX"
-                    value={itemData.tx || itemData.TX || "N/A"}
+                    value={itemData.tx || "N/A"}
                     isDark={isDark}
                   />
                   <DetailRow
                     label="RX"
-                    value={itemData.rx || itemData.RX || "N/A"}
+                    value={itemData.rx || "N/A"}
+                    isDark={isDark}
+                  />
+                  <DetailRow
+                    label="MTU"
+                    value={itemData.mtu || "N/A"}
                     isDark={isDark}
                   />
                   {itemData.ip && itemData.ip !== "N/A" && (
@@ -282,9 +270,8 @@ const LinkDetailPopup = ({
           {itemType === "site" && itemData && (
             <div className="space-y-1">
               <div
-                className={`divide-y ${
-                  isDark ? "divide-gray-700" : "divide-gray-100"
-                }`}
+                className={`divide-y ${isDark ? "divide-gray-700" : "divide-gray-100"
+                  }`}
               >
                 <DetailRow label="Physical" value="Up" isDark={isDark} />
                 <DetailRow
@@ -311,21 +298,18 @@ const LinkDetailPopup = ({
 
               {/* Expanded details section */}
               <div
-                className={`mt-4 pt-4 border-t ${
-                  isDark ? "border-gray-700" : "border-gray-200"
-                }`}
+                className={`mt-4 pt-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"
+                  }`}
               >
                 <p
-                  className={`text-xs font-semibold uppercase tracking-wider mb-3 ${
-                    isDark ? "text-gray-500" : "text-gray-400"
-                  }`}
+                  className={`text-xs font-semibold uppercase tracking-wider mb-3 ${isDark ? "text-gray-500" : "text-gray-400"
+                    }`}
                 >
                   Extended Details
                 </p>
                 <div
-                  className={`divide-y ${
-                    isDark ? "divide-gray-700" : "divide-gray-100"
-                  }`}
+                  className={`divide-y ${isDark ? "divide-gray-700" : "divide-gray-100"
+                    }`}
                 >
                   <DetailRow
                     label="Description"
@@ -352,9 +336,8 @@ const LinkDetailPopup = ({
 
         {/* Footer */}
         <div
-          className={`flex items-center justify-end px-6 py-4 border-t ${
-            isDark ? "border-gray-700" : "border-gray-200"
-          }`}
+          className={`flex items-center justify-end px-6 py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"
+            }`}
         >
           {itemType === "site" && onNavigateToSite && (
             <button
@@ -367,11 +350,10 @@ const LinkDetailPopup = ({
           )}
           <button
             onClick={handleClose}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-              isDark
-                ? "text-gray-300 bg-gray-700 hover:bg-gray-600"
-                : "text-gray-700 bg-gray-100 hover:bg-gray-200"
-            }`}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${isDark
+              ? "text-gray-300 bg-gray-700 hover:bg-gray-600"
+              : "text-gray-700 bg-gray-100 hover:bg-gray-200"
+              }`}
           >
             Close
           </button>
