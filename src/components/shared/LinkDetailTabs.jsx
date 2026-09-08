@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { MdClose, MdArrowForward } from "react-icons/md";
+import { api, getLinkDetails } from "../../services/apiServices";
 
 /**
  * A reusable status indicator bulb.
@@ -45,12 +46,57 @@ const LinkDetailTabs = ({
   theme,
 }) => {
   const [isDetailExpanded, setIsDetailExpanded] = useState(false);
+  const [fetchedDetailsCache, setFetchedDetailsCache] = useState({});
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
 
   useEffect(() => {
     setIsDetailExpanded(false);
   }, [activeTabId]);
+
+  useEffect(() => {
+    if (activeTab && activeTab.type === "link" && activeTab.data) {
+      const linkData = activeTab.data;
+      if (linkData.skipFetch || fetchedDetailsCache[linkData.id]) return;
+
+      const { coredevice_id, neighbor_coredevice_id, local_interface } = linkData;
+      const cid = coredevice_id || (linkData.rawLink && linkData.rawLink.coredevice_id);
+      const ncid = neighbor_coredevice_id || (linkData.rawLink && linkData.rawLink.neighbor_coredevice_id);
+      const name = local_interface || (linkData.rawLink && linkData.rawLink.local_interface);
+
+      if (cid && ncid && name) {
+        getLinkDetails(cid, ncid, name)
+          .then(data => {
+            if (data && data.length > 0) {
+              setFetchedDetailsCache(prev => ({ ...prev, [linkData.id]: data[0] }));
+            }
+          })
+          .catch(err => console.error("Failed to fetch link details in tabs:", err));
+      }
+    }
+  }, [activeTab, fetchedDetailsCache]);
+
+  let itemData = activeTab ? activeTab.data : null;
+  if (itemData && activeTab.type === "link") {
+    const fetchedDetails = fetchedDetailsCache[itemData.id];
+    itemData = {
+      ...itemData,
+      ...(fetchedDetails ? {
+        description: fetchedDetails.description || itemData.description,
+        mediaType: fetchedDetails.media_type || fetchedDetails.mediaType || itemData.mediaType,
+        tx: fetchedDetails.tx !== undefined ? (typeof fetchedDetails.tx === "number" ? `${fetchedDetails.tx} dBm` : fetchedDetails.tx) : itemData.tx,
+        rx: fetchedDetails.rx !== undefined ? (typeof fetchedDetails.rx === "number" ? `${fetchedDetails.rx} dBm` : fetchedDetails.rx) : itemData.rx,
+        mtu: fetchedDetails.mtu !== undefined ? String(fetchedDetails.mtu) : itemData.mtu,
+        physicalStatus: fetchedDetails.physical_status || itemData.physicalStatus,
+        protocolStatus: fetchedDetails.protocol_status || itemData.protocolStatus,
+        mpls: fetchedDetails.mpls_ldp || itemData.mpls,
+        ospf: fetchedDetails.ospf || fetchedDetails.ospf_state || itemData.ospf,
+        bandwidth: fetchedDetails.bw || fetchedDetails.bandwidth || itemData.bandwidth,
+      } : {})
+    };
+  }
+
+  const isDark = theme === "dark";
 
   if (!activeTab) {
     return null;

@@ -9,6 +9,7 @@ import {
 import { useParams, useNavigate } from "react-router-dom";
 import { useNodeLayout } from "./useNodeLayout";
 import { api } from "../../services/apiServices";
+import { createLinkPopupPayload } from "../chart/handleInteractions";
 
 export function useCoreSiteData(chartType) {
   const { zoneId, nodeId: nodeIdFromUrl } = useParams();
@@ -290,19 +291,19 @@ export function useCoreSiteData(chartType) {
   };
 
   const handleLinkClick = (linkData) => {
-    const newLinkPayload = {
-      id: linkData.id || `link-${linkData.source.id}-${linkData.target.id}`,
-      type: "link",
-      sourceNode: linkData.source.id,
-      targetNode: linkData.target.id,
-      name: `Link: ${linkData.source.id} ↔ ${linkData.target.id}`,
-      linkBandwidth: linkData.bw || `${Math.floor(Math.random() * 1000) + 100} Gbps`,
-      latency: `${Math.floor(Math.random() * 50) + 1} ms`,
-      utilization: linkData.rx || `${Math.floor(Math.random() * 100)}%`,
-      status: linkData.pysical_status || "up",
-      linkId: linkData.id,
-      linkDescription: linkData.description || "Core interconnect.",
+    // Treat the linkData as rawLink since it came directly from the endpoint
+    const linkDataObject = {
+      ...linkData,
+      rawLink: linkData,
+      source: linkData.source || (linkData.coredevice && linkData.coredevice.name),
+      target: linkData.target || (linkData.neighbor_coredevice && linkData.neighbor_coredevice.name),
     };
+    
+    const srcZone = linkData.coredevice?.coresite_name || "N/A";
+    const tgtZone = linkData.neighbor_coredevice?.coresite_name || linkData.neighbor_site?.name || "N/A";
+    
+    const newLinkPayload = createLinkPopupPayload(linkDataObject, srcZone, tgtZone);
+    newLinkPayload.skipFetch = true;
     openPopup(newLinkPayload);
   };
 

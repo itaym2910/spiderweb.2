@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { MdClose, MdArrowForward } from "react-icons/md";
+import { api, getLinkDetails } from "../../services/apiServices";
 
 /**
  * A reusable status indicator bulb.
@@ -97,11 +98,48 @@ const LinkDetailPopup = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [linkData]);
 
+  const [fetchedDetails, setFetchedDetails] = useState(null);
+  const isDark = theme === "dark";
+  const itemType = linkType || "link";
+
+  useEffect(() => {
+    if (itemType === "link" && linkData && !linkData.skipFetch) {
+      const { coredevice_id, neighbor_coredevice_id, local_interface } = linkData;
+      
+      // Also try to get them from rawLink if they were nested
+      const cid = coredevice_id || (linkData.rawLink && linkData.rawLink.coredevice_id);
+      const ncid = neighbor_coredevice_id || (linkData.rawLink && linkData.rawLink.neighbor_coredevice_id);
+      const name = local_interface || (linkData.rawLink && linkData.rawLink.local_interface);
+
+      if (cid && ncid && name) {
+        getLinkDetails(cid, ncid, name)
+          .then(data => {
+            if (data && data.length > 0) {
+              setFetchedDetails(data[0]);
+            }
+          })
+          .catch(err => console.error("Failed to fetch link details:", err));
+      }
+    }
+  }, [linkData, itemType]);
+
   if (!linkData) return null;
 
-  const isDark = theme === "dark";
-  const itemData = linkData;
-  const itemType = linkType || "link";
+  const itemData = {
+    ...linkData,
+    ...(fetchedDetails ? {
+      description: fetchedDetails.description || linkData.description,
+      mediaType: fetchedDetails.media_type || fetchedDetails.mediaType || linkData.mediaType,
+      tx: fetchedDetails.tx !== undefined ? (typeof fetchedDetails.tx === "number" ? `${fetchedDetails.tx} dBm` : fetchedDetails.tx) : linkData.tx,
+      rx: fetchedDetails.rx !== undefined ? (typeof fetchedDetails.rx === "number" ? `${fetchedDetails.rx} dBm` : fetchedDetails.rx) : linkData.rx,
+      mtu: fetchedDetails.mtu !== undefined ? String(fetchedDetails.mtu) : linkData.mtu,
+      physicalStatus: fetchedDetails.physical_status || linkData.physicalStatus,
+      protocolStatus: fetchedDetails.protocol_status || linkData.protocolStatus,
+      mpls: fetchedDetails.mpls_ldp || linkData.mpls,
+      ospf: fetchedDetails.ospf || fetchedDetails.ospf_state || linkData.ospf,
+      bandwidth: fetchedDetails.bw || fetchedDetails.bandwidth || linkData.bandwidth,
+    } : {})
+  };
 
   const handleNavigate = (e) => {
     e.stopPropagation();

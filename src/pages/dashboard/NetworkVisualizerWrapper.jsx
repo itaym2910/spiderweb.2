@@ -173,6 +173,8 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           target: remoteDevice.name,
           sourceName: device.name,
           targetName: remoteDevice.name,
+          coredevice_id: device.id,
+          neighbor_coredevice_id: remoteDevice.id,
           sourceZone: device.coresite_name,
           targetZone: remoteDevice.coresite_name,
           physical_status: link.oper_status,

@@ -184,3 +184,8 @@ export const api = {
       apiClient.put("/favorite-links", { link_ids: linkIds })
     ).catch(() => ({ success: true })),
 };
+
+export const getLinkDetails = (coredevice_id, neighbor_coredevice_id, name) => {
+  const params = { skip: 0, limit: 1, coredevice_id, neighbor_coredevice_id, name };
+  return handleApiCall(apiClient.get("/links", { params }));
+};
