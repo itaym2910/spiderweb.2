@@ -138,7 +138,16 @@ export default function NetworkLinksSideDrawer({
   const enrichedLinks = useMemo(() => {
     return links.map((link) => {
       const normalizedStatus = normalizeLinkStatus(link);
-      const statusDate =
+      let statusDate;
+      if (normalizedStatus === "down") {
+        statusDate = link.rawLink?.last_down_at || link.last_down_at;
+      } else if (normalizedStatus === "issue") {
+        statusDate = link.rawLink?.last_ospf_full_at || link.last_ospf_full_at;
+      } else {
+        statusDate = link.rawLink?.last_up_at || link.last_up_at;
+      }
+
+      statusDate = statusDate ||
         link.statusChangedAt ||
         link.status_changed_at ||
         link.updated_at ||
