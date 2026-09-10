@@ -103,6 +103,7 @@ const LinkDetailPopup = ({
   const itemType = linkType || "link";
 
   useEffect(() => {
+    setFetchedDetails(null);
     if (itemType === "link" && linkData && !linkData.skipFetch) {
       const { coredevice_id, neighbor_coredevice_id, local_interface } = linkData;
       
@@ -128,17 +129,17 @@ const LinkDetailPopup = ({
   const itemData = {
     ...linkData,
     ...(fetchedDetails ? {
-      description: fetchedDetails.description || linkData.description,
-      mediaType: fetchedDetails.media_type || fetchedDetails.mediaType || linkData.mediaType,
-      tx: fetchedDetails.tx !== undefined ? (typeof fetchedDetails.tx === "number" ? `${fetchedDetails.tx} dBm` : fetchedDetails.tx) : linkData.tx,
-      rx: fetchedDetails.rx !== undefined ? (typeof fetchedDetails.rx === "number" ? `${fetchedDetails.rx} dBm` : fetchedDetails.rx) : linkData.rx,
-      mtu: fetchedDetails.mtu !== undefined ? String(fetchedDetails.mtu) : linkData.mtu,
-      physicalStatus: fetchedDetails.physical_status || linkData.physicalStatus,
-      protocolStatus: fetchedDetails.protocol_status || linkData.protocolStatus,
-      mpls: fetchedDetails.mpls_ldp || linkData.mpls,
-      ospf: fetchedDetails.ospf || fetchedDetails.ospf_state || linkData.ospf,
-      bandwidth: fetchedDetails.bw || fetchedDetails.bandwidth || linkData.bandwidth,
-    } : {})
+      description: fetchedDetails?.description || linkData?.description,
+      mediaType: fetchedDetails?.media_type || fetchedDetails?.mediaType || linkData?.mediaType,
+      tx: fetchedDetails?.tx !== undefined ? (typeof fetchedDetails.tx === "number" ? `${fetchedDetails.tx} dBm` : fetchedDetails.tx) : linkData?.tx,
+      rx: fetchedDetails?.rx !== undefined ? (typeof fetchedDetails.rx === "number" ? `${fetchedDetails.rx} dBm` : fetchedDetails.rx) : linkData?.rx,
+      mtu: fetchedDetails?.mtu !== undefined ? String(fetchedDetails.mtu) : linkData?.mtu,
+      physicalStatus: fetchedDetails?.physical_status || linkData?.physicalStatus,
+      protocolStatus: fetchedDetails?.protocol_status || linkData?.protocolStatus,
+      mpls: fetchedDetails?.mpls_ldp || linkData?.mpls,
+      ospf: fetchedDetails?.ospf || fetchedDetails?.ospf_state || linkData?.ospf,
+      bandwidth: fetchedDetails?.bw || fetchedDetails?.bandwidth || linkData?.bandwidth,
+    } : {}),
   };
 
   const handleNavigate = (e) => {
@@ -269,12 +270,12 @@ const LinkDetailPopup = ({
                 >
                   <DetailRow
                     label="Description"
-                    value={itemData.description || itemData.Description || "Core backbone fiber link"}
+                    value={itemData?.description || itemData?.Description || "Core backbone fiber link"}
                     isDark={isDark}
                   />
                   <DetailRow
                     label="Media Type"
-                    value={itemData.mediaType || itemData.MediaType || itemData.media_type || "Fiber Optic"}
+                    value={itemData?.mediaType || itemData?.MediaType || itemData?.media_type || "Fiber Optic"}
                     isDark={isDark}
                   />
                   <DetailRow
@@ -351,17 +352,17 @@ const LinkDetailPopup = ({
                 >
                   <DetailRow
                     label="Description"
-                    value={itemData.description || "N/A"}
+                    value={itemData?.description || "N/A"}
                     isDark={isDark}
                   />
                   <DetailRow
                     label="Media Type"
-                    value={itemData.mediaType || "N/A"}
+                    value={itemData?.mediaType || "N/A"}
                     isDark={isDark}
                   />
                   <DetailRow
                     label="CDP Neighbors"
-                    value={itemData.cdpNeighbors || "N/A"}
+                    value={itemData?.cdpNeighbors || "N/A"}
                     isDark={isDark}
                   />
                   <DetailRow label="TX" value="98.5 Gbps" isDark={isDark} />

@@ -114,8 +114,8 @@ export const api = {
     return allDevices;
   },
   getCoreTopology: () => handleApiCall(apiClient.get("/api/core-topology")),
-  getLinkStatusEvents: (since = "24h") =>
-    handleApiCall(apiClient.get("/api/link-status-events", { params: { since } })),
+  getCoreTopologyEvents: (params) =>
+    handleApiCall(apiClient.get("/api/core-topology-events", { params })),
   getSites: () => handleApiCall(apiClient.get("/sites")),
   getLinksTopology: () => handleApiCall(apiClient.get("/links/topology")),
   getLinksTopologyByDevice: (deviceId) => handleApiCall(apiClient.get(`/link/topology/${deviceId}`)),

@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useSelector } from "react-redux";
+import { selectAllDevices } from "../../redux/slices/devicesSlice";
 import {
   ArrowUp,
   ArrowDown,
@@ -106,12 +108,40 @@ export default function NetworkLinksSideDrawer({
   // State for the "All" tab event log
   const [statusEvents, setStatusEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(false);
+  const [expandedEventLinks, setExpandedEventLinks] = useState(new Set());
+  
+  // Advanced filters for the "All" tab events
+  const [apiEventType, setApiEventType] = useState("");
+  const [apiLocalDevice, setApiLocalDevice] = useState("");
+  const [apiRemoteDevice, setApiRemoteDevice] = useState("");
+
+  const allDevices = useSelector(selectAllDevices);
+  const deviceFilterOptions = useMemo(() => {
+    if (!Array.isArray(allDevices)) return [];
+    const options = allDevices
+      .filter((d) => d && d.id && (d.hostname || d.name))
+      .map((d) => ({ id: String(d.id), label: d.hostname || d.name }));
+    const uniqueMap = new Map();
+    options.forEach((opt) => uniqueMap.set(opt.id, opt.label));
+    return Array.from(uniqueMap.entries())
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [allDevices]);
 
   // Fetch events when the "All" tab is active and time filter changes
-  const fetchEvents = useCallback(async (since) => {
+  const fetchEvents = useCallback(async (since, eventType, localId, remoteId) => {
     setEventsLoading(true);
+    let days = 1;
+    if (since === "7d") days = 7;
+    if (since === "30d") days = 30;
+
+    const params = { days };
+    if (eventType) params.event_type = eventType;
+    if (localId) params.local_device_id = parseInt(localId, 10);
+    if (remoteId) params.remote_device_id = parseInt(remoteId, 10);
+
     try {
-      const data = await api.getLinkStatusEvents(since || "24h");
+      const data = await api.getCoreTopologyEvents(params);
       setStatusEvents(data.events || []);
     } catch {
       setStatusEvents([]);
@@ -122,9 +152,9 @@ export default function NetworkLinksSideDrawer({
 
   useEffect(() => {
     if (activeFilter === "all") {
-      fetchEvents(timeFilter || "24h");
+      fetchEvents(timeFilter || "24h", apiEventType, apiLocalDevice, apiRemoteDevice);
     }
-  }, [activeFilter, timeFilter, fetchEvents]);
+  }, [activeFilter, timeFilter, apiEventType, apiLocalDevice, apiRemoteDevice, fetchEvents]);
 
   // Re-calculate durations periodically
   useEffect(() => {
@@ -326,23 +356,35 @@ export default function NetworkLinksSideDrawer({
     } else {
       setActiveFilter(filterType);
       setIsOpen(true);
-      const matching = getMatchingLinks(filterType, timeFilter);
-      onMarkAll?.(matching.map((l) => l.id));
+      if (filterType === "all") {
+        onClearMarks?.();
+      } else {
+        const matching = getMatchingLinks(filterType, timeFilter);
+        onMarkAll?.(matching.map((l) => l.id));
+      }
     }
   };
 
   // Handle status tab clicks (Up, Down, All)
   const handleStatusTabClick = (filterType) => {
     setActiveFilter(filterType);
-    const matching = getMatchingLinks(filterType, timeFilter);
-    onMarkAll?.(matching.map((l) => l.id));
+    if (filterType === "all") {
+      onClearMarks?.();
+    } else {
+      const matching = getMatchingLinks(filterType, timeFilter);
+      onMarkAll?.(matching.map((l) => l.id));
+    }
   };
 
   // Handle time window filter clicks (<24h, <7d, <1 Month, All)
   const handleTimeFilterClick = (newTimeFilter) => {
     setTimeFilter(newTimeFilter);
-    const matching = getMatchingLinks(activeFilter, newTimeFilter);
-    onMarkAll?.(matching.map((l) => l.id));
+    if (activeFilter === "all") {
+      onClearMarks?.();
+    } else {
+      const matching = getMatchingLinks(activeFilter, newTimeFilter);
+      onMarkAll?.(matching.map((l) => l.id));
+    }
   };
 
   return (
@@ -640,7 +682,7 @@ export default function NetworkLinksSideDrawer({
             </div>
           </div>
 
-          {/* Search bar & Mark All button */}
+          {/* Search bar */}
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -666,10 +708,63 @@ export default function NetworkLinksSideDrawer({
               )}
             </div>
           </div>
+
+          {/* Advanced API Filters for All tab */}
+          {activeFilter === "all" && (
+            <div className="grid grid-cols-3 gap-2 mt-1">
+              <select
+                value={apiEventType}
+                onChange={(e) => setApiEventType(e.target.value)}
+                className={`text-[11px] p-1.5 rounded-lg border outline-none ${
+                  isDark
+                    ? "bg-gray-800/80 border-gray-700 text-gray-100 focus:border-blue-500"
+                    : "bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-500"
+                }`}
+              >
+                <option value="">All Types</option>
+                <option value="link_up">Link Up</option>
+                <option value="link_down">Link Down</option>
+                <option value="ospf_full">OSPF Full</option>
+                <option value="ospf_drop">OSPF Drop</option>
+              </select>
+              <select
+                value={apiLocalDevice}
+                onChange={(e) => setApiLocalDevice(e.target.value)}
+                className={`text-[11px] p-1.5 rounded-lg border outline-none ${
+                  isDark
+                    ? "bg-gray-800/80 border-gray-700 text-gray-100 focus:border-blue-500"
+                    : "bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-500"
+                }`}
+              >
+                <option value="">Local Device (Any)</option>
+                {deviceFilterOptions.filter(d => d.id !== "all").map((dev) => (
+                  <option key={`local-${dev.id}`} value={dev.id}>
+                    {dev.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={apiRemoteDevice}
+                onChange={(e) => setApiRemoteDevice(e.target.value)}
+                className={`text-[11px] p-1.5 rounded-lg border outline-none ${
+                  isDark
+                    ? "bg-gray-800/80 border-gray-700 text-gray-100 focus:border-blue-500"
+                    : "bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-500"
+                }`}
+              >
+                <option value="">Remote Device (Any)</option>
+                {deviceFilterOptions.filter(d => d.id !== "all").map((dev) => (
+                  <option key={`remote-${dev.id}`} value={dev.id}>
+                    {dev.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* --- Content Area (Scrollable) --- */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2.5">
+        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none p-3 space-y-2.5">
           {activeFilter === "all" ? (
             /* ===== EVENT LOG for the "All" tab ===== */
             eventsLoading ? (
@@ -692,87 +787,176 @@ export default function NetworkLinksSideDrawer({
                 </p>
               </div>
             ) : (
-              statusEvents
-                .filter((event) => {
+              (() => {
+                const filteredEvents = statusEvents.filter((event) => {
                   if (!searchQuery.trim()) return true;
                   const q = searchQuery.toLowerCase().trim();
                   return (
-                    (event.device_name || "").toLowerCase().includes(q) ||
+                    (event.local_device_name || "").toLowerCase().includes(q) ||
                     (event.remote_device_name || "").toLowerCase().includes(q) ||
-                    (event.coresite_name || "").toLowerCase().includes(q)
+                    (event.event_type || "").toLowerCase().includes(q)
                   );
-                })
-                .map((event) => {
-                  const statusColors = {
-                    up: { bg: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400", label: "UP" },
-                    down: { bg: "bg-rose-500", text: "text-rose-600 dark:text-rose-400", label: "DOWN" },
-                    issue: { bg: "bg-amber-500", text: "text-amber-600 dark:text-amber-400", label: "ISSUE" },
-                  };
-                  const oldStyle = statusColors[event.old_status] || statusColors.up;
-                  const newStyle = statusColors[event.new_status] || statusColors.down;
-                  const eventTime = formatExactTime(event.changed_at);
-                  const eventDuration = formatDuration(event.changed_at);
+                });
+
+                const eventsByLink = filteredEvents.reduce((acc, event) => {
+                  const id = event.link_id;
+                  if (!acc[id]) {
+                    acc[id] = {
+                      linkId: id,
+                      deviceName: event.local_device_name,
+                      remoteDeviceName: event.remote_device_name,
+                      interface: event.local_interface,
+                      events: []
+                    };
+                  }
+                  acc[id].events.push(event);
+                  return acc;
+                }, {});
+
+                return Object.values(eventsByLink).map((group) => {
+                  const isExpanded = expandedEventLinks.has(group.linkId);
+                  const eventCount = group.events.length;
 
                   return (
                     <div
-                      key={event.id}
+                      key={group.linkId}
                       className={`group relative p-3 rounded-xl border transition-all duration-200 ${
                         isDark
                           ? "bg-gray-800/60 border-gray-700/60 hover:border-gray-600"
                           : "bg-white border-gray-200/80 hover:border-gray-300 shadow-sm"
                       }`}
                     >
-                      {/* Status Change Badge */}
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-1.5">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider ${oldStyle.text}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${oldStyle.bg}`} />
-                            {oldStyle.label}
-                          </span>
-                          <ArrowRight className="w-3 h-3 text-gray-400" />
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider ${newStyle.text}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${newStyle.bg}`} />
-                            {newStyle.label}
-                          </span>
-                        </div>
-                        <div
-                          title={eventTime}
-                          className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
-                        >
-                          <Clock className="w-3 h-3 flex-shrink-0" />
-                          <span>{eventDuration} ago</span>
-                        </div>
-                      </div>
-
-                      {/* Link Name */}
-                      <div className="flex items-center justify-between text-xs font-semibold py-1">
-                        <div className="flex flex-col min-w-0 pr-2">
-                          <span className="truncate text-gray-800 dark:text-gray-100 font-mono">
-                            {event.device_name}
-                          </span>
-                        </div>
-                        <div className="text-gray-400 dark:text-gray-500 px-1 font-mono text-[10px]">
-                          ⟷
-                        </div>
-                        <div className="flex flex-col min-w-0 pl-2 text-right">
-                          <span className="truncate text-gray-800 dark:text-gray-100 font-mono">
-                            {event.remote_device_name}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Meta */}
+                      {/* Link Header (Clickable) */}
                       <div
-                        className={`mt-2 pt-2 border-t flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 ${
-                          isDark ? "border-gray-700/50" : "border-gray-100"
-                        }`}
+                        className="flex items-center justify-between cursor-pointer select-none"
+                        onClick={() => {
+                          setExpandedEventLinks(prev => {
+                            const next = new Set(prev);
+                            if (next.has(group.linkId)) next.delete(group.linkId);
+                            else next.add(group.linkId);
+                            return next;
+                          });
+                        }}
                       >
-                        <span>{event.coresite_name}</span>
-                        <span className="font-mono">{eventTime}</span>
+                        <div className="flex flex-col min-w-0 pr-4">
+                          <div className="flex items-center gap-2 text-xs font-semibold text-gray-800 dark:text-gray-100">
+                            <span className="truncate font-mono">{group.deviceName}</span>
+                            <span className="text-gray-400 dark:text-gray-500 font-mono text-[10px]">⟷</span>
+                            <span className="truncate font-mono">{group.remoteDeviceName}</span>
+                          </div>
+                          <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                            {group.interface || "Unknown Interface"}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold">
+                            {eventCount} {eventCount === 1 ? 'event' : 'events'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const fullLink = enrichedLinks.find((l) => l.id === group.linkId);
+                              if (fullLink) {
+                                onLinkClick?.(fullLink);
+                              } else {
+                                // Fallback
+                                onLinkClick?.({
+                                  id: group.linkId,
+                                  sourceName: group.deviceName,
+                                  targetName: group.remoteDeviceName,
+                                  sourceNode: group.deviceName,
+                                  targetNode: group.remoteDeviceName,
+                                  local_interface: group.interface,
+                                  statusChangedAt: group.events[0]?.created_at,
+                                  category: "issue",
+                                  status: "issue"
+                                });
+                              }
+                            }}
+                            title="Inspect link details"
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              isDark
+                                ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
+                                : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                            }`}
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
+
+                      {/* Expanded Events List */}
+                      {isExpanded && (
+                        <div className={`mt-3 pt-3 border-t space-y-3 ${isDark ? "border-gray-700/50" : "border-gray-100"}`}>
+                          {group.events.map((event) => {
+                            const statusColors = {
+                              up: { bg: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" },
+                              down: { bg: "bg-rose-500", text: "text-rose-600 dark:text-rose-400" },
+                              issue: { bg: "bg-amber-500", text: "text-amber-600 dark:text-amber-400" },
+                            };
+
+                            const isOspfEvent = event.event_type === "ospf_drop" || event.event_type === "ospf_full";
+                            const oldStatusStr = isOspfEvent ? event.old_ospf_state : event.old_oper_status;
+                            const newStatusStr = isOspfEvent ? event.new_ospf_state : event.new_oper_status;
+
+                            const getStatusColor = (statusStr) => {
+                              if (!statusStr) return statusColors.issue;
+                              const s = statusStr.toLowerCase();
+                              if (s === "up" || s === "full") return statusColors.up;
+                              if (s === "down" || s === "drop") return statusColors.down;
+                              return statusColors.issue;
+                            };
+
+                            const oldStyle = getStatusColor(oldStatusStr);
+                            const newStyle = getStatusColor(newStatusStr);
+                            
+                            const oldLabel = oldStatusStr ? String(oldStatusStr).toUpperCase() : "N/A";
+                            const newLabel = newStatusStr ? String(newStatusStr).toUpperCase() : "N/A";
+
+                            const eventTime = formatExactTime(event.created_at);
+                            const eventDuration = formatDuration(event.created_at);
+
+                            const eventTypeLabel = String(event.event_type || "Event").replace("_", " ").toUpperCase();
+
+                            return (
+                              <div key={event.id} className={`p-2 rounded-lg border ${isDark ? "bg-gray-800/80 border-gray-700/80" : "bg-gray-50 border-gray-100"}`}>
+                                {/* Status Change Badge */}
+                                <div className="flex items-center justify-between gap-2 mb-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${oldStyle.text}`}>
+                                      <span className={`w-1.5 h-1.5 rounded-full ${oldStyle.bg}`} />
+                                      {oldLabel}
+                                    </span>
+                                    <ArrowRight className="w-3 h-3 text-gray-400" />
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${newStyle.text}`}>
+                                      <span className={`w-1.5 h-1.5 rounded-full ${newStyle.bg}`} />
+                                      {newLabel}
+                                    </span>
+                                  </div>
+                                  <div
+                                    title={eventTime}
+                                    className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-white dark:bg-gray-700 shadow-sm text-gray-600 dark:text-gray-300"
+                                  >
+                                    <Clock className="w-2.5 h-2.5 flex-shrink-0" />
+                                    <span>{eventDuration} ago</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
+                                  <span className="font-medium text-blue-600 dark:text-blue-400">
+                                    {eventTypeLabel}
+                                  </span>
+                                  <span className="font-mono">{eventTime}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
-                })
+                });
+              })()
             )
           ) : (
             /* ===== STANDARD LINK CARDS for Up/Down/Issue tabs ===== */
