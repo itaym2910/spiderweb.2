@@ -549,30 +549,7 @@ const LinkTable = ({
       </div>
 
       {/* ─── Summary Stats ─── */}
-      <div className="flex-shrink-0 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-        <StatCard
-          icon={Cpu}
-          label="Interfaces"
-          value={stats.totalIfaces}
-          color="blue"
-        />
-        <StatCard
-          icon={ArrowUpCircle}
-          label="Interfaces Up"
-          value={stats.ifacesUp}
-          color="green"
-          subValue={
-            stats.totalIfaces > 0
-              ? `${Math.round((stats.ifacesUp / stats.totalIfaces) * 100)}%`
-              : undefined
-          }
-        />
-        <StatCard
-          icon={ArrowDownCircle}
-          label="Interfaces Down"
-          value={stats.ifacesDown}
-          color="red"
-        />
+      <div className="flex-shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-2">
         <StatCard
           icon={Link2}
           label="Total Links"
@@ -580,247 +557,27 @@ const LinkTable = ({
           color="purple"
         />
         <StatCard
+          icon={ArrowUpCircle}
+          label="Links Up"
+          value={stats.linksUp}
+          color="green"
+        />
+        <StatCard
+          icon={ArrowDownCircle}
+          label="Links Down"
+          value={stats.linksDown}
+          color="red"
+        />
+        <StatCard
           icon={AlertTriangle}
-          label="Link Issues"
-          value={stats.linksDown + stats.linksIssue}
+          label="Links Issues"
+          value={stats.linksIssue}
           color="amber"
         />
       </div>
 
-      {/* ─── Sections Container ─── */}
+      {/* --- Sections Container --- */}
       <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-hidden">
-        {/* ─── Interfaces Section ─── */}
-        <div
-          className={`bg-white dark:bg-gray-800/80 rounded-xl border border-gray-200 dark:border-gray-700/50 shadow-sm overflow-hidden flex flex-col min-h-0 ${
-            expandedSection.interfaces ? "flex-1" : "flex-shrink-0"
-          }`}
-        >
-          <button
-            onClick={() => toggleSection("interfaces")}
-            className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors flex-shrink-0"
-          >
-            <div className="flex items-center gap-2">
-              <div className="p-1 rounded-lg bg-blue-500/10 dark:bg-blue-400/10">
-                <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              </div>
-              <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">
-                Device Interfaces
-              </h3>
-              <span className="text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">
-                {filteredInterfaces.length}
-                {interfaceStatusFilter !== "all" &&
-                  ` / ${interfaces.length}`}
-              </span>
-            </div>
-            <ChevronDown
-              className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
-                expandedSection.interfaces ? "rotate-0" : "-rotate-90"
-              }`}
-            />
-          </button>
-
-          {expandedSection.interfaces && (
-            <div className="px-4 pb-3 flex-1 min-h-0 flex flex-col overflow-hidden">
-              {/* Interface Filters */}
-              <div className="flex items-center gap-0.5 mb-1 pb-1 border-b border-gray-100 dark:border-gray-700/50 flex-shrink-0">
-                <span className="text-[9px] font-medium text-gray-500 dark:text-gray-400 mr-0.5">
-                  Status:
-                </span>
-                <FilterPill
-                  active={interfaceStatusFilter === "all"}
-                  onClick={() => setInterfaceStatusFilter("all")}
-                >
-                  All
-                </FilterPill>
-                <FilterPill
-                  active={interfaceStatusFilter === "up"}
-                  onClick={() => setInterfaceStatusFilter("up")}
-                >
-                  <span className="flex items-center gap-1">
-                    <Wifi className="w-3 h-3" /> Up
-                  </span>
-                </FilterPill>
-                <FilterPill
-                  active={interfaceStatusFilter === "down"}
-                  onClick={() => setInterfaceStatusFilter("down")}
-                >
-                  <span className="flex items-center gap-1">
-                    <WifiOff className="w-3 h-3" /> Down
-                  </span>
-                </FilterPill>
-              </div>
-
-              {/* Interfaces Table */}
-              {filteredInterfaces.length > 0 ? (
-                <div className="flex-1 min-h-0 overflow-auto rounded-lg border border-gray-100 dark:border-gray-700/50 shadow-inner">
-                  <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-700/50">
-                    <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700 shadow-sm">
-                      <tr>
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Interface
-                        </th>
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Description
-                        </th>
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          BW / MTU
-                        </th>
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Media
-                        </th>
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          MTU
-                        </th>
-                        <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          OSPF
-                        </th>
-                        <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          MPLS
-                        </th>
-                        <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          TX / RX
-                        </th>
-                        <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          CRC Errors
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50 dark:divide-gray-700/30">
-                      {filteredInterfaces.map((iface, index) => {
-                        const physStatus = iface.physical_status || "N/A";
-                        const protoStatus = iface.protocol_status || "N/A";
-                        const crcVal = iface.crc ?? "N/A";
-                        const hasCrcErrors =
-                          typeof crcVal === "number" && crcVal > 0;
-
-                        return (
-                          <tr
-                            key={iface.id || index}
-                            onClick={() =>
-                              setPopupItem({ data: iface, type: "interface" })
-                            }
-                            className="hover:bg-blue-50/60 dark:hover:bg-blue-500/10 cursor-pointer transition-colors duration-150"
-                            title="Click for full details popup"
-                          >
-                            <td className="px-4 py-2.5 whitespace-nowrap">
-                              <div className="flex flex-col gap-0.5">
-                                <StatusBadge status={physStatus} />
-                                {protoStatus !== physStatus && (
-                                  <span className="text-[10px] text-gray-400 dark:text-gray-500">
-                                    Proto: {protoStatus}
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-4 py-2.5 whitespace-nowrap">
-                              <span className="text-xs font-mono font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                                {iface.name || "N/A"}
-                                <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </span>
-                            </td>
-                            <td className="px-4 py-2.5">
-                              <span className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">
-                                {iface.description || "—"}
-                              </span>
-                            </td>
-                            <td className="px-4 py-2.5 whitespace-nowrap">
-                              <div className="text-xs">
-                                <span className="text-gray-800 dark:text-gray-200 font-medium">
-                                  {iface.bandwidth
-                                    ? `${
-                                        iface.bandwidth >= 1000
-                                          ? `${iface.bandwidth / 1000}G`
-                                          : `${iface.bandwidth}M`
-                                      }`
-                                    : "N/A"}
-                                </span>
-                                <span className="text-gray-400 dark:text-gray-500 mx-1">
-                                  /
-                                </span>
-                                <span className="text-gray-500 dark:text-gray-400">
-                                  {iface.mtu || "N/A"}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-2.5 whitespace-nowrap">
-                              <span className="text-xs text-gray-600 dark:text-gray-400">
-                                {iface.media_type || "N/A"}
-                              </span>
-                            </td>
-                            <td className="px-4 py-2.5 whitespace-nowrap">
-                              <span className="text-xs font-mono text-gray-600 dark:text-gray-400">
-                                {iface.mtu || "—"}
-                              </span>
-                            </td>
-                            <td className="px-4 py-2.5 whitespace-nowrap text-center">
-                              <span
-                                className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
-                                  iface.ospf === "Enabled"
-                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                    : "bg-gray-100 dark:bg-gray-700 text-gray-400"
-                                }`}
-                              >
-                                {iface.ospf || "N/A"}
-                              </span>
-                            </td>
-                            <td className="px-4 py-2.5 whitespace-nowrap text-center">
-                              <span
-                                className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
-                                  iface.mpls === "Enabled"
-                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                    : "bg-gray-100 dark:bg-gray-700 text-gray-400"
-                                }`}
-                              >
-                                {iface.mpls || "N/A"}
-                              </span>
-                            </td>
-                            <td className="px-4 py-2.5 whitespace-nowrap text-right">
-                              <div className="text-xs font-mono">
-                                <span className="text-gray-600 dark:text-gray-400">
-                                  {iface.tx ?? "N/A"}
-                                </span>
-                                <span className="text-gray-300 dark:text-gray-600 mx-0.5">
-                                  /
-                                </span>
-                                <span className="text-gray-600 dark:text-gray-400">
-                                  {iface.rx ?? "N/A"}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-2.5 whitespace-nowrap text-right">
-                              <span
-                                className={`text-xs font-mono ${
-                                  hasCrcErrors
-                                    ? "text-red-600 dark:text-red-400 font-semibold"
-                                    : "text-gray-500 dark:text-gray-400"
-                                }`}
-                              >
-                                {crcVal}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-6 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">
-                  <Activity className="w-8 h-8 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
-                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                    {interfaces.length === 0
-                      ? "No interface data available for this device."
-                      : "No interfaces match the current filter."}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
         {/* ─── Links Section ─── */}
         <div
           className={`bg-white dark:bg-gray-800/80 rounded-xl border border-gray-200 dark:border-gray-700/50 shadow-sm overflow-hidden flex flex-col min-h-0 ${

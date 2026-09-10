@@ -24,6 +24,7 @@ import { useRelatedDevices } from "../hooks/useRelatedDevices";
 import { selectAllDevices, selectDeviceInfo } from "../redux/slices/devicesSlice";
 import { selectAllSites } from "../redux/slices/sitesSlice";
 import { selectAllTenGigLinks } from "../redux/slices/tenGigLinksSlice";
+import { api } from "../services/apiServices";
 
 // This helper component can be used by other pages like FavoritesPage
 function StatusIndicator({ status }) {
@@ -50,19 +51,60 @@ function NodeDetailView({ chartType, theme }) {
   const { nodeId: deviceHostname, zoneId } = useParams();
   const allDevices = useSelector(selectAllDevices);
   const allSites = useSelector(selectAllSites);
-  const allLinks = useSelector(selectAllTenGigLinks);
   const deviceInfo = useSelector(selectDeviceInfo);
   const otherDevicesInZone = useRelatedDevices(deviceHostname, zoneId);
 
+  const [apiDeviceLinks, setApiDeviceLinks] = React.useState([]);
+
   // Find the current device object and its interfaces
   const currentDevice = React.useMemo(() => {
-    return allDevices.find((d) => d.hostname === deviceHostname) || null;
+    return allDevices.find((d) => 
+      d.hostname === deviceHostname || 
+      d.name === deviceHostname || 
+      String(d.id) === String(deviceHostname)
+    ) || null;
   }, [allDevices, deviceHostname]);
+
+  React.useEffect(() => {
+    if (currentDevice?.id) {
+      api.getLinksTopologyByDevice(currentDevice.id)
+        .then((data) => {
+          setApiDeviceLinks(Array.isArray(data) ? data : data.links || []);
+        })
+        .catch((err) => console.error("Failed to fetch device links:", err));
+    }
+  }, [currentDevice?.id]);
 
   const deviceInterfaces = React.useMemo(() => {
     if (!currentDevice) return [];
-    
-    // 1. Try finding in deviceInfo store by id (number or string) or hostname
+
+    // 1. Map API topology links to interfaces format
+    if (apiDeviceLinks && apiDeviceLinks.length > 0) {
+      return apiDeviceLinks.map((link) => {
+        const remoteName = link.neighbor_coredevice?.name || link.neighbor_site?.name || link.target || "Unknown Device";
+        const operStatus = String(link.oper_status || link.status || link.physicalStatus || "down").toLowerCase() === "up" ? "Up" : "Down";
+        const ospfStatus = String(link.ospf_state || link.ospfStatus || link.protocolStatus || "down").toLowerCase() === "full" ? "Up" : "Down";
+        
+        return {
+          id: link.id || Math.random().toString(),
+          name: link.local_interface || link.name || "Unknown Interface",
+          description: link.description || `Link to ${typeof remoteName === "object" ? remoteName.name || remoteName.hostname : remoteName}`,
+          physical_status: operStatus,
+          protocol_status: ospfStatus,
+          bandwidth: link.bandwidth || link.bw || 10000,
+          mtu: link.mtu || 9000,
+          media_type: link.media_type || link.MediaType || "Fiber Optic",
+          cdp: typeof remoteName === "object" ? remoteName.name || remoteName.hostname : remoteName,
+          ospf: ospfStatus,
+          mpls: link.mpls || "Enabled",
+          tx: link.tx !== undefined ? link.tx : (link.tx_power !== undefined ? link.tx_power : (link.TX !== undefined ? link.TX : "N/A")),
+          rx: link.rx !== undefined ? link.rx : (link.rx_power !== undefined ? link.rx_power : (link.RX !== undefined ? link.RX : "N/A")),
+          crc: link.crc || 0,
+        };
+      });
+    }
+
+    // 2. Try finding in deviceInfo store by id (number or string) or hostname
     if (deviceInfo) {
       const found =
         deviceInfo[currentDevice.id] ||
@@ -73,77 +115,8 @@ function NodeDetailView({ chartType, theme }) {
       }
     }
 
-    // 2. Fallback: Generate structured realistic interfaces for this device so interface table is never empty
-    const devId = currentDevice.id || 1;
-    const host = currentDevice.hostname || "Device";
-    
-    return [
-      {
-        id: `iface-${devId}-1`,
-        name: "TenGigabitEthernet1/0/1",
-        description: `Primary Core Trunk Interface (${host})`,
-        physical_status: "Up",
-        protocol_status: "Up",
-        bandwidth: 10000,
-        mtu: 9000,
-        media_type: "Fiber",
-        cdp: "core-sw-01",
-        ospf: "Enabled",
-        mpls: "Enabled",
-        tx: -3.2,
-        rx: -4.1,
-        crc: 0,
-      },
-      {
-        id: `iface-${devId}-2`,
-        name: "TenGigabitEthernet1/0/2",
-        description: `Secondary Core Link (${host})`,
-        physical_status: "Up",
-        protocol_status: "Up",
-        bandwidth: 10000,
-        mtu: 9000,
-        media_type: "Fiber",
-        cdp: "core-sw-02",
-        ospf: "Enabled",
-        mpls: "Enabled",
-        tx: -3.5,
-        rx: -4.3,
-        crc: 0,
-      },
-      {
-        id: `iface-${devId}-3`,
-        name: "GigabitEthernet0/1",
-        description: "Uplink to Local Site Switch",
-        physical_status: "Up",
-        protocol_status: "Up",
-        bandwidth: 1000,
-        mtu: 1500,
-        media_type: "Copper",
-        cdp: "dist-sw-01",
-        ospf: "Enabled",
-        mpls: "Disabled",
-        tx: -2.1,
-        rx: -2.8,
-        crc: 0,
-      },
-      {
-        id: `iface-${devId}-4`,
-        name: "GigabitEthernet0/2",
-        description: "Standby Management Interface",
-        physical_status: "Down",
-        protocol_status: "Down",
-        bandwidth: 1000,
-        mtu: 1500,
-        media_type: "Copper",
-        cdp: "N/A",
-        ospf: "Disabled",
-        mpls: "Disabled",
-        tx: 0,
-        rx: 0,
-        crc: 0,
-      },
-    ];
-  }, [currentDevice, deviceInfo]);
+    return [];
+  }, [currentDevice, deviceInfo, apiDeviceLinks]);
 
   const linksForTable = React.useMemo(() => {
     if (!currentDevice) return [];
@@ -153,14 +126,21 @@ function NodeDetailView({ chartType, theme }) {
     const typeId = chartType === "P" ? 2 : 1;
 
     // Helper to get hostname string from string, number, or node object
-    const getHostname = (val) => {
-      if (!val) return "";
-      if (typeof val === "string") return val;
-      if (typeof val === "object") return val.hostname || val.name || "";
-      return String(val);
+    const getHostname = (val, linkObj, isSource) => {
+      if (val && typeof val === "object") return val.hostname || val.name || "";
+      if (val && typeof val === "string") return val;
+      if (val) return String(val);
+      
+      // Fallback to coredevice/neighbor_coredevice structure if val is undefined
+      if (linkObj) {
+        if (isSource && linkObj.coredevice) return linkObj.coredevice.name || linkObj.coredevice.hostname || "";
+        if (!isSource && linkObj.neighbor_coredevice) return linkObj.neighbor_coredevice.name || linkObj.neighbor_coredevice.hostname || "";
+        if (!isSource && linkObj.neighbor_site) return linkObj.neighbor_site.name || "";
+      }
+      return "";
     };
 
-    const interCoreLinks = (allLinks || [])
+    const interCoreLinks = apiDeviceLinks
       .filter((link) => {
         // Match network type if present
         const linkTypeId = link.network_type_id ?? link.type_id;
@@ -172,34 +152,38 @@ function NodeDetailView({ chartType, theme }) {
           return false;
         }
 
-        const sourceHost = getHostname(link.source);
-        const targetHost = getHostname(link.target);
+        const sourceHost = getHostname(link.source, link, true);
+        const targetHost = getHostname(link.target, link, false);
 
         const isSource =
           sourceHost === deviceHostname ||
           link.coredevice_id === currentDevice.id ||
-          link.source === currentDevice.id;
+          link.source === currentDevice.id ||
+          link.coredevice?.id === currentDevice.id;
 
         const isTarget =
           targetHost === deviceHostname ||
           link.neighbor_coredevice_id === currentDevice.id ||
-          link.target === currentDevice.id;
+          link.target === currentDevice.id ||
+          link.neighbor_coredevice?.id === currentDevice.id ||
+          link.neighbor_site?.id === currentDevice.id;
 
-        return isSource || isTarget;
+        return isSource || isTarget || true; // Since the API only returns links for this device, we can just return true.
       })
       .map((link) => {
-        const sourceHost = getHostname(link.source);
-        const targetHost = getHostname(link.target);
+        const sourceHost = getHostname(link.source, link, true);
+        const targetHost = getHostname(link.target, link, false);
 
         const isSource =
           sourceHost === deviceHostname ||
           link.coredevice_id === currentDevice.id ||
-          link.source === currentDevice.id;
+          link.source === currentDevice.id ||
+          link.coredevice?.id === currentDevice.id;
 
         const otherDeviceHostname = isSource ? targetHost : sourceHost;
         const otherDeviceId = isSource
-          ? link.neighbor_coredevice_id || link.target
-          : link.coredevice_id || link.source;
+          ? link.neighbor_coredevice_id || link.target || link.neighbor_coredevice?.id || link.neighbor_site?.id
+          : link.coredevice_id || link.source || link.coredevice?.id;
 
         const otherDevice =
           deviceMapByHostname.get(otherDeviceHostname) ||
@@ -214,25 +198,32 @@ function NodeDetailView({ chartType, theme }) {
             : `Device-${otherDeviceId || "Unknown"}`);
 
         let linkType = "inter-core-different-site";
-        if (
-          otherDevice &&
-          otherDevice.core_pikudim_site_id ===
-            currentDevice.core_pikudim_site_id
+        if (!link.neighbor_coredevice) {
+          linkType = "core-to-site";
+        } else if (
+          link.coredevice &&
+          link.coredevice.coresite_id === link.neighbor_coredevice.coresite_id
         ) {
           linkType = "inter-core-same-site";
+        } else {
+          linkType = "inter-core-different-site";
         }
 
         const rawStatus = (
+          link.oper_status ||
           link.status ||
           link.physicalStatus ||
           "up"
         ).toLowerCase();
-        const normalizedStatus =
-          rawStatus === "down"
-            ? "down"
-            : rawStatus === "issue"
-            ? "issue"
-            : "up";
+        
+        const ospfStatus = (link.ospf_state || link.ospfStatus || "full").toLowerCase();
+
+        let normalizedStatus = "up";
+        if (rawStatus === "down") {
+          normalizedStatus = "down";
+        } else if (rawStatus === "issue" || ospfStatus !== "full") {
+          normalizedStatus = "issue";
+        }
 
         const bw = link.bandwidth || link.Bandwidth || link.bw;
         const formattedBw =
@@ -265,67 +256,19 @@ function NodeDetailView({ chartType, theme }) {
             outputDataRate: link.output_data
               ? `${link.output_data} Mbps`
               : link.output_rate || "N/A",
-            txPower: link.TX ? `${link.TX} dBm` : link.txPower || "N/A",
-            rxPower: link.RX ? `${link.RX} dBm` : link.rxPower || "N/A",
+            txPower: link.tx !== undefined ? `${link.tx} dBm` : (link.TX ? `${link.TX} dBm` : link.txPower || "N/A"),
+            rxPower: link.rx !== undefined ? `${link.rx} dBm` : (link.RX ? `${link.RX} dBm` : link.rxPower || "N/A"),
           },
         };
       });
 
-    const coreToSiteLinks = (allSites || [])
-      .filter((site) => site.device_id === currentDevice.id)
-      .map((site) => {
-        const rawStatus = (
-          site.physicalStatus ||
-          site.status ||
-          "up"
-        ).toLowerCase();
-        const normalizedStatus =
-          rawStatus === "down" || rawStatus === "issue" ? "down" : "up";
-        const bw = site.Bandwidth || site.bandwidth;
-        const formattedBw =
-          typeof bw === "number"
-            ? bw >= 1000
-              ? `${bw / 1000} Gbps`
-              : `${bw} Mbps`
-            : bw || "1 Gbps";
-
-        return {
-          id: `site-link-${site.id}`,
-          name:
-            site.site_name_english ||
-            site.name ||
-            site.site_name ||
-            `Site ${site.id}`,
-          description:
-            site.description ||
-            `Connection to End-Site (${site.site_name_hebrew || ""})`,
-          status: normalizedStatus,
-          bandwidth: formattedBw,
-          ospfStatus: site.OSPF || "N/A",
-          mplsStatus: site.MPLS || "N/A",
-          type: "core-to-site",
-          additionalDetails: {
-            mediaType: site.MediaType || "Ethernet/Fiber",
-            cdpNeighbors: site.CDP || site.cdp || "N/A",
-            containerName:
-              site.site_name_hebrew || site.site_name_english || "End-Site",
-            mtu: site.mtu || 1500,
-            crcErrors: site.crcErrors ?? 0,
-            inputDataRate: site.TX ? `${site.TX} dBm` : "N/A",
-            outputDataRate: site.RX ? `${site.RX} dBm` : "N/A",
-            txPower: site.TX ? `${site.TX} dBm` : "N/A",
-            rxPower: site.RX ? `${site.RX} dBm` : "N/A",
-          },
-        };
-      });
-
-    return [...interCoreLinks, ...coreToSiteLinks];
+      return interCoreLinks;
   }, [
     deviceHostname,
     chartType,
     allDevices,
     allSites,
-    allLinks,
+    apiDeviceLinks,
     currentDevice,
   ]);
 
