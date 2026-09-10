@@ -61,6 +61,24 @@ export function linkPositionFromEdges(d, r = 60) {
 export function normalizeLinkStatus(link) {
   if (!link) return "up";
 
+  const raw = link.rawLink || link;
+
+  // New logic based on /api/core-topology
+  if (raw.oper_status !== undefined) {
+    const operStatus = String(raw.oper_status).toLowerCase().trim();
+    if (operStatus !== "up") {
+      return "down";
+    }
+
+    const ospfState = String(raw.ospf_state || "").toLowerCase().trim();
+    if (ospfState !== "full" && raw.last_ospf_full_at !== "null" && raw.last_ospf_full_at !== null && raw.last_ospf_full_at !== undefined) {
+      return "issue";
+    }
+
+    return "up";
+  }
+
+  // Fallback for backwards compatibility if oper_status is not present
   if (link.normalizedStatus) {
     const norm = String(link.normalizedStatus).toLowerCase().trim();
     if (norm === "down" || norm === "issue" || norm === "up") return norm;

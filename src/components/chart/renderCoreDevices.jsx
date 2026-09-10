@@ -128,7 +128,7 @@ export function renderCoreDevices(
     .data(nodes)
     .join("text")
     .attr("class", "label")
-    .text((d) => d.id)
+    .text((d) => d.shortName || d.id)
     .attr("fill", palette.label)
     .attr("font-size", "18px")
     //.attr("font-weight", "bold") // Adds boldness

@@ -142,7 +142,7 @@ export default function SitesBar({
             border: `2px solid ${buttonDefaultBorder}`,
           }}
         >
-          {site.site_name_english}
+          {site.name || site.site_name_english}
         </button>
       ))}
     </div>

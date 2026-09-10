@@ -81,19 +81,15 @@ const LinkDetailRow = ({ link, isParentSelectedAndDark }) => {
             </div>
             <div className={detailItemClass}>
               <span className={`font-medium ${labelTextColor}`}>
-                CDP Neighbors:
+                MTU:
               </span>{" "}
-              <span className={valueTextColor}>{cdpNeighbors}</span>
+              <span className={valueTextColor}>{mtu}</span>
             </div>
             <div className={detailItemClass}>
               <span className={`font-medium ${labelTextColor}`}>
                 Container:
               </span>{" "}
               <span className={valueTextColor}>{containerName}</span>
-            </div>
-            <div className={detailItemClass}>
-              <span className={`font-medium ${labelTextColor}`}>MTU:</span>{" "}
-              <span className={valueTextColor}>{mtu}</span>
             </div>
             <div className={detailItemClass}>
               <span className={`font-medium ${labelTextColor}`}>

@@ -272,7 +272,7 @@ const DetailModal = ({ popup, onClose, theme }) => {
               <div className="bg-gray-50/50 dark:bg-gray-700/30 p-3.5 rounded-xl border border-gray-100 dark:border-gray-700/50">
                 <DetailItemRow label="Description" value={data.description} />
                 <DetailItemRow label="Media Type" value={data.media_type} />
-                <DetailItemRow label="CDP Neighbor" value={data.cdp} />
+                <DetailItemRow label="MTU" value={data.mtu} />
                 <DetailItemRow label="OSPF" value={data.ospf} />
                 <DetailItemRow label="MPLS" value={data.mpls} />
                 <DetailItemRow
@@ -341,10 +341,6 @@ const DetailModal = ({ popup, onClose, theme }) => {
                     <DetailItemRow
                       label="Media Type"
                       value={data.additionalDetails.mediaType}
-                    />
-                    <DetailItemRow
-                      label="CDP Neighbors"
-                      value={data.additionalDetails.cdpNeighbors}
                     />
                     <DetailItemRow
                       label="Container"
@@ -676,7 +672,7 @@ const LinkTable = ({
                           Media
                         </th>
                         <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          CDP Neighbor
+                          MTU
                         </th>
                         <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           OSPF
@@ -756,7 +752,7 @@ const LinkTable = ({
                             </td>
                             <td className="px-4 py-2.5 whitespace-nowrap">
                               <span className="text-xs font-mono text-gray-600 dark:text-gray-400">
-                                {iface.cdp || "—"}
+                                {iface.mtu || "—"}
                               </span>
                             </td>
                             <td className="px-4 py-2.5 whitespace-nowrap text-center">

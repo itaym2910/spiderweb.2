@@ -35,7 +35,6 @@ export function ExpandedInterfaceDetails({ row }) {
         {renderField("MPLS LDP", link.mpls_ldp)}
         {renderField("OSPF", link.ospf)}
         {renderField("OSPF Interface Address", link.ospf_interface_address)}
-        {renderField("CDP", link.cdp)}
       </div>
 
       <div className="space-y-2">

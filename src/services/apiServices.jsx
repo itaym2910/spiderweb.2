@@ -93,7 +93,7 @@ export const api = {
     await Promise.all(networks.map(async (network) => {
       try {
         const sites = await handleApiCall(apiClient.get(`/network/${network.id}/coresites`));
-        
+
         await Promise.all(sites.map(async (site) => {
           try {
             const devices = await handleApiCall(
@@ -114,9 +114,13 @@ export const api = {
     return allDevices;
   },
   getCoreTopology: () => handleApiCall(apiClient.get("/api/core-topology")),
-  getLinkStatusEvents: (since = "24h") =>
-    handleApiCall(apiClient.get("/api/link-status-events", { params: { since } })),
+  getCoreTopologyEvents: (params) =>
+    handleApiCall(apiClient.get("/api/core-topology-events", { params })),
   getSites: () => handleApiCall(apiClient.get("/sites")),
+  getLinksTopology: () => handleApiCall(apiClient.get("/links/topology")),
+  getLinksTopologyByDevice: (deviceId) => handleApiCall(apiClient.get(`/link/topology/${deviceId}`)),
+  getCoreSites: (networkId) => handleApiCall(apiClient.get(`/network/${networkId}/coresites`)),
+  getCoreDevicesBySite: (networkId, coresiteId) => handleApiCall(apiClient.get(`/network/${networkId}/coresite/${coresiteId}/coredevices`)),
   getDeviceInfo: (deviceId) =>
     handleApiCall(apiClient.get(`/get_device_info/${deviceId}`)).catch(() => []),
   getDevicesByCorePikudim: (corePikudimId) =>
@@ -179,4 +183,9 @@ export const api = {
     handleApiCall(
       apiClient.put("/favorite-links", { link_ids: linkIds })
     ).catch(() => ({ success: true })),
+};
+
+export const getLinkDetails = (coredevice_id, neighbor_coredevice_id, name) => {
+  const params = { skip: 0, limit: 1, coredevice_id, neighbor_coredevice_id, name };
+  return handleApiCall(apiClient.get("/links", { params }));
 };

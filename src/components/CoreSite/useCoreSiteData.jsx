@@ -6,32 +6,15 @@ import {
   useCallback,
   useMemo,
 } from "react";
-import { useSelector } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
 import { useNodeLayout } from "./useNodeLayout";
-import { selectAllSites } from "../../redux/slices/sitesSlice";
-import { selectLinksByTypeId } from "../../redux/slices/tenGigLinksSlice";
-import { selectAllDevices } from "../../redux/slices/devicesSlice";
-import { selectAllPikudim } from "../../redux/slices/corePikudimSlice";
+import { api } from "../../services/apiServices";
+import { createLinkPopupPayload } from "../chart/handleInteractions";
 
 export function useCoreSiteData(chartType) {
   const { zoneId, nodeId: nodeIdFromUrl } = useParams();
   const navigate = useNavigate();
   const containerRef = useRef(null);
-
-  const allPikudim = useSelector(selectAllPikudim);
-  const allDevices = useSelector(selectAllDevices);
-  const allSites = useSelector(selectAllSites);
-  const allLinksForChart = useSelector((state) =>
-    selectLinksByTypeId(state, chartType === "P" ? 2 : 1)
-  );
-
-  const devicesForZone = useMemo(() => {
-    if (!zoneId || !allPikudim.length || !allDevices.length) return [];
-    const currentPikud = allPikudim.find((p) => p.core_site_name === zoneId || p.name === zoneId);
-    if (!currentPikud) return [];
-    return allDevices.filter((d) => d.core_pikudim_site_id === currentPikud.id);
-  }, [zoneId, allDevices, allPikudim]);
 
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [selectedNodeId, setSelectedNodeId] = useState(null);
@@ -40,31 +23,170 @@ export function useCoreSiteData(chartType) {
   const [previousSelectedNodeId, setPreviousSelectedNodeId] = useState(null);
   const [popupDetail, setPopupDetail] = useState(null);
 
-  const sitesForFocusedNode = useMemo(() => {
-    // This logic will only re-run if allDevices, selectedNodeId, or allSites changes.
-    if (!selectedNodeId || !allDevices.length || !allSites.length) {
-      return [];
-    }
+  // New local states for API data
+  const [localDevices, setLocalDevices] = useState([]);
+  const [localSites, setLocalSites] = useState([]);
+  const [localLinks, setLocalLinks] = useState([]);
 
-    // 1. Find the full device object for the selectedNodeId (which is a hostname)
-    const focusedDevice = allDevices.find((d) => d.hostname === selectedNodeId);
-
-    // 2. If we found the device, use its real ID to filter the sites
-    if (focusedDevice) {
-      return allSites.filter((site) => site.device_id === focusedDevice.id);
-    }
-
-    // 3. Otherwise, return an empty array
-    return [];
-  }, [allDevices, selectedNodeId, allSites]);
-
+  // 1. Fetch data from the endpoints
   useEffect(() => {
-    if (devicesForZone.length > 0 && !selectedNodeId) {
-      const initialNodeId = nodeIdFromUrl || devicesForZone[0].hostname;
+    const fetchData = async () => {
+      try {
+        const networkId = chartType === "P" ? 2 : 1;
+
+        // Fetch core sites to find the ID for the current zoneId (name)
+        const coreSites = await api.getCoreSites(networkId).catch(() => []);
+        const site = coreSites.find(s => s.name === zoneId || s.core_site_name === zoneId);
+
+        if (site) {
+          const getShortName = (name) => {
+            if (!name) return name;
+
+            // 1. Shared site logic (Original method)
+            const isSharedSite = ["H1", "H2", "H4", "H5", "H7", "H8"].some((str) => name.includes(str));
+            if (isSharedSite) {
+              const matches = name.match(/[a-zA-Z]\d+/g);
+              return matches ? matches[matches.length - 1].toUpperCase() : name;
+            }
+
+            // 2. Format: aa<number>_bbb_L<1, 2 or 3>-<1 or 2>-ccc -> L<1, 2 or 3>-<1 or 2>
+            const lMatch = name.match(/L[123]-[12]/i);
+            if (lMatch) {
+              return lMatch[0].toUpperCase();
+            }
+
+            // 3. Format: xx_yy_zzz_aaaaa<number> -> yy zzz <number>
+            const parts = name.split('_');
+            if (parts.length === 4) {
+              const lastPartMatch = parts[3].match(/\d+$/);
+              if (lastPartMatch) {
+                const num = lastPartMatch[0];
+                return `${parts[1]} ${parts[2]} ${num}`;
+              }
+            }
+
+            // Original method fallback for L Network devices that aren't specifically caught above
+            const originalMatches = name.match(/[a-zA-Z]\d+/g);
+            return originalMatches ? originalMatches[originalMatches.length - 1].toUpperCase() : name;
+          };
+
+          const devices = await api.getCoreDevicesBySite(networkId, site.id).catch(() => []);
+          
+          const getEnding = (n) => {
+            if (!n) return "";
+            const match = n.match(/(\d+)(?!.*\d)/);
+            return match ? parseInt(match[1], 10) : 99;
+          };
+
+          const priorityOrder = [4, 5, 1, 2, 7, 8];
+          const sortedDevices = [...devices].sort((a, b) => {
+            const a_ending = getEnding(a.hostname || a.name);
+            const b_ending = getEnding(b.hostname || b.name);
+            const a_p = priorityOrder.indexOf(a_ending) === -1 ? 99 : priorityOrder.indexOf(a_ending);
+            const b_p = priorityOrder.indexOf(b_ending) === -1 ? 99 : priorityOrder.indexOf(b_ending);
+            return a_p - b_p;
+          });
+
+          // Normalize device hostname/name for useNodeLayout
+          const normalizedDevices = sortedDevices.map(d => ({
+            ...d,
+            hostname: d.hostname || d.name,
+            shortName: getShortName(d.hostname || d.name),
+          }));
+          setLocalDevices(normalizedDevices);
+
+          // Fetch links for each device in the zone
+          const linksArrays = await Promise.all(
+            devices.map(async (d) => {
+              return await api.getLinksTopologyByDevice(d.id).catch(() => []);
+            })
+          );
+          const allDeviceLinks = linksArrays.flat();
+
+          // Deduplicate links by ID and by switched ports (bi-directional copies)
+          const uniqueLinksMap = new Map();
+          const seenSignatures = new Set();
+          allDeviceLinks.forEach((link) => {
+            if (link && link.id) {
+              // Extract device names from the nested objects
+              const localName = link.coredevice?.name || "unknown1";
+              const remoteName = link.neighbor_coredevice?.name || link.neighbor_site?.name || `unknown2-${link.id}`;
+              
+              const ep1 = `${localName}::${link.local_interface || ""}`;
+              const ep2 = `${remoteName}::${link.remote_interface || ""}`;
+              const signature = [ep1, ep2].sort().join("---");
+              
+              if (!seenSignatures.has(signature)) {
+                seenSignatures.add(signature);
+                uniqueLinksMap.set(link.id, link);
+              }
+            }
+          });
+          setLocalLinks(Array.from(uniqueLinksMap.values()));
+        }
+
+        const sites = await api.getSites().catch(() => []);
+        setLocalSites(sites);
+      } catch (err) {
+        console.error("Failed to fetch zone data", err);
+      }
+    };
+    fetchData();
+  }, [zoneId, chartType]);
+
+  // 2. Set the initially selected node once devices are loaded
+  useEffect(() => {
+    if (localDevices.length > 0 && !selectedNodeId) {
+      const initialNodeId = nodeIdFromUrl || localDevices[0].hostname;
       setSelectedNodeId(initialNodeId);
       setPreviousSelectedNodeId(initialNodeId);
     }
-  }, [devicesForZone, nodeIdFromUrl, selectedNodeId]);
+  }, [localDevices, nodeIdFromUrl, selectedNodeId]);
+
+  // 3. Process links for the core-to-core connections (Canvas)
+  const mappedLinksForChart = useMemo(() => {
+    return localLinks
+      .filter(link => link.coredevice && link.neighbor_coredevice)
+      .map(link => ({
+        ...link,
+        source: link.coredevice.name,
+        target: link.neighbor_coredevice.name,
+      }));
+  }, [localLinks]);
+
+  // 4. Process links for the sites at the bottom
+  const sitesForFocusedNode = useMemo(() => {
+    if (!selectedNodeId || !localLinks.length || !localSites.length) return [];
+
+    const sites = [];
+    localLinks.forEach(link => {
+      // Must belong to the focused device
+      if (link.coredevice && (link.coredevice.name === selectedNodeId || link.coredevice.hostname === selectedNodeId)) {
+        // Must NOT be a core-to-core link
+        if (!link.neighbor_coredevice || Object.keys(link.neighbor_coredevice).length === 0) {
+          if (link.neighbor_site && link.neighbor_site.name) {
+            // Must be in the /sites list
+            const siteObj = localSites.find(s => s.name === link.neighbor_site.name);
+            if (siteObj) {
+              sites.push({ ...siteObj, linkId: link.id });
+            }
+          }
+        }
+      }
+    });
+
+    // Deduplicate sites if multiple links go to the same site
+    const uniqueSites = [];
+    const seenSiteNames = new Set();
+    sites.forEach(s => {
+      if (!seenSiteNames.has(s.name)) {
+        seenSiteNames.add(s.name);
+        uniqueSites.push(s);
+      }
+    });
+
+    return uniqueSites;
+  }, [selectedNodeId, localLinks, localSites]);
 
   useEffect(() => {
     if (showExtendedNodes) {
@@ -77,7 +199,6 @@ export function useCoreSiteData(chartType) {
   }, [showExtendedNodes]);
 
   useLayoutEffect(() => {
-    // This effect can be simplified or removed if not strictly needed
     setShowExtendedNodes(false);
   }, [zoneId]);
 
@@ -95,22 +216,6 @@ export function useCoreSiteData(chartType) {
     return () => window.removeEventListener("resize", updateDimensions);
   }, []);
 
-  const deviceMapById = useMemo(() => {
-    return new Map(allDevices.map((d) => [d.id, d]));
-  }, [allDevices]);
-
-  const mappedLinksForChart = useMemo(() => {
-    return allLinksForChart.map(link => {
-       const sourceDev = deviceMapById.get(link.coredevice_id);
-       const targetDev = deviceMapById.get(link.neighbor_coredevice_id);
-       return {
-         ...link,
-         source: link.source || sourceDev?.hostname || sourceDev?.name,
-         target: link.target || targetDev?.hostname || targetDev?.name,
-       };
-    });
-  }, [allLinksForChart, deviceMapById]);
-
   const {
     nodes: layoutNodes,
     links: layoutLinks,
@@ -121,7 +226,7 @@ export function useCoreSiteData(chartType) {
     dimensions.height,
     showExtendedNodes,
     animateExtendedLayoutUp,
-    devicesForZone,
+    localDevices,
     mappedLinksForChart
   );
 
@@ -134,28 +239,18 @@ export function useCoreSiteData(chartType) {
     setShowExtendedNodes((prevShowExtended) => {
       const nextShowExtended = !prevShowExtended;
       if (nextShowExtended) {
-        // Switching to extended view
         setPreviousSelectedNodeId(selectedNodeId);
-        // Select the first visible node in the new layout (device at index 2)
-        const newSelected = devicesForZone[2]?.hostname;
+        const newSelected = localDevices[2]?.hostname;
         if (newSelected) setSelectedNodeId(newSelected);
       } else {
-        // Switching back to initial view
-        // Restore previous selection or default to first device
-        setSelectedNodeId(
-          previousSelectedNodeId || devicesForZone[0]?.hostname
-        );
+        setSelectedNodeId(previousSelectedNodeId || localDevices[0]?.hostname);
       }
       return nextShowExtended;
     });
   };
 
   const onNodeClickInZone = (clickedNodeData) => {
-    if (!clickedNodeData || !clickedNodeData.id) {
-      console.warn("Node data incomplete for action:", clickedNodeData);
-      return;
-    }
-
+    if (!clickedNodeData || !clickedNodeData.id) return;
     if (clickedNodeData.id === selectedNodeId) {
       navigate(`node/${clickedNodeData.id}`);
     } else {
@@ -166,11 +261,8 @@ export function useCoreSiteData(chartType) {
   const openPopup = useCallback((payload) => {
     const { type } = payload;
     let title = "Details";
-    if (type === "link") {
-      title = `${payload.sourceNode} - ${payload.targetNode}`;
-    } else if (type === "site") {
-      title = payload.name;
-    }
+    if (type === "link") title = `${payload.sourceNode} - ${payload.targetNode}`;
+    else if (type === "site") title = payload.name;
     setPopupDetail({ type, title, data: payload });
   }, []);
 
@@ -178,76 +270,40 @@ export function useCoreSiteData(chartType) {
     setPopupDetail(null);
   }, []);
 
-  // REPLACE THE OLD FUNCTION WITH THIS NEW ONE:
-
-  const handleNavigateToSite = useCallback(
-    (clickedSiteData) => {
-      // `clickedSiteData` is the single site object from the tab.
-      // It contains the `name` property (e.g., "Site West Pasquale").
-      if (!clickedSiteData || !clickedSiteData.name) {
-        console.error("Navigation failed: No site data provided.");
-        return;
-      }
-
-      // 1. Get the English name of the site. This is our unique key to find the group.
-      const targetSiteName = clickedSiteData.name;
-
-      // 2. Search through the `allSites` array (which you already have in this hook)
-      //    to find every connection that matches this name. This rebuilds the "group".
-      const siteGroup = allSites.filter(
-        (site) => site.site_name_english === targetSiteName
-      );
-
-      // 3. If we found at least one matching site, we can navigate.
-      if (siteGroup.length > 0) {
-        // Create a URL-friendly version of the name.
-        const navId = encodeURIComponent(targetSiteName);
-
-        // 4. THIS IS THE CRITICAL FIX:
-        //    Navigate with the data in the CORRECT format. The router expects an
-        //    object with a `siteGroupData` key, and its value is the array we just built.
-        navigate(`/sites/site/${navId}`, {
-          state: { siteGroupData: siteGroup },
-        });
-      } else {
-        // Optional: Handle the case where for some reason the site couldn't be found.
-        console.error(
-          "Could not find a matching site group for:",
-          targetSiteName
-        );
-      }
-    },
-    [navigate, allSites]
-  ); // <-- Add `allSites` to the dependency array
+  const handleNavigateToSite = useCallback((clickedSiteData) => {
+    if (!clickedSiteData || !clickedSiteData.name) return;
+    const navId = encodeURIComponent(clickedSiteData.name);
+    navigate(`/sites/site/${navId}`, {
+      state: { siteGroupData: [clickedSiteData] },
+    });
+  }, [navigate]);
 
   const handleSiteClick = (siteData) => {
-    // Modified to accept the whole site object
     const siteDetailPayload = {
-      id: siteData.id, // Use the real ID
+      id: siteData.id,
       navId: `site-${siteData.id}`,
-      name: siteData.site_name_english, // Use the real name
+      name: siteData.name,
       type: "site",
       zone: zoneId,
-      // You can add more real data from the site object here if needed
-      description: `Details for ${siteData.site_name_english}`,
+      description: `Details for ${siteData.name}`,
     };
     openPopup(siteDetailPayload);
   };
 
   const handleLinkClick = (linkData) => {
-    const newLinkPayload = {
-      id: linkData.id || `link-${linkData.source.id}-${linkData.target.id}`,
-      type: "link",
-      sourceNode: linkData.source.id,
-      targetNode: linkData.target.id,
-      name: `Link: ${linkData.source.id} ↔ ${linkData.target.id}`,
-      linkBandwidth: `${Math.floor(Math.random() * 1000) + 100} Gbps`,
-      latency: `${Math.floor(Math.random() * 50) + 1} ms`,
-      utilization: `${Math.floor(Math.random() * 100)}%`,
-      status: Math.random() > 0.15 ? "up" : "down",
-      linkId: linkData.id,
-      linkDescription: "Core fiber optic interconnect.",
+    // Treat the linkData as rawLink since it came directly from the endpoint
+    const linkDataObject = {
+      ...linkData,
+      rawLink: linkData,
+      source: linkData.source || (linkData.coredevice && linkData.coredevice.name),
+      target: linkData.target || (linkData.neighbor_coredevice && linkData.neighbor_coredevice.name),
     };
+    
+    const srcZone = linkData.coredevice?.coresite_name || "N/A";
+    const tgtZone = linkData.neighbor_coredevice?.coresite_name || linkData.neighbor_site?.name || "N/A";
+    
+    const newLinkPayload = createLinkPopupPayload(linkDataObject, srcZone, tgtZone);
+    newLinkPayload.skipFetch = true;
     openPopup(newLinkPayload);
   };
 
@@ -262,11 +318,11 @@ export function useCoreSiteData(chartType) {
     selectedNodeId,
     showExtendedNodes,
     handleToggleExtendedNodes,
-    devicesInZoneCount: devicesForZone.length,
+    devicesInZoneCount: localDevices.length,
     sitesForFocusedNode,
     onSiteClick: handleSiteClick,
     onLinkClick: handleLinkClick,
-    onNodeClickInZone: onNodeClickInZone,
+    onNodeClickInZone,
     popupDetail,
     handleClosePopup,
     handleNavigateToSite,

@@ -86,7 +86,7 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
     const devicesForChart = allTopologyDevices.filter((d) => {
       if (!d.name || !d.network_name) return false;
       const hasSharedName = ["H1", "H2", "H4", "H5", "H7", "H8"].some((str) => d.name.includes(str));
-      const isPNetwork = d.network_name.includes("anan-lekaman");
+      const isPNetwork = d.network_name.includes("anan-lekaman") || d.network_name.includes("anan_lekaman");
       return hasSharedName || isPNetwork;
     });
 
@@ -114,11 +114,43 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
     // Build a map of device id -> device for link resolution
     const deviceMapById = new Map(devicesForChart.map((d) => [d.id, d]));
 
+    // Helper to get short name
+    const getShortName = (name) => {
+      if (!name) return name;
+
+      // 1. Shared site logic (Original method)
+      const isSharedSite = ["H1", "H2", "H4", "H5", "H7", "H8"].some((str) => name.includes(str));
+      if (isSharedSite) {
+        const matches = name.match(/[a-zA-Z]\d+/g);
+        return matches ? matches[matches.length - 1].toUpperCase() : name;
+      }
+
+      // 2. Format: aa<number>_bbb_L<1, 2 or 3>-<1 or 2>-ccc -> L<1, 2 or 3>-<1 or 2>
+      const lMatch = name.match(/L[123]-[12]/i);
+      if (lMatch) {
+        return lMatch[0].toUpperCase();
+      }
+
+      // 3. Format: xx_yy_zzz_aaaaa<number> -> yy zzz <number>
+      const parts = name.split('_');
+      if (parts.length === 4) {
+        const lastPartMatch = parts[3].match(/\d+$/);
+        if (lastPartMatch) {
+          const num = lastPartMatch[0];
+          return `${parts[1]} ${parts[2]} ${num}`;
+        }
+      }
+
+      // Fallback
+      return name;
+    };
+
     // Build nodes
     const transformedNodes = topDevicesPerSite.map((device) => ({
       id: device.name,
       group: "node",
       name: device.name,
+      shortName: getShortName(device.name),
       ip: device.ip,
       zone: device.coresite_name,
       pikudId: device.coresite_name,
@@ -128,37 +160,43 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
 
     // Extract and deduplicate links from devices
     const seenLinkIds = new Set();
+    const seenSignatures = new Set();
     const transformedLinks = [];
+    const allDrawerLinks = [];
 
-    topDevicesPerSite.forEach((device) => {
+    devicesForChart.forEach((device) => {
       if (!device.links) return;
 
       device.links.forEach((link) => {
-        // Skip duplicates (each link appears on both endpoints)
+        // Skip duplicates by ID
         if (seenLinkIds.has(link.id)) return;
-
-        // Only include links where the remote device is also visible
-        const remoteDevice = deviceMapById.get(link.remote_device_id);
-        if (!remoteDevice || !visibleDeviceNames.has(remoteDevice.name)) return;
-
         seenLinkIds.add(link.id);
 
-        // Normalize oper_status to up/down/issue
-        const operStatus = (link.oper_status || "").toLowerCase();
-        const normalized = operStatus.includes("down")
-          ? "down"
-          : operStatus.includes("issue")
-          ? "issue"
-          : "up";
+        const remoteDevice = deviceMapById.get(link.remote_device_id);
+        const remoteDeviceName = remoteDevice ? remoteDevice.name : "Unknown";
+        const remoteZone = remoteDevice ? remoteDevice.coresite_name : "Unknown";
 
-        transformedLinks.push({
+        // Normalize oper_status and ospf_state to up/down/issue
+        const operStatus = (link.oper_status || "").toLowerCase();
+        const ospfState = (link.ospf_state || "").toLowerCase();
+        let normalized = "up";
+        
+        if (operStatus !== "up") {
+          normalized = "down";
+        } else if (ospfState !== "full" && link.last_ospf_full_at !== "null" && link.last_ospf_full_at != null) {
+          normalized = "issue";
+        }
+
+        const linkObj = {
           id: link.id,
           source: device.name,
-          target: remoteDevice.name,
+          target: remoteDeviceName,
           sourceName: device.name,
-          targetName: remoteDevice.name,
+          targetName: remoteDeviceName,
+          coredevice_id: device.id,
+          neighbor_coredevice_id: link.remote_device_id,
           sourceZone: device.coresite_name,
-          targetZone: remoteDevice.coresite_name,
+          targetZone: remoteZone,
           physical_status: link.oper_status,
           protocol_status: link.admin_status,
           category: normalized,
@@ -176,13 +214,29 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           link_drops_last_24h: link.link_drops_last_24h,
           ospf_drops_last_24h: link.ospf_drops_last_24h,
           rawLink: link,
-        });
+        };
+
+        allDrawerLinks.push(linkObj);
+
+        // For the visual chart, we only include links where BOTH devices are visible
+        if (visibleDeviceNames.has(device.name) && remoteDevice && visibleDeviceNames.has(remoteDevice.name)) {
+          // Deduplicate switched ports
+          const ep1 = `${device.name}::${link.local_interface || ""}`;
+          const ep2 = `${remoteDevice.name}::${link.remote_interface || ""}`;
+          const signature = [ep1, ep2].sort().join("---");
+          
+          if (!seenSignatures.has(signature)) {
+            seenSignatures.add(signature);
+            transformedLinks.push(linkObj);
+          }
+        }
       });
     });
 
     return {
       nodes: transformedNodes,
       links: transformedLinks,
+      drawerLinks: allDrawerLinks,
     };
   }, [allTopologyDevices]);
 
@@ -272,7 +326,7 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
 
       <div className="flex-grow relative overflow-hidden">
         <NetworkLinksSideDrawer
-          links={graphData.links}
+          links={graphData.drawerLinks}
           onLinkClick={handleLinkClick}
           theme={theme}
           chartName="P-Network"
@@ -284,16 +338,11 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           onClearMarks={handleClearMarks}
           onHoverLink={setHoveredLinkId}
         />
-        <ToggleDetailButton
-          isDetailed={showDetailedLinks}
-          onToggle={handleToggleDetailView}
-          theme={theme}
-        />
         <NetworkVisualizer5
-          key={`${theme}-${showDetailedLinks}`}
+          key={`${theme}-detailed`}
           data={graphData}
           theme={theme}
-          showDetailedLinks={showDetailedLinks}
+          showDetailedLinks={true}
           isDrawerOpen={isDrawerOpen}
           markedLinkIds={markedLinkIds}
           hoveredLinkId={hoveredLinkId}

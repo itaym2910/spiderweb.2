@@ -70,11 +70,10 @@ const LinkDetailRow = ({ link, isParentSelectedAndDark }) => {
         {label}
       </span>
       <span
-        className={`text-sm font-medium ${
-          highlight
+        className={`text-sm font-medium ${highlight
             ? "text-red-500 dark:text-red-400"
             : valueColor
-        }`}
+          }`}
       >
         {value}
       </span>
@@ -102,7 +101,6 @@ const LinkDetailRow = ({ link, isParentSelectedAndDark }) => {
         {hasAdditionalDetails && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-1">
             <DetailItem label="Media Type" value={mediaType} />
-            <DetailItem label="CDP Neighbors" value={cdpNeighbors} />
             <DetailItem label="Container" value={containerName} />
             <DetailItem label="MTU" value={mtu} />
             <DetailItem
