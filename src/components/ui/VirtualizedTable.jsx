@@ -13,6 +13,7 @@ import { TableSkeleton } from "./feedback/TableSkeleton";
  * @param {boolean} isFetchingMore - Optional. True if currently loading next page.
  * @param {boolean} hasMore - Optional. True if more data can be loaded.
  * @param {Function} renderExpandedRow - Optional. Renders the expanded content for a row.
+ * @param {Function} onRowClick - Optional. Called when a row is clicked.
  */
 export function VirtualizedTable({
   data,
@@ -23,6 +24,7 @@ export function VirtualizedTable({
   isFetchingMore,
   hasMore,
   renderExpandedRow,
+  onRowClick,
 }) {
   const parentRef = useRef(null);
   const [expandedRowId, setExpandedRowId] = useState(null);
@@ -36,17 +38,19 @@ export function VirtualizedTable({
 
   const handleScroll = useCallback(() => {
     const el = parentRef.current;
-    if (!el || !onScrollEnd) return;
-    // Fire when within 300px of the bottom
-    if (el.scrollHeight - el.scrollTop - el.clientHeight < 300) {
-      onScrollEnd();
-    }
-  }, [onScrollEnd]);
+    if (!el || !onScrollEnd || !hasMore || isFetchingMore) return;
+    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 400;
+    if (isNearBottom) onScrollEnd();
+  }, [onScrollEnd, hasMore, isFetchingMore]);
 
   const toggleRow = useCallback((row) => {
+    if (onRowClick) {
+      onRowClick(row);
+      return;
+    }
     if (!renderExpandedRow) return;
     setExpandedRowId((prev) => (prev === row.id ? null : row.id));
-  }, [renderExpandedRow]);
+  }, [renderExpandedRow, onRowClick]);
 
   if (isLoading && data.length === 0) {
     return <TableSkeleton rows={10} cols={columns.length} />;
@@ -111,7 +115,7 @@ export function VirtualizedTable({
               }}
             >
               <div 
-                className={`flex items-center w-full min-h-[64px] hover:bg-gray-50 dark:hover:bg-gray-800/20 ${renderExpandedRow ? "cursor-pointer" : ""} ${isExpanded ? "bg-blue-50/50 dark:bg-blue-900/10" : ""}`}
+                className={`flex items-center w-full min-h-[64px] hover:bg-gray-50 dark:hover:bg-gray-800/20 ${(renderExpandedRow || onRowClick) ? "cursor-pointer" : ""} ${isExpanded ? "bg-blue-50/50 dark:bg-blue-900/10" : ""}`}
                 onClick={() => toggleRow(row)}
               >
                 {columns.map((column) => (

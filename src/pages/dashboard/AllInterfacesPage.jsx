@@ -10,9 +10,9 @@ import { VirtualizedTable } from "../../components/ui/VirtualizedTable";
 import { ErrorMessage } from "../../components/ui/feedback/ErrorMessage";
 import { StatusIndicator } from "../../components/ui/StatusIndicator";
 import { FavoriteButton } from "../../components/ui/FavoriteButton";
-import { ExpandedInterfaceDetails } from "./ExpandedInterfaceDetails";
+import LinkDetailPopup from "../../components/shared/LinkDetailPopup";
 
-export default function AllInterfacesPage() {
+export default function AllInterfacesPage({ theme }) {
   const dispatch = useDispatch();
   const { interfaces, handleToggleFavorite, deviceFilterOptions } =
     useInterfaceData();
@@ -27,6 +27,8 @@ export default function AllInterfacesPage() {
   const isLoading = sitesStatus === "loading" || linksStatus === "loading";
   const isFetchingMore = paginationStatus === "loading";
   const hasError = sitesStatus === "failed" || linksStatus === "failed";
+  const [popupItem, setPopupItem] = useState(null);
+  const handleClosePopup = useCallback(() => setPopupItem(null), []);
 
   // Use a ref to prevent multiple simultaneous fetches - this avoids
   // stale-closure issues that useCallback + Redux status can cause
@@ -322,7 +324,7 @@ export default function AllInterfacesPage() {
           hasMore={hasMoreLinks}
           isFetchingMore={isFetchingMore}
           onScrollEnd={loadMore}
-          renderExpandedRow={({ row }) => <ExpandedInterfaceDetails row={row} />}
+          onRowClick={(row) => setPopupItem({ data: row.raw, type: "link", title: row.interfaceName })}
           emptyMessage={
             hasError ? (
               <ErrorMessage />
@@ -353,7 +355,14 @@ export default function AllInterfacesPage() {
           }
         />
       </div>
+
+      <LinkDetailPopup
+        linkData={popupItem?.data || null}
+        linkType={popupItem?.type || "link"}
+        linkTitle={popupItem?.title || ""}
+        onClose={handleClosePopup}
+        theme={theme}
+      />
     </div>
   );
 }
-
