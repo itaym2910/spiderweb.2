@@ -13,6 +13,7 @@ import { TableSkeleton } from "./feedback/TableSkeleton";
  * @param {boolean} isFetchingMore - Optional. True if currently loading next page.
  * @param {boolean} hasMore - Optional. True if more data can be loaded.
  * @param {Function} renderExpandedRow - Optional. Renders the expanded content for a row.
+ * @param {Function} onRowClick - Optional. Called when a row is clicked.
  */
 export function VirtualizedTable({
   data,
@@ -23,6 +24,7 @@ export function VirtualizedTable({
   isFetchingMore,
   hasMore,
   renderExpandedRow,
+  onRowClick,
 }) {
   const parentRef = useRef(null);
   const [expandedRowId, setExpandedRowId] = useState(null);
@@ -44,9 +46,13 @@ export function VirtualizedTable({
   }, [onScrollEnd]);
 
   const toggleRow = useCallback((row) => {
+    if (onRowClick) {
+      onRowClick(row);
+      return;
+    }
     if (!renderExpandedRow) return;
     setExpandedRowId((prev) => (prev === row.id ? null : row.id));
-  }, [renderExpandedRow]);
+  }, [renderExpandedRow, onRowClick]);
 
   if (isLoading && data.length === 0) {
     return <TableSkeleton rows={10} cols={columns.length} />;
@@ -111,7 +117,7 @@ export function VirtualizedTable({
               }}
             >
               <div 
-                className={`flex items-center w-full min-h-[64px] hover:bg-gray-50 dark:hover:bg-gray-800/20 ${renderExpandedRow ? "cursor-pointer" : ""} ${isExpanded ? "bg-blue-50/50 dark:bg-blue-900/10" : ""}`}
+                className={`flex items-center w-full min-h-[64px] hover:bg-gray-50 dark:hover:bg-gray-800/20 ${(renderExpandedRow || onRowClick) ? "cursor-pointer" : ""} ${isExpanded ? "bg-blue-50/50 dark:bg-blue-900/10" : ""}`}
                 onClick={() => toggleRow(row)}
               >
                 {columns.map((column) => (
@@ -150,18 +156,7 @@ export function VirtualizedTable({
         </div>
       )}
       
-      {/* Manual load more button when auto-scroll doesn't trigger */}
-      {hasMore && !isFetchingMore && onScrollEnd && (
-        <div className="flex justify-center p-4">
-          <button
-            onClick={onScrollEnd}
-            className="px-6 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-blue-400 font-medium rounded-lg transition-colors duration-200"
-          >
-            Load More
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
+      </div>
+    );
+  }
 
