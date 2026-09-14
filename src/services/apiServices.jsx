@@ -179,10 +179,11 @@ export const api = {
   getFavoriteLinks: () =>
     handleApiCall(apiClient.get("/favorite-links")),
 
-  updateFavoriteLinks: (linkIds) =>
-    handleApiCall(
-      apiClient.put("/favorite-links", { link_ids: linkIds })
-    ).catch(() => ({ success: true })),
+  addFavoriteLink: (linkId) =>
+    handleApiCall(apiClient.post(`/add-favorite-link/${linkId}`)),
+
+  removeFavoriteLink: (linkId) =>
+    handleApiCall(apiClient.delete(`/delete-favorite-link/${linkId}`)),
 };
 
 export const getLinkDetails = (coredevice_id, neighbor_coredevice_id, name) => {

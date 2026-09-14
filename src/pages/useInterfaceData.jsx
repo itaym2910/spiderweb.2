@@ -24,6 +24,7 @@ export function useInterfaceData() {
   const allDevices = useSelector(selectAllDevices);
   const allTopologyDevices = useSelector(selectTopologyDevices);
   const favoriteIds = useSelector(selectFavoriteIds);
+  const favoriteItems = useSelector((state) => state.favorites.items || []);
 
   // 3. Create list of device options for filter dropdown
   const deviceFilterOptions = useMemo(() => {
@@ -50,8 +51,18 @@ export function useInterfaceData() {
 
   // 4. Transform and merge data from backend endpoints
   const rawLinks = useMemo(() => {
-    // Transform 10-Gigabit Core Links
-    return (Array.isArray(allTenGigLinks) ? allTenGigLinks : []).map((link) => {
+    // Merge allTenGigLinks and favoriteItems to ensure favorites are always rendered
+    // even if they are on a later page of allTenGigLinks.
+    const combinedMap = new Map();
+    (Array.isArray(favoriteItems) ? favoriteItems : []).forEach(link => {
+        if (link && link.id) combinedMap.set(String(link.id), link);
+    });
+    (Array.isArray(allTenGigLinks) ? allTenGigLinks : []).forEach(link => {
+        if (link && link.id) combinedMap.set(String(link.id), link);
+    });
+    const combinedLinks = Array.from(combinedMap.values());
+
+    return combinedLinks.map((link) => {
       // Status logic: down if physical status or protocol status is down, else up
       const physStatus = (link.pysical_status || link.physical_status || "").toLowerCase();
       const protoStatus = (link.protocol_status || "").toLowerCase();
