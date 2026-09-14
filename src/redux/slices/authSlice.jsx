@@ -8,6 +8,7 @@ import { fetchCorePikudim } from "./corePikudimSlice";
 import { fetchDevices } from "./devicesSlice";
 import { fetchSites } from "./sitesSlice";
 import { fetchTenGigLinks } from "./tenGigLinksSlice";
+import { fetchFavoriteLinks } from "./favoritesSlice";
 import { fetchNetTypes } from "./netTypesSlice";
 import { fetchCoreTopology } from "./coreTopologySlice";
 
@@ -21,6 +22,7 @@ export const fetchInitialData = createAsyncThunk(
     dispatch(fetchDevices());
     dispatch(fetchSites());
     dispatch(fetchTenGigLinks());
+    dispatch(fetchFavoriteLinks());
     dispatch(fetchNetTypes());
     dispatch(fetchCoreTopology());
   }
