@@ -145,11 +145,15 @@ export default function AllInterfacesPage({ theme }) {
         accessorKey: "traffic",
         header: "Traffic (In/Out)",
         size: 1.5,
-        cell: ({ row }) => (
-          <span className="text-gray-600 dark:text-gray-300">
-            {`${row.trafficIn} / ${row.trafficOut}`}
-          </span>
-        ),
+          cell: ({ row }) => {
+            const inVal = row.trafficIn && String(row.trafficIn).trim() !== "" && row.trafficIn !== "N/A" ? row.trafficIn : "NA";
+            const outVal = row.trafficOut && String(row.trafficOut).trim() !== "" && row.trafficOut !== "N/A" ? row.trafficOut : "NA";
+            return (
+              <span className="text-gray-600 dark:text-gray-300">
+                {`${inVal}/${outVal}`}
+              </span>
+            );
+          },
       },
       {
         accessorKey: "errors",

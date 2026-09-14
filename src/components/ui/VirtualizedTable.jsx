@@ -38,10 +38,12 @@ export function VirtualizedTable({
 
   const handleScroll = useCallback(() => {
     const el = parentRef.current;
-    if (!el || !onScrollEnd || !hasMore || isFetchingMore) return;
-    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 400;
-    if (isNearBottom) onScrollEnd();
-  }, [onScrollEnd, hasMore, isFetchingMore]);
+    if (!el || !onScrollEnd) return;
+    // Fire when within 300px of the bottom
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 300) {
+      onScrollEnd();
+    }
+  }, [onScrollEnd]);
 
   const toggleRow = useCallback((row) => {
     if (onRowClick) {
@@ -154,18 +156,7 @@ export function VirtualizedTable({
         </div>
       )}
       
-      {/* Manual load more button when auto-scroll doesn't trigger */}
-      {hasMore && !isFetchingMore && onScrollEnd && (
-        <div className="flex justify-center p-4">
-          <button
-            onClick={onScrollEnd}
-            className="px-6 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-blue-400 font-medium rounded-lg transition-colors duration-200"
-          >
-            Load More
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
+      </div>
+    );
+  }
 
