@@ -234,11 +234,11 @@ function NodeDetailView({ chartType, theme }) {
             : bw || "10 Gbps";
 
         return {
+          ...link,
           id: link.id || `link-${Math.random()}`,
-          name: `Link to ${finalOtherHost}`,
-          description: `Inter-Core Link (${
-            linkType.includes("same") ? "Same Site" : "Different Site"
-          })`,
+          name: finalOtherHost,
+          destinationIp: link.neighbor_ip || "N/A",
+          description: link.description || "N/A",
           status: normalizedStatus,
           bandwidth: formattedBw,
           ospfStatus: link.OSPF || link.ospfStatus || "Enabled",
@@ -296,8 +296,8 @@ export function DashboardPage({
 }) {
   return (
     <Routes>
-      <Route path="/favorites" element={<FavoritesPage />} />
-      <Route path="/all_interfaces" element={<AllInterfacesPage />} />
+      <Route path="/favorites" element={<FavoritesPage theme={theme} />} />
+      <Route path="/all_interfaces" element={<AllInterfacesPage theme={theme} />} />
 
       {/* THE FIX: The chart routes are restructured to separate layouts for each sub-route. */}
       <Route
