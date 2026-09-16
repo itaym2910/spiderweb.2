@@ -34,7 +34,7 @@ const NetworkVisualizer = ({
       bg: isDark ? "#1f2937" : "#ffffff",
       link: isDark ? "#94a3b8" : "#6b7280",
       node: isDark ? "#29c6e0" : "#29c6e0",
-      nodeHoverDirect: isDark ? "#1d9bb4" : "#22b8d4",
+      nodeHoverDirect: isDark ? "rgba(234, 179, 8, 0.9)" : "#fde047", // same as link
       stroke: isDark ? "#60a5fa" : "#1d4ed8",
       label: isDark ? "#ffffff" : "#1f2937",
       zone: {
@@ -43,8 +43,9 @@ const NetworkVisualizer = ({
         hoverFill: isDark ? "#7dd3fc" : "#bae6fd",
         hoverOpacity: isDark ? 0.25 : 0.4,
       },
-      nodeHoverLink: isDark ? "#fde68a" : "#fef08a",
-      nodeHoverLinkStroke: isDark ? "#facc15" : "#f59e0b",
+      nodeHoverLink: isDark ? "rgba(234, 179, 8, 0.9)" : "#fde047", // dark:bg-yellow-500/90, bg-yellow-300
+      nodeHoverLinkStroke: "rgba(250, 204, 21, 0.2)", // border-yellow-400/20
+      nodeHoverLinkLabel: isDark ? "#ffffff" : "#713f12", // dark:text-white, text-yellow-900
       status: {
         up: isDark ? "#4ade80" : "#22c55e",
         down: isDark ? "#f87171" : "#ef4444",

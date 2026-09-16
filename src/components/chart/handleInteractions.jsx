@@ -192,7 +192,8 @@ export function applyMarkedState({
     svg
       .selectAll("text.label")
       .style("opacity", 1)
-      .attr("font-weight", "normal");
+      .attr("font-weight", "normal")
+      .attr("fill", palette.label);
 
     return;
   }
@@ -276,11 +277,12 @@ export function applyMarkedState({
       d3.select(this)
         .raise()
         .style("opacity", 1)
-        .attr("fill", "#fef08a")
-        .attr("stroke", "#f59e0b")
-        .attr("stroke-width", 3.5)
+        .attr("fill", palette.nodeHoverLink || "#fde047")
+        .attr("stroke", palette.nodeHoverLinkStroke || "rgba(250, 204, 21, 0.2)")
+        .attr("stroke-width", 4.5)
         .style("pointer-events", "auto")
-        .style("cursor", "pointer");
+        .style("cursor", "pointer")
+        .style("filter", "drop-shadow(0 1px 2px rgba(0, 0, 0, 0.05))");
     } else {
       d3.select(this)
         .style("opacity", 0.25)
@@ -288,7 +290,8 @@ export function applyMarkedState({
         .attr("stroke", defaultNodeStroke)
         .attr("stroke-width", 2)
         .style("pointer-events", "none")
-        .style("cursor", "default");
+        .style("cursor", "default")
+        .style("filter", null);
     }
   });
 
@@ -298,7 +301,8 @@ export function applyMarkedState({
     const isEndpoint = activeEndpoints.has(d.id);
     d3.select(this)
       .style("opacity", isEndpoint ? 1 : 0.3)
-      .attr("font-weight", isEndpoint ? "bold" : "normal");
+      .attr("font-weight", isEndpoint ? "bold" : "normal")
+      .attr("fill", isEndpoint ? (palette.nodeHoverLinkLabel || palette.label) : palette.label);
   });
 }
 
@@ -424,9 +428,10 @@ export function drawAllParallelLinks({
                 .attr("fill", palette.nodeHoverLink)
                 .attr("stroke", palette.nodeHoverLinkStroke || "#facc15")
                 .attr("stroke-width", 4)
-                .style("opacity", 1);
+                .style("opacity", 1)
+                .style("filter", "drop-shadow(0 1px 2px rgba(0, 0, 0, 0.05))");
             } else {
-              d3.select(this).style("opacity", 0.3);
+              d3.select(this).style("opacity", 0.3).style("filter", null);
             }
           });
 
@@ -630,22 +635,25 @@ export function handleNodeMouseOver(
     if (!n) return;
     if (n.id === nodeId) {
       d3.select(this)
-        .attr("fill", palette.nodeHoverDirect || "#1d9bb4")
+        .attr("fill", palette.nodeHoverDirect || "#fde047")
         .attr("stroke", palette.nodeHoverLinkStroke || "#facc15")
         .attr("stroke-width", 4.5)
-        .style("opacity", 1);
+        .style("opacity", 1)
+        .style("filter", "drop-shadow(0 1px 2px rgba(0, 0, 0, 0.05))");
     } else if (neighborNodeIds.has(n.id)) {
       d3.select(this)
-        .attr("fill", palette.nodeHoverLink || "#fde68a")
+        .attr("fill", palette.nodeHoverLink || "#fde047")
         .attr("stroke", palette.nodeHoverLinkStroke || "#facc15")
         .attr("stroke-width", 3.5)
-        .style("opacity", 1);
+        .style("opacity", 1)
+        .style("filter", "drop-shadow(0 1px 2px rgba(0, 0, 0, 0.05))");
     } else {
       d3.select(this)
         .attr("fill", palette.node)
         .attr("stroke", palette.stroke)
         .attr("stroke-width", 2)
-        .style("opacity", hasMarked ? 0.15 : 0.25);
+        .style("opacity", hasMarked ? 0.15 : 0.25)
+        .style("filter", null);
     }
   });
 
@@ -655,7 +663,8 @@ export function handleNodeMouseOver(
     const isRelevant = n.id === nodeId || neighborNodeIds.has(n.id);
     d3.select(this)
       .style("opacity", isRelevant ? 1 : 0.25)
-      .attr("font-weight", isRelevant ? "bold" : "normal");
+      .attr("font-weight", isRelevant ? "bold" : "normal")
+      .attr("fill", isRelevant ? (palette.nodeHoverLinkLabel || palette.label) : palette.label);
   });
 }
 
@@ -696,12 +705,14 @@ export function handleNodeMouseOut(
     .attr("fill", palette.node)
     .attr("stroke", palette.stroke)
     .attr("stroke-width", 2)
-    .style("opacity", 0.9);
+    .style("opacity", 0.9)
+    .style("filter", null);
 
   svg
     .selectAll("text.label")
     .style("opacity", 1)
-    .attr("font-weight", "normal");
+    .attr("font-weight", "normal")
+    .attr("fill", palette.label);
 }
 
 // ===================================================================
@@ -926,7 +937,7 @@ function handleMouseOver(
     if (!n) return;
     if (n.id === sId || n.id === tId) {
       d3.select(this)
-        .attr("fill", palette.nodeHoverLink || "#fde68a")
+        .attr("fill", palette.nodeHoverLink || "#fde047")
         .attr("stroke", palette.nodeHoverLinkStroke || "#facc15")
         .attr("stroke-width", 4)
         .style("opacity", 1);
@@ -980,12 +991,14 @@ function handleMouseOut(linkSelection, tooltip, palette, getMarkedLinkIds, event
     .attr("fill", palette.node)
     .attr("stroke", palette.stroke)
     .attr("stroke-width", 2)
-    .style("opacity", 0.9);
+    .style("opacity", 0.9)
+    .style("filter", null);
 
   svg
     .selectAll("text.label")
     .style("opacity", 1)
-    .attr("font-weight", "normal");
+    .attr("font-weight", "normal")
+    .attr("fill", palette.label);
 }
 
 // ===================================================================

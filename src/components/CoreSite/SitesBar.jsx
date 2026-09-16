@@ -27,7 +27,9 @@ export default function SitesBar({
   const handleHover = (hovered, targetButton) => {
     const nodeDefaultFill = theme === "dark" ? "#29c6e0" : "#67e8f9";
     const nodeDefaultStroke = theme === "dark" ? "#60a5fa" : "#7dd3fc";
-    const nodeHoverFill = theme === "dark" ? "#fde68a" : "#fef08a";
+    const nodeHoverFill = theme === "dark" ? "rgba(234, 179, 8, 0.9)" : "#fde047";
+    const nodeHoverTextFill = theme === "dark" ? "#ffffff" : "#713f12";
+    const nodeDefaultTextFill = theme === "dark" ? "#ffffff" : "#155e75";
     const nodeHoverStroke = theme === "dark" ? "#facc15" : "#f59e0b";
 
     // Highlight the currently focused node

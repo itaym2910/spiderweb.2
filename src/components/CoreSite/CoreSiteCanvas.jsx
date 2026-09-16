@@ -27,11 +27,12 @@ export default function CoreSiteCanvas({
       nodeFill: theme === "dark" ? "#29c6e0" : "#67e8f9", // Original node blue
       nodeStroke: theme === "dark" ? "#60a5fa" : "#7dd3fc",
       nodeTextFill: theme === "dark" ? "#ffffff" : "#155e75",
-      nodeHoverFill: theme === "dark" ? "#fde68a" : "#fef08a", // Yellowish, used when a LINK is hovered, for connected nodes
-      nodeHoverStroke: "#f59e0b", // Yellowish stroke, used when a LINK is hovered
+      nodeHoverTextFill: theme === "dark" ? "#ffffff" : "#713f12",
+      nodeHoverFill: theme === "dark" ? "rgba(234, 179, 8, 0.9)" : "#fde047", // Yellowish, used when a LINK is hovered, for connected nodes
+      nodeHoverStroke: "rgba(250, 204, 21, 0.2)", // Yellowish stroke, used when a LINK is hovered
       selectedNodePulseColor: theme === "dark" ? "#2563eb" : "#3b82f6",
       // --- NEW COLOR FOR DIRECT NODE HOVER ---
-      nodeHighlightFill: theme === "dark" ? "#1d9bb4" : "#4cb9d8", // Darker blue for direct node hover
+      nodeHighlightFill: theme === "dark" ? "rgba(234, 179, 8, 0.9)" : "#fde047", // Darker blue for direct node hover
     };
   }, [theme]);
 
