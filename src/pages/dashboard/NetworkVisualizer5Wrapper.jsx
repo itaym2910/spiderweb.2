@@ -10,6 +10,7 @@ import { toggleFavoriteLink } from "../../redux/slices/favoritesSlice";
 import {
   selectTopologyDevices,
   selectTopologyStatus,
+  fetchCoreTopology,
 } from "../../redux/slices/coreTopologySlice";
 
 // Import reusable feedback components
@@ -20,7 +21,7 @@ import { ErrorMessage } from "../../components/ui/feedback/ErrorMessage";
 function selectTopTwoDevices(devices) {
   if (devices.length <= 2) return devices;
   const priorityOrder = [4, 5, 1, 2, 7, 8];
-  
+
   const getEnding = (name) => {
     if (!name) return NaN;
     // Extract the last sequence of digits in the string
@@ -31,13 +32,13 @@ function selectTopTwoDevices(devices) {
   const sortedDevices = [...devices].sort((a, b) => {
     const a_ending = getEnding(a.name);
     const b_ending = getEnding(b.name);
-    
+
     const a_priority = priorityOrder.indexOf(a_ending);
     const b_priority = priorityOrder.indexOf(b_ending);
-    
+
     const final_a_priority = a_priority === -1 ? 99 : a_priority;
     const final_b_priority = b_priority === -1 ? 99 : b_priority;
-    
+
     return final_a_priority - final_b_priority;
   });
   return sortedDevices.slice(0, 2);
@@ -46,6 +47,13 @@ function selectTopTwoDevices(devices) {
 const NetworkVisualizer5Wrapper = ({ theme }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  // Poll core topology every 30 seconds
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      dispatch(fetchCoreTopology());
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [dispatch]);
 
   // Get topology data from the unified coreTopology slice
   const allTopologyDevices = useSelector(selectTopologyDevices);
@@ -180,7 +188,7 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
         const operStatus = (link.oper_status || "").toLowerCase();
         const ospfState = (link.ospf_state || "").toLowerCase();
         let normalized = "up";
-        
+
         if (operStatus !== "up") {
           normalized = "down";
         } else if (ospfState !== "full" && link.last_ospf_full_at !== "null" && link.last_ospf_full_at != null) {
@@ -224,7 +232,7 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           const ep1 = `${device.name}::${link.local_interface || ""}`;
           const ep2 = `${remoteDevice.name}::${link.remote_interface || ""}`;
           const signature = [ep1, ep2].sort().join("---");
-          
+
           if (!seenSignatures.has(signature)) {
             seenSignatures.add(signature);
             transformedLinks.push(linkObj);

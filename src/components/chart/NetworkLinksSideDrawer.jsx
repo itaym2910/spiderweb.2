@@ -129,8 +129,8 @@ export default function NetworkLinksSideDrawer({
   }, [allDevices]);
 
   // Fetch events when the "All" tab is active and time filter changes
-  const fetchEvents = useCallback(async (since, eventType, localId, remoteId) => {
-    setEventsLoading(true);
+  const fetchEvents = useCallback(async (since, eventType, localId, remoteId, silent = false) => {
+    if (!silent) setEventsLoading(true);
     let days = 1;
     if (since === "7d") days = 7;
     if (since === "30d") days = 30;
@@ -146,7 +146,7 @@ export default function NetworkLinksSideDrawer({
     } catch {
       setStatusEvents([]);
     } finally {
-      setEventsLoading(false);
+      if (!silent) setEventsLoading(false);
     }
   }, []);
 
@@ -154,6 +154,14 @@ export default function NetworkLinksSideDrawer({
     if (activeFilter === "all") {
       fetchEvents(timeFilter || "24h", apiEventType, apiLocalDevice, apiRemoteDevice);
     }
+    
+    // Polling every 30 seconds
+    const interval = setInterval(() => {
+      if (activeFilter === "all") {
+        fetchEvents(timeFilter || "24h", apiEventType, apiLocalDevice, apiRemoteDevice, true);
+      }
+    }, 30000);
+    return () => clearInterval(interval);
   }, [activeFilter, timeFilter, apiEventType, apiLocalDevice, apiRemoteDevice, fetchEvents]);
 
   // Re-calculate durations periodically

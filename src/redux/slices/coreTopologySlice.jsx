@@ -29,7 +29,9 @@ const coreTopologySlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(fetchCoreTopology.pending, (state) => {
-        state.status = "loading";
+        if (state.devices.length === 0) {
+          state.status = "loading";
+        }
         state.error = null;
       })
       .addCase(fetchCoreTopology.fulfilled, (state, action) => {

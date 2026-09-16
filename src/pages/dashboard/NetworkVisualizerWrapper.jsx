@@ -10,6 +10,7 @@ import { toggleFavoriteLink } from "../../redux/slices/favoritesSlice";
 import {
   selectTopologyDevices,
   selectTopologyStatus,
+  fetchCoreTopology,
 } from "../../redux/slices/coreTopologySlice";
 
 // Import feedback components
@@ -46,6 +47,13 @@ function selectTopTwoDevices(devices) {
 const NetworkVisualizerWrapper = ({ theme }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  // Poll core topology every 30 seconds
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      dispatch(fetchCoreTopology());
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [dispatch]);
 
   // Get topology data from the unified coreTopology slice
   const allTopologyDevices = useSelector(selectTopologyDevices);
@@ -155,7 +163,7 @@ const NetworkVisualizerWrapper = ({ theme }) => {
         const operStatus = (link.oper_status || "").toLowerCase();
         const ospfState = (link.ospf_state || "").toLowerCase();
         let normalized = "up";
-        
+
         if (operStatus !== "up") {
           normalized = "down";
         } else if (ospfState !== "full" && link.last_ospf_full_at !== "null" && link.last_ospf_full_at != null) {
@@ -199,7 +207,7 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           const ep1 = `${device.name}::${link.local_interface || ""}`;
           const ep2 = `${remoteDevice.name}::${link.remote_interface || ""}`;
           const signature = [ep1, ep2].sort().join("---");
-          
+
           if (!seenSignatures.has(signature)) {
             seenSignatures.add(signature);
             transformedLinks.push(linkObj);
