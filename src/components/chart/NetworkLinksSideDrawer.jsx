@@ -821,7 +821,21 @@ export default function NetworkLinksSideDrawer({
                   return acc;
                 }, {});
 
-                return Object.values(eventsByLink).map((group) => {
+                const visibleGroupedEvents = Object.values(eventsByLink).filter(group => {
+                    const fullLink = enrichedLinks.find((l) => l.id === group.linkId);
+                    return fullLink && fullLink.isVisibleOnMap;
+                  });
+                  const notVisibleGroupedEvents = Object.values(eventsByLink).filter(group => {
+                    const fullLink = enrichedLinks.find((l) => l.id === group.linkId);
+                    return !fullLink || !fullLink.isVisibleOnMap;
+                  });
+                  
+                  return (
+                    <>
+                      {visibleGroupedEvents.length > 0 && (
+                        <div className="mb-4">
+                          <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-1">Visible on Map</h4>
+                          {visibleGroupedEvents.map((group) => {
                   const isExpanded = expandedEventLinks.has(group.linkId);
                   const eventCount = group.events.length;
 
@@ -963,8 +977,165 @@ export default function NetworkLinksSideDrawer({
                       )}
                     </div>
                   );
-                });
-              })()
+                          })}
+                        </div>
+                      )}
+                      
+                      {visibleGroupedEvents.length > 0 && notVisibleGroupedEvents.length > 0 && (
+                        <div className="my-4 border-t border-gray-200 dark:border-gray-700"></div>
+                      )}
+                      
+                      {notVisibleGroupedEvents.length > 0 && (
+                        <div>
+                          <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-1">Not Shown on Map</h4>
+                          {notVisibleGroupedEvents.map((group) => {
+                  const isExpanded = expandedEventLinks.has(group.linkId);
+                  const eventCount = group.events.length;
+
+                  return (
+                    <div
+                      key={group.linkId}
+                      className={`group relative p-3 rounded-xl border transition-all duration-200 ${
+                        isDark
+                          ? "bg-gray-800/60 border-gray-700/60 hover:border-gray-600"
+                          : "bg-white border-gray-200/80 hover:border-gray-300 shadow-sm"
+                      }`}
+                    >
+                      {/* Link Header (Clickable) */}
+                      <div
+                        className="flex items-center justify-between cursor-pointer select-none"
+                        onClick={() => {
+                          setExpandedEventLinks(prev => {
+                            const next = new Set(prev);
+                            if (next.has(group.linkId)) next.delete(group.linkId);
+                            else next.add(group.linkId);
+                            return next;
+                          });
+                        }}
+                      >
+                        <div className="flex flex-col min-w-0 pr-4">
+                          <div className="flex items-center gap-2 text-xs font-semibold text-gray-800 dark:text-gray-100">
+                            <span className="truncate font-mono">{group.deviceName}</span>
+                            <span className="text-gray-400 dark:text-gray-500 font-mono text-[10px]">⟷</span>
+                            <span className="truncate font-mono">{group.remoteDeviceName}</span>
+                          </div>
+                          <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                            {group.interface || "Unknown Interface"}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold">
+                            {eventCount} {eventCount === 1 ? 'event' : 'events'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const fullLink = enrichedLinks.find((l) => l.id === group.linkId);
+                              if (fullLink) {
+                                onLinkClick?.(fullLink);
+                              } else {
+                                // Fallback
+                                onLinkClick?.({
+                                  id: group.linkId,
+                                  sourceName: group.deviceName,
+                                  targetName: group.remoteDeviceName,
+                                  sourceNode: group.deviceName,
+                                  targetNode: group.remoteDeviceName,
+                                  local_interface: group.interface,
+                                  statusChangedAt: group.events[0]?.created_at,
+                                  category: "issue",
+                                  status: "issue"
+                                });
+                              }
+                            }}
+                            title="Inspect link details"
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              isDark
+                                ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
+                                : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                            }`}
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Expanded Events List */}
+                      {isExpanded && (
+                        <div className={`mt-3 pt-3 border-t space-y-3 ${isDark ? "border-gray-700/50" : "border-gray-100"}`}>
+                          {group.events.map((event) => {
+                            const statusColors = {
+                              up: { bg: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" },
+                              down: { bg: "bg-rose-500", text: "text-rose-600 dark:text-rose-400" },
+                              issue: { bg: "bg-amber-500", text: "text-amber-600 dark:text-amber-400" },
+                            };
+
+                            const isOspfEvent = event.event_type === "ospf_drop" || event.event_type === "ospf_full";
+                            const oldStatusStr = isOspfEvent ? event.old_ospf_state : event.old_oper_status;
+                            const newStatusStr = isOspfEvent ? event.new_ospf_state : event.new_oper_status;
+
+                            const getStatusColor = (statusStr) => {
+                              if (!statusStr) return statusColors.issue;
+                              const s = statusStr.toLowerCase();
+                              if (s === "up" || s === "full") return statusColors.up;
+                              if (s === "down" || s === "drop") return statusColors.down;
+                              return statusColors.issue;
+                            };
+
+                            const oldStyle = getStatusColor(oldStatusStr);
+                            const newStyle = getStatusColor(newStatusStr);
+                            
+                            const oldLabel = oldStatusStr ? String(oldStatusStr).toUpperCase() : "N/A";
+                            const newLabel = newStatusStr ? String(newStatusStr).toUpperCase() : "N/A";
+
+                            const eventTime = formatExactTime(event.created_at);
+                            const eventDuration = formatDuration(event.created_at);
+
+                            const eventTypeLabel = String(event.event_type || "Event").replace("_", " ").toUpperCase();
+
+                            return (
+                              <div key={event.id} className={`p-2 rounded-lg border ${isDark ? "bg-gray-800/80 border-gray-700/80" : "bg-gray-50 border-gray-100"}`}>
+                                {/* Status Change Badge */}
+                                <div className="flex items-center justify-between gap-2 mb-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${oldStyle.text}`}>
+                                      <span className={`w-1.5 h-1.5 rounded-full ${oldStyle.bg}`} />
+                                      {oldLabel}
+                                    </span>
+                                    <ArrowRight className="w-3 h-3 text-gray-400" />
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${newStyle.text}`}>
+                                      <span className={`w-1.5 h-1.5 rounded-full ${newStyle.bg}`} />
+                                      {newLabel}
+                                    </span>
+                                  </div>
+                                  <div
+                                    title={eventTime}
+                                    className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-white dark:bg-gray-700 shadow-sm text-gray-600 dark:text-gray-300"
+                                  >
+                                    <Clock className="w-2.5 h-2.5 flex-shrink-0" />
+                                    <span>{eventDuration} ago</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
+                                  <span className="font-medium text-blue-600 dark:text-blue-400">
+                                    {eventTypeLabel}
+                                  </span>
+                                  <span className="font-mono">{eventTime}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                          })}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()
             )
           ) : (
             /* ===== STANDARD LINK CARDS for Up/Down/Issue tabs ===== */
@@ -1018,7 +1189,16 @@ export default function NetworkLinksSideDrawer({
                 )}
               </div>
             ) : (
-              filteredLinks.map((link) => {
+              (() => {
+                const visibleFilteredLinks = filteredLinks.filter(l => l.isVisibleOnMap);
+                const notVisibleFilteredLinks = filteredLinks.filter(l => !l.isVisibleOnMap);
+                
+                return (
+                  <>
+                    {visibleFilteredLinks.length > 0 && (
+                      <div className="mb-4">
+                        <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-1">Visible on Map</h4>
+                        {visibleFilteredLinks.map((link) => {
                 const isLinkUp = link.normalizedStatus === "up";
                 const isLinkIssue = link.normalizedStatus === "issue";
                 const isLinkMarked = markedLinkIds && markedLinkIds.has(link.id);
@@ -1180,9 +1360,187 @@ export default function NetworkLinksSideDrawer({
                     </div>
                   </div>
                 );
-              })
-            )
-          )}
+                        })}
+                      </div>
+                    )}
+                    
+                    {visibleFilteredLinks.length > 0 && notVisibleFilteredLinks.length > 0 && (
+                      <div className="my-4 border-t border-gray-200 dark:border-gray-700"></div>
+                    )}
+                    
+                    {notVisibleFilteredLinks.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-1">Not Shown on Map</h4>
+                        {notVisibleFilteredLinks.map((link) => {
+                const isLinkUp = link.normalizedStatus === "up";
+                const isLinkIssue = link.normalizedStatus === "issue";
+                const isLinkMarked = markedLinkIds && markedLinkIds.has(link.id);
+
+                return (
+                  <div
+                    key={link.id || `${link.sourceName}-${link.targetName}`}
+                    onMouseEnter={() => onHoverLink?.(link.id)}
+                    onMouseLeave={() => onHoverLink?.(null)}
+                    onClick={() => {
+                      if (onLinkClick) {
+                        onLinkClick({
+                          ...link,
+                          sourceNode: link.sourceName,
+                          targetNode: link.targetName,
+                        });
+                      }
+                    }}
+                    className={`group relative p-3 rounded-xl border transition-all duration-200 cursor-pointer ${
+                      isLinkMarked
+                        ? isDark
+                          ? "bg-amber-950/20 border-amber-500/70 shadow-md shadow-amber-500/5 ring-1 ring-amber-500/50"
+                          : "bg-amber-50/70 border-amber-300 shadow-md shadow-amber-200/50 ring-1 ring-amber-400/50"
+                        : isDark
+                        ? "bg-gray-800/60 hover:bg-gray-800 border-gray-700/60 hover:border-gray-600"
+                        : "bg-white hover:bg-gray-50/80 border-gray-200/80 hover:border-gray-300 shadow-sm"
+                    }`}
+                  >
+                    {/* Card Top: Status & Duration & Mark Button */}
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      {/* Status badge */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="relative flex h-2 w-2">
+                          <span
+                            className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                              isLinkUp
+                                ? "bg-emerald-400"
+                                : isLinkIssue
+                                ? "bg-amber-400"
+                                : "bg-rose-400"
+                            }`}
+                          />
+                          <span
+                            className={`relative inline-flex rounded-full h-2 w-2 ${
+                              isLinkUp
+                                ? "bg-emerald-500"
+                                : isLinkIssue
+                                ? "bg-amber-500"
+                                : "bg-rose-500"
+                            }`}
+                          />
+                        </span>
+                        <span
+                          className={`text-xs font-bold uppercase tracking-wider ${
+                            isLinkUp
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : isLinkIssue
+                              ? "text-amber-600 dark:text-amber-400"
+                              : "text-rose-600 dark:text-rose-400"
+                          }`}
+                        >
+                          {isLinkUp ? "UP" : isLinkIssue ? "ISSUE" : "DOWN"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {/* Duration */}
+                        <div
+                          title={
+                            link.exactTimeStr
+                              ? `Status change: ${link.exactTimeStr}`
+                              : undefined
+                          }
+                          className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                            isLinkUp
+                              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
+                              : isLinkIssue
+                              ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20"
+                              : "bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20"
+                          }`}
+                        >
+                          <Clock className="w-3 h-3 flex-shrink-0" />
+                          <span>
+                            {isLinkUp ? "Up" : isLinkIssue ? "Issue" : "Down"} for{" "}
+                            <strong className="font-semibold">{link.durationStr}</strong>
+                          </span>
+                        </div>
+
+                        {/* Mark on chart button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onToggleMarkLink) onToggleMarkLink(link.id);
+                          }}
+                          title={isLinkMarked ? "Unmark from chart" : "Mark link on chart"}
+                          className={`p-1 rounded-md transition-colors ${
+                            isLinkMarked
+                              ? "bg-amber-500 text-white shadow-sm"
+                              : "text-gray-400 hover:text-amber-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          }`}
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Card Middle: Source ⟷ Target */}
+                    <div className="flex items-center justify-between text-xs font-semibold py-1">
+                      <div className="flex flex-col min-w-0 pr-2">
+                        <span className="truncate text-gray-800 dark:text-gray-100 font-mono">
+                          {link.sourceName}
+                        </span>
+                        {link.sourceZone && (
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                            {link.sourceZone}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="text-gray-400 dark:text-gray-500 px-1 font-mono text-[10px]">
+                        ⟷
+                      </div>
+
+                      <div className="flex flex-col min-w-0 pl-2 text-right">
+                        <span className="truncate text-gray-800 dark:text-gray-100 font-mono">
+                          {link.targetName}
+                        </span>
+                        {link.targetZone && (
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                            {link.targetZone}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Card Bottom: Meta info & Inspect button */}
+                    <div
+                      className={`mt-2 pt-2 border-t flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 ${
+                        isDark ? "border-gray-700/50" : "border-gray-100"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>{link.Bandwidth || link.bandwidth || "10 Gbps"}</span>
+                        <span>•</span>
+                        <span>{link.MediaType || link.media_type || "Fiber"}</span>
+                        {link.ip && (
+                          <>
+                            <span>•</span>
+                            <span className="font-mono">{link.ip}</span>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1 text-blue-500 dark:text-blue-400 font-medium group-hover:underline">
+                        <span>Inspect</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </div>
+                    </div>
+                  </div>
+                );
+                        })}
+                      </div>
+                    )}
+                  </>
+                );
+              })()
+              )
+            )}
         </div>
       </aside>
     </>

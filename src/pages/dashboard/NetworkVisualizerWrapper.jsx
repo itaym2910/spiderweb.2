@@ -198,6 +198,7 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           ospf_drops_last_24h: link.ospf_drops_last_24h,
           rawLink: link,
         };
+          linkObj.isVisibleOnMap = false;
 
         allDrawerLinks.push(linkObj);
 
@@ -210,7 +211,8 @@ const NetworkVisualizerWrapper = ({ theme }) => {
 
           if (!seenSignatures.has(signature)) {
             seenSignatures.add(signature);
-            transformedLinks.push(linkObj);
+            linkObj.isVisibleOnMap = true;
+              transformedLinks.push(linkObj);
           }
         }
       });
