@@ -251,7 +251,7 @@ const NetworkVisualizerWrapper = ({ theme }) => {
         : linkData.targetNode || linkData.targetName || linkData.target;
 
     setPopupLink({
-      data: linkData,
+      data: { ...linkData, skipFetch: true, isCoreTopology: true },
       type: "link",
       title: `${src || "Device A"} ⟷ ${tgt || "Device B"}`,
     });
