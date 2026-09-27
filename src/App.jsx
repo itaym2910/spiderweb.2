@@ -10,8 +10,11 @@ import AppLayout from "./components/layout/AppLayout";
 import LoginPage from "./pages/LoginPage";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import { AppInitializer } from "./components/auth/AppInitializer";
+import { usePreventSelectAll } from "./hooks/usePreventSelectAll";
 
 function App() {
+  usePreventSelectAll();
+
   return (
     <Provider store={store}>
       <BrowserRouter>
