@@ -140,7 +140,6 @@ function AppLayout() {
     if (path.startsWith("/search")) return "Search";
     if (path.startsWith("/notifications")) return "Alerts";
     if (path.startsWith("/help")) return "Help";
-    if (path.startsWith("/settings")) return "Settings";
 
     return "Dashboard";
   }, [location.pathname]);
@@ -339,18 +338,6 @@ function AppLayout() {
               element={
                 <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow">
                   Help Page Content
-                </div>
-              }
-            />
-
-            {/* =================================================
-                SETTINGS
-            ================================================= */}
-            <Route
-              path="/settings"
-              element={
-                <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow">
-                  Settings Page Content
                 </div>
               }
             />
