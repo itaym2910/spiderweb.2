@@ -60,6 +60,26 @@ export function createLinkPopupPayload(linkDataObject) {
   const tx = typeof rawTx === "number" ? `${rawTx} dBm` : String(rawTx);
   const rx = typeof rawRx === "number" ? `${rawRx} dBm` : String(rawRx);
   const mtu = typeof rawMtu === "number" ? String(rawMtu) : String(rawMtu);
+  const ping_success_rate =
+    raw.ping_success_rate ??
+    linkDataObject.ping_success_rate ??
+    raw.pingSuccessRate ??
+    linkDataObject.pingSuccessRate;
+  const ping_packets_success =
+    raw.ping_packets_success ??
+    linkDataObject.ping_packets_success ??
+    raw.packets_success ??
+    linkDataObject.packets_success;
+  const ping_packets_total =
+    raw.ping_packets_total ??
+    linkDataObject.ping_packets_total ??
+    raw.packets_total ??
+    linkDataObject.packets_total;
+  const last_ping_at =
+    raw.last_ping_at ??
+    linkDataObject.last_ping_at ??
+    raw.lastPingAt ??
+    linkDataObject.lastPingAt;
   const ip = raw.ip || linkDataObject.ip || "N/A";
   const sourceZone = linkDataObject.sourceZone || raw.sourceZone || "N/A";
   const targetZone = linkDataObject.targetZone || raw.targetZone || "N/A";
@@ -95,6 +115,10 @@ export function createLinkPopupPayload(linkDataObject) {
     tx,
     rx,
     mtu,
+    ping_success_rate,
+    ping_packets_success,
+    ping_packets_total,
+    last_ping_at,
     ip,
   };
 }
@@ -202,10 +226,15 @@ export function applyMarkedState({
   const markedIdsSet = new Set(markedLinkIds || []);
   if (hoveredLinkId) markedIdsSet.add(hoveredLinkId);
 
+  const isLinkMarked = (d) => {
+    if (!d) return false;
+    return markedIdsSet.has(d.id) || Boolean(d.allIds && d.allIds.some((id) => markedIdsSet.has(id)));
+  };
+
   // 1. Straight links
   svg.selectAll("line.visible-link").each(function (d) {
     if (!d) return;
-    const isMarked = markedIdsSet.has(d.id);
+    const isMarked = isLinkMarked(d);
     const highlightColor = getLinkColorByCategory(d, palette);
 
     const sourceId = typeof d.source === "object" ? d.source.id : d.source;
@@ -231,7 +260,7 @@ export function applyMarkedState({
   // 2. Duplicate / parallel links
   svg.selectAll("path.duplicate-link").each(function (d) {
     if (!d) return;
-    const isMarked = markedIdsSet.has(d.id);
+    const isMarked = isLinkMarked(d);
     const highlightColor = getLinkColorByCategory(d, palette);
 
     const sourceId = typeof d.source === "object" ? d.source.id : d.source;
@@ -256,14 +285,14 @@ export function applyMarkedState({
 
   // 3. Hover Hitboxes
   svg.selectAll("line.link-hover").each(function (d) {
-    const isMarked = d && markedIdsSet.has(d.id);
+    const isMarked = isLinkMarked(d);
     d3.select(this)
       .style("pointer-events", isMarked ? "auto" : "none")
       .style("cursor", isMarked ? "pointer" : "default");
   });
 
   svg.selectAll("path.duplicate-link-hover").each(function (d) {
-    const isMarked = d && markedIdsSet.has(d.id);
+    const isMarked = isLinkMarked(d);
     d3.select(this)
       .style("pointer-events", isMarked ? "auto" : "none")
       .style("cursor", isMarked ? "pointer" : "default");

@@ -18,6 +18,8 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { api } from "../../services/apiServices";
+import { formatPingRateWithPackets, calculatePingSummary } from "../shared/pingHelpers";
+import PingSummaryModal from "../shared/PingSummaryModal";
 
 /**
  * Formats elapsed time since a given date into a human readable duration string.
@@ -97,8 +99,10 @@ export default function NetworkLinksSideDrawer({
     onOpenChange?.(nextVal);
   };
 
-  const [activeFilter, setActiveFilter] = useState("up"); // 'up' | 'down' | 'issue' | 'all'
+  const [activeFilter, setActiveFilter] = useState("up"); // 'up' | 'down' | 'issue' | 'ping' | 'all'
   const [timeFilter, setTimeFilter] = useState(null); // null | '24h' | '7d' | '30d'
+  const [pingSubFilter, setPingSubFilter] = useState("all"); // 'all' | 'issues' | 'healthy'
+  const [isPingModalOpen, setIsPingModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   // Local state to trigger re-computation of durations every 10 seconds
   const [, setTimerTick] = useState(0);
@@ -230,6 +234,12 @@ export default function NetworkLinksSideDrawer({
     [enrichedLinks]
   );
 
+  // Ping Telemetry Summary
+  const pingSummary = useMemo(
+    () => calculatePingSummary(enrichedLinks),
+    [enrichedLinks]
+  );
+
   // Time filter counts based on the active status tab
   // For up/down/issue: count links stable for >= X time (status changed BEFORE cutoff)
   // For all: count links changed within < X time (status changed AFTER cutoff)
@@ -268,16 +278,23 @@ export default function NetworkLinksSideDrawer({
 
   // Filtered links for the active view, time window, and search
   const filteredLinks = useMemo(() => {
-    const isStabilityMode = activeFilter !== "all";
+    const isStabilityMode = activeFilter !== "all" && activeFilter !== "ping";
 
-    return enrichedLinks.filter((link) => {
+    const baseList = enrichedLinks.filter((link) => {
       // Status filter
       if (activeFilter === "up" && link.normalizedStatus !== "up") return false;
       if (activeFilter === "down" && link.normalizedStatus !== "down") return false;
       if (activeFilter === "issue" && link.normalizedStatus !== "issue") return false;
+      if (activeFilter === "ping") {
+        const rate = link.ping_success_rate ?? link.rawLink?.ping_success_rate;
+        if (rate === undefined || rate === null || rate === "") return false;
+        const numRate = Number(String(rate).replace("%", "").trim());
+        if (pingSubFilter === "issues" && numRate >= 100) return false;
+        if (pingSubFilter === "healthy" && numRate < 100) return false;
+      }
 
       // Time filter
-      if (timeFilter) {
+      if (timeFilter && activeFilter !== "ping") {
         const targetDate = new Date(link.statusDate);
         if (!isNaN(targetDate.getTime())) {
           const diffHours = (Date.now() - targetDate.getTime()) / (1000 * 60 * 60);
@@ -320,7 +337,18 @@ export default function NetworkLinksSideDrawer({
 
       return true;
     });
-  }, [enrichedLinks, activeFilter, timeFilter, searchQuery]);
+
+    if (activeFilter === "ping") {
+      // Sort worst ping first
+      return [...baseList].sort((a, b) => {
+        const rateA = Number(String(a.ping_success_rate ?? a.rawLink?.ping_success_rate ?? 100).replace("%", ""));
+        const rateB = Number(String(b.ping_success_rate ?? b.rawLink?.ping_success_rate ?? 100).replace("%", ""));
+        return rateA - rateB;
+      });
+    }
+
+    return baseList;
+  }, [enrichedLinks, activeFilter, timeFilter, searchQuery, pingSubFilter]);
 
   // Helper to get links matching status and time window for marking on chart
   const getMatchingLinks = (statusF, timeF) => {
@@ -398,9 +426,9 @@ export default function NetworkLinksSideDrawer({
   return (
     <>
       {/* ========================================================= */}
-      {/* FLOATING SIDE ACTION BUTTONS (UP & DOWN)                 */}
+      {/* FLOATING SIDE ACTION BUTTONS (UP, DOWN, ISSUE, PING TOTAL) */}
       {/* ========================================================= */}
-      <div className="absolute top-4 left-4 z-20 flex items-center gap-2.5">
+      <div className="absolute top-4 left-4 z-20 flex items-center gap-2.5 flex-wrap">
         {/* UP Links Button */}
         <button
           type="button"
@@ -507,6 +535,66 @@ export default function NetworkLinksSideDrawer({
           </span>
         </button>
 
+        {/* PING TOTAL Button */}
+        <button
+          type="button"
+          onClick={() => setIsPingModalOpen(true)}
+          title={`Total Ping: ${pingSummary.formattedRate} (${pingSummary.formattedPackets} packets received). Click for full summary.`}
+          className={`group flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold shadow-lg transition-all duration-200 border ${
+            isOpen && activeFilter === "ping"
+              ? "bg-blue-600 text-white border-blue-500 ring-2 ring-blue-400/50 shadow-blue-500/20"
+              : isDark
+              ? "bg-gray-800/90 hover:bg-gray-700/90 border-gray-700/80 backdrop-blur-md shadow-black/20"
+              : "bg-white/95 hover:bg-blue-50/90 border-gray-200 backdrop-blur-md shadow-gray-200/50"
+          }`}
+        >
+          <div
+            className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${
+              isOpen && activeFilter === "ping"
+                ? "bg-white/20 text-white"
+                : pingSummary.statusCategory === "optimal"
+                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white"
+                : pingSummary.statusCategory === "degraded"
+                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500 group-hover:text-white"
+                : "bg-rose-500/15 text-rose-600 dark:text-rose-400 group-hover:bg-rose-500 group-hover:text-white"
+            }`}
+          >
+            <Activity className="w-3.5 h-3.5 stroke-[2.5]" />
+          </div>
+          <span
+            className={
+              isOpen && activeFilter === "ping"
+                ? "text-white"
+                : pingSummary.statusCategory === "optimal"
+                ? "text-emerald-700 dark:text-emerald-300"
+                : pingSummary.statusCategory === "degraded"
+                ? "text-amber-700 dark:text-amber-300"
+                : "text-rose-700 dark:text-rose-300"
+            }
+          >
+            Ping Total
+          </span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-xs font-bold transition-colors ${
+              isOpen && activeFilter === "ping"
+                ? "bg-blue-700 text-white"
+                : pingSummary.statusCategory === "optimal"
+                ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                : pingSummary.statusCategory === "degraded"
+                ? "bg-amber-500/20 text-amber-700 dark:text-amber-300"
+                : "bg-rose-500/20 text-rose-700 dark:text-rose-300"
+            }`}
+          >
+            {pingSummary.formattedRate}
+          </span>
+          <span
+            className={`text-xs font-mono hidden md:inline opacity-75 ${
+              isOpen && activeFilter === "ping" ? "text-white" : "text-gray-500 dark:text-gray-400"
+            }`}
+          >
+            ({pingSummary.formattedPackets})
+          </span>
+        </button>
       </div>
 
       {/* ========================================================= */}
@@ -582,113 +670,214 @@ export default function NetworkLinksSideDrawer({
           }`}
         >
           {/* Status Tabs switch */}
-          <div className="grid grid-cols-4 gap-1 p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl">
+          <div className="grid grid-cols-5 gap-1 p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl">
             <button
               type="button"
               onClick={() => handleStatusTabClick("up")}
-              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[11px] font-semibold transition-all ${
                 activeFilter === "up"
                   ? "bg-emerald-600 text-white shadow-sm"
                   : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
               }`}
             >
-              <ArrowUp className="w-3.5 h-3.5" />
-              <span>Up ({upCount})</span>
+              <ArrowUp className="w-3 h-3 shrink-0" />
+              <span className="truncate">Up ({upCount})</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleStatusTabClick("down")}
-              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[11px] font-semibold transition-all ${
                 activeFilter === "down"
                   ? "bg-rose-600 text-white shadow-sm"
                   : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
               }`}
             >
-              <ArrowDown className="w-3.5 h-3.5" />
-              <span>Down ({downCount})</span>
+              <ArrowDown className="w-3 h-3 shrink-0" />
+              <span className="truncate">Down ({downCount})</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleStatusTabClick("issue")}
-              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[11px] font-semibold transition-all ${
                 activeFilter === "issue"
                   ? "bg-amber-600 text-white shadow-sm"
                   : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
               }`}
             >
-              <Activity className="w-3.5 h-3.5" />
-              <span>Issue ({issueCount})</span>
+              <Activity className="w-3 h-3 shrink-0" />
+              <span className="truncate">Issue ({issueCount})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleStatusTabClick("ping")}
+              className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[11px] font-semibold transition-all ${
+                activeFilter === "ping"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+              }`}
+            >
+              <Activity className="w-3 h-3 shrink-0" />
+              <span className="truncate">Ping ({pingSummary.formattedRate})</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleStatusTabClick("all")}
-              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[11px] font-semibold transition-all ${
                 activeFilter === "all"
-                  ? "bg-blue-600 text-white shadow-sm"
+                  ? "bg-indigo-600 text-white shadow-sm"
                   : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
               }`}
             >
-              <Layers className="w-3.5 h-3.5" />
-              <span>All ({enrichedLinks.length})</span>
+              <Layers className="w-3 h-3 shrink-0" />
+              <span className="truncate">All ({enrichedLinks.length})</span>
             </button>
           </div>
 
-          {/* Time Filter Bar */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-1 shrink-0">
-              <Clock className="w-3 h-3 text-gray-400" />
-              Time:
-            </span>
-            <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none flex-1">
-              {[
-                { id: "24h", labelAll: "< 24h", labelStability: "≥ 24h" },
-                { id: "7d", labelAll: "< 1 Week", labelStability: "≥ 1 Week" },
-                { id: "30d", labelAll: "< 1 Month", labelStability: "≥ 1 Month" },
-              ].map((opt) => {
-                const isSelected = timeFilter === opt.id;
-                const count = timeCounts[opt.id] ?? 0;
-                const isStabilityMode = activeFilter !== "all";
-                const displayLabel = isStabilityMode ? opt.labelStability : opt.labelAll;
-                
-                return (
+          {/* Controls below status tabs: either Ping Controls or Time Filter */}
+          {activeFilter === "ping" ? (
+            <div className="space-y-2 pt-0.5">
+              {/* Mini Ping Summary Banner */}
+              <div
+                className={`p-2.5 rounded-xl border flex items-center justify-between text-xs ${
+                  isDark ? "bg-gray-800/80 border-gray-700/60" : "bg-gray-100/80 border-gray-200"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="p-1 rounded-lg bg-blue-500/10 text-blue-500">
+                    <Activity className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5 font-bold text-gray-900 dark:text-gray-100">
+                      <span>{pingSummary.formattedRate}</span>
+                      <span className="text-[11px] font-normal text-gray-400 font-mono">
+                        ({pingSummary.formattedPackets} received)
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400">
+                      {pingSummary.healthyCount} Healthy • {pingSummary.degradedCount} Degraded • {pingSummary.downCount} Offline
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsPingModalOpen(true)}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors flex items-center gap-1 shadow-sm"
+                >
+                  <span>Summary Report</span>
+                  <ExternalLink className="w-3 h-3" />
+                </button>
+              </div>
+
+              {/* Sub-filters for Ping */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 shrink-0">
+                  Filter:
+                </span>
+                <div className="flex items-center gap-1 overflow-x-auto pb-0.5 flex-1 scrollbar-none">
                   <button
-                    key={opt.id}
                     type="button"
-                    onClick={() => {
-                      if (timeFilter === opt.id) {
-                        handleTimeFilterClick(null); // toggle off
-                      } else {
-                        handleTimeFilterClick(opt.id);
-                      }
-                    }}
-                    className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-all whitespace-nowrap flex items-center gap-1 ${
-                      isSelected
-                        ? "bg-blue-600 text-white shadow-sm font-semibold"
+                    onClick={() => setPingSubFilter("all")}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                      pingSubFilter === "all"
+                        ? "bg-blue-600 text-white shadow-xs"
                         : isDark
-                        ? "bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700"
-                        : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
+                        ? "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900"
                     }`}
                   >
-                    <span>{displayLabel}</span>
-                    <span
-                      className={`text-[10px] px-1 rounded-full ${
+                    All ({pingSummary.monitoredCount})
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPingSubFilter("issues")}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                      pingSubFilter === "issues"
+                        ? "bg-amber-600 text-white shadow-xs"
+                        : isDark
+                        ? "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900"
+                    }`}
+                  >
+                    Packet Loss ({pingSummary.problemLinks.length})
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPingSubFilter("healthy")}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                      pingSubFilter === "healthy"
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : isDark
+                        ? "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900"
+                    }`}
+                  >
+                    100% Healthy ({pingSummary.healthyCount})
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Time Filter Bar */
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-1 shrink-0">
+                <Clock className="w-3 h-3 text-gray-400" />
+                Time:
+              </span>
+              <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none flex-1">
+                {[
+                  { id: "24h", labelAll: "< 24h", labelStability: "≥ 24h" },
+                  { id: "7d", labelAll: "< 1 Week", labelStability: "≥ 1 Week" },
+                  { id: "30d", labelAll: "< 1 Month", labelStability: "≥ 1 Month" },
+                ].map((opt) => {
+                  const isSelected = timeFilter === opt.id;
+                  const count = timeCounts[opt.id] ?? 0;
+                  const isStabilityMode = activeFilter !== "all";
+                  const displayLabel = isStabilityMode ? opt.labelStability : opt.labelAll;
+                  
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => {
+                        if (timeFilter === opt.id) {
+                          handleTimeFilterClick(null); // toggle off
+                        } else {
+                          handleTimeFilterClick(opt.id);
+                        }
+                      }}
+                      className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-all whitespace-nowrap flex items-center gap-1 ${
                         isSelected
-                          ? "bg-blue-700 text-white"
+                          ? "bg-blue-600 text-white shadow-sm font-semibold"
                           : isDark
-                          ? "bg-gray-700 text-gray-300"
-                          : "bg-gray-200 text-gray-600"
+                          ? "bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+                          : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
                       }`}
                     >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
+                      <span>{displayLabel}</span>
+                      <span
+                        className={`text-[10px] px-1 rounded-full ${
+                          isSelected
+                            ? "bg-blue-700 text-white"
+                            : isDark
+                            ? "bg-gray-700 text-gray-300"
+                            : "bg-gray-200 text-gray-600"
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Search bar */}
           <div className="flex items-center gap-2">
@@ -821,12 +1010,21 @@ export default function NetworkLinksSideDrawer({
                   return acc;
                 }, {});
 
+                const findLinkForGroup = (group) => {
+                  return enrichedLinks.find((l) =>
+                    l.id === group.linkId ||
+                    (l.allIds && l.allIds.includes(group.linkId)) ||
+                    (l.sourceName === group.deviceName && l.targetName === group.remoteDeviceName && l.local_interface === group.interface) ||
+                    (l.targetName === group.deviceName && l.sourceName === group.remoteDeviceName && (l.remote_interface === group.interface || l.local_interface === group.interface))
+                  );
+                };
+
                 const visibleGroupedEvents = Object.values(eventsByLink).filter(group => {
-                    const fullLink = enrichedLinks.find((l) => l.id === group.linkId);
+                    const fullLink = findLinkForGroup(group);
                     return fullLink && fullLink.isVisibleOnMap;
                   });
-                  const notVisibleGroupedEvents = Object.values(eventsByLink).filter(group => {
-                    const fullLink = enrichedLinks.find((l) => l.id === group.linkId);
+                const notVisibleGroupedEvents = Object.values(eventsByLink).filter(group => {
+                    const fullLink = findLinkForGroup(group);
                     return !fullLink || !fullLink.isVisibleOnMap;
                   });
                   
@@ -878,7 +1076,7 @@ export default function NetworkLinksSideDrawer({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              const fullLink = enrichedLinks.find((l) => l.id === group.linkId);
+                              const fullLink = findLinkForGroup(group);
                               if (fullLink) {
                                 onLinkClick?.(fullLink);
                               } else {
@@ -1031,7 +1229,7 @@ export default function NetworkLinksSideDrawer({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              const fullLink = enrichedLinks.find((l) => l.id === group.linkId);
+                              const fullLink = findLinkForGroup(group);
                               if (fullLink) {
                                 onLinkClick?.(fullLink);
                               } else {
@@ -1161,6 +1359,8 @@ export default function NetworkLinksSideDrawer({
                     ? "No Down Links Detected"
                     : activeFilter === "issue"
                     ? "No Issue Links Detected"
+                    : activeFilter === "ping"
+                    ? (pingSubFilter === "issues" ? "No Packet Loss Detected" : "No Ping Telemetry Found")
                     : searchQuery
                     ? "No Matching Links Found"
                     : timeFilter
@@ -1172,6 +1372,8 @@ export default function NetworkLinksSideDrawer({
                     ? "All chart links are currently healthy and operational."
                     : activeFilter === "issue"
                     ? "There are no links with issues on the chart."
+                    : activeFilter === "ping"
+                    ? (pingSubFilter === "issues" ? "All active monitored lines are delivering 100% of packets." : "No link matches your current ping filter.")
                     : searchQuery
                     ? `No links matched your query "${searchQuery}".`
                     : timeFilter
@@ -1341,7 +1543,7 @@ export default function NetworkLinksSideDrawer({
                         isDark ? "border-gray-700/50" : "border-gray-100"
                       }`}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span>{link.Bandwidth || link.bandwidth || "10 Gbps"}</span>
                         <span>•</span>
                         <span>{link.MediaType || link.media_type || "Fiber"}</span>
@@ -1349,6 +1551,38 @@ export default function NetworkLinksSideDrawer({
                           <>
                             <span>•</span>
                             <span className="font-mono">{link.ip}</span>
+                          </>
+                        )}
+                        {((link.ping_success_rate !== undefined && link.ping_success_rate !== null) ||
+                          (link.rawLink?.ping_success_rate !== undefined && link.rawLink?.ping_success_rate !== null)) && (
+                          <>
+                            <span>•</span>
+                            <span
+                              className={`inline-flex items-center gap-1 font-semibold ${
+                                Number(link.ping_success_rate ?? link.rawLink?.ping_success_rate) >= 95
+                                  ? "text-emerald-600 dark:text-emerald-400"
+                                  : Number(link.ping_success_rate ?? link.rawLink?.ping_success_rate) > 0
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : "text-rose-600 dark:text-rose-400"
+                              }`}
+                              title={
+                                link.last_ping_at || link.rawLink?.last_ping_at
+                                  ? `Last ping: ${link.last_ping_at || link.rawLink?.last_ping_at}`
+                                  : undefined
+                              }
+                            >
+                              <Activity className="w-3 h-3" />
+                              <span>
+                                {(() => {
+                                  const pInfo = formatPingRateWithPackets(
+                                    link.ping_success_rate ?? link.rawLink?.ping_success_rate,
+                                    link.ping_packets_success ?? link.rawLink?.ping_packets_success,
+                                    link.ping_packets_total ?? link.rawLink?.ping_packets_total
+                                  );
+                                  return pInfo ? `Ping: ${pInfo.short}` : `Ping: ${link.ping_success_rate ?? link.rawLink?.ping_success_rate}%`;
+                                })()}
+                              </span>
+                            </span>
                           </>
                         )}
                       </div>
@@ -1543,6 +1777,24 @@ export default function NetworkLinksSideDrawer({
             )}
         </div>
       </aside>
+
+      {/* Ping Summary Modal */}
+      <PingSummaryModal
+        isOpen={isPingModalOpen}
+        onClose={() => setIsPingModalOpen(false)}
+        pingSummary={pingSummary}
+        chartName={chartName}
+        onSelectLink={(link) => {
+          setIsPingModalOpen(false);
+          onLinkClick?.(link);
+        }}
+        onOpenDrawerToPing={() => {
+          setIsPingModalOpen(false);
+          setIsOpen(true);
+          setActiveFilter("ping");
+        }}
+        theme={theme}
+      />
     </>
   );
 }

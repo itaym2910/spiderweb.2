@@ -93,8 +93,10 @@ const NetworkVisualizerWrapper = ({ theme }) => {
     // Filter devices for this chart's network
     const devicesForChart = allTopologyDevices.filter((d) => {
       if (!d.name || !d.network_name) return false;
+      const isAnanOrP = d.network_name.includes("anan") || d.network_name.toLowerCase().includes("p-network");
+      if (isAnanOrP) return false;
       const hasSharedName = ["H1", "H2", "H4", "H5", "H7", "H8"].some((str) => d.name.includes(str));
-      const isLNetwork = d.network_name.includes("ns");
+      const isLNetwork = d.network_name.includes("ns") || d.network_name.toLowerCase().includes("l-network");
       return hasSharedName || isLNetwork;
     });
 
@@ -143,15 +145,14 @@ const NetworkVisualizerWrapper = ({ theme }) => {
 
     // Extract and deduplicate links from devices
     const seenLinkIds = new Set();
-    const seenSignatures = new Set();
-    const transformedLinks = [];
-    const allDrawerLinks = [];
+    const linksBySignature = new Map();
+    const endpointToSignature = new Map();
 
     devicesForChart.forEach((device) => {
       if (!device.links) return;
 
       device.links.forEach((link) => {
-        // Skip duplicates by ID
+        // Skip duplicate records by ID
         if (seenLinkIds.has(link.id)) return;
         seenLinkIds.add(link.id);
 
@@ -170,8 +171,65 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           normalized = "issue";
         }
 
+        const isBothDevicesVisible = Boolean(
+          visibleDeviceNames.has(device.name) &&
+          remoteDevice &&
+          visibleDeviceNames.has(remoteDevice.name)
+        );
+
+        // Determine link signature for bidirectional deduplication
+        const localEp = `${device.name}::${link.local_interface || ""}`;
+        const remoteEp = `${remoteDeviceName}::${link.remote_interface || ""}`;
+
+        let signature = null;
+        if (link.local_interface && endpointToSignature.has(localEp)) {
+          signature = endpointToSignature.get(localEp);
+        } else if (link.remote_interface && endpointToSignature.has(remoteEp)) {
+          signature = endpointToSignature.get(remoteEp);
+        }
+
+        if (!signature) {
+          if (link.local_interface || link.remote_interface) {
+            signature = [localEp, remoteEp].sort().join("---");
+          } else {
+            signature = [device.name, remoteDeviceName, link.id].sort().join("---");
+          }
+        }
+
+        if (linksBySignature.has(signature)) {
+          const existing = linksBySignature.get(signature);
+          if (!existing.allIds) existing.allIds = [existing.id];
+          if (!existing.allIds.includes(link.id)) existing.allIds.push(link.id);
+
+          // Elevate status if reciprocal side indicates down/issue
+          if (normalized === "down") {
+            existing.category = "down";
+            existing.status = "down";
+            existing.normalizedStatus = "down";
+          } else if (normalized === "issue" && existing.category !== "down") {
+            existing.category = "issue";
+            existing.status = "issue";
+            existing.normalizedStatus = "issue";
+          }
+
+          // If either side determines visibility, ensure it is marked visible
+          if (isBothDevicesVisible) {
+            existing.isVisibleOnMap = true;
+          }
+
+          // Fill any missing metadata from reciprocal link
+          if (!existing.remote_interface && link.local_interface) {
+            existing.remote_interface = link.local_interface;
+          }
+          if (!existing.remote_ip && (link.local_link_ip || link.local_ip)) {
+            existing.remote_ip = link.local_link_ip || link.local_ip;
+          }
+          return;
+        }
+
         const linkObj = {
           id: link.id,
+          allIds: [link.id],
           source: device.name,
           target: remoteDeviceName,
           sourceName: device.name,
@@ -187,7 +245,17 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           normalizedStatus: normalized,
           statusChangedAt: link.last_state_change_at,
           linkType: "core",
-          bandwidth: link.bandwidth_mbps || "10G",
+          bandwidth: link.bandwidth_mbps
+            ? (typeof link.bandwidth_mbps === "number"
+              ? (link.bandwidth_mbps >= 1000 ? `${link.bandwidth_mbps / 1000} Gbps` : `${link.bandwidth_mbps} Mbps`)
+              : link.bandwidth_mbps)
+            : "10G",
+          bandwidth_mbps: link.bandwidth_mbps,
+          mtu: link.mtu,
+          ping_success_rate: link.ping_success_rate,
+          ping_packets_success: link.ping_packets_success,
+          ping_packets_total: link.ping_packets_total,
+          last_ping_at: link.last_ping_at,
           local_interface: link.local_interface,
           remote_interface: link.remote_interface,
           local_ip: link.local_link_ip || link.local_ip,
@@ -197,26 +265,17 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           link_drops_last_24h: link.link_drops_last_24h,
           ospf_drops_last_24h: link.ospf_drops_last_24h,
           rawLink: link,
+          isVisibleOnMap: isBothDevicesVisible,
         };
-          linkObj.isVisibleOnMap = false;
 
-        allDrawerLinks.push(linkObj);
-
-        // For the visual chart, we only include links where BOTH devices are visible
-        if (visibleDeviceNames.has(device.name) && remoteDevice && visibleDeviceNames.has(remoteDevice.name)) {
-          // Deduplicate switched ports
-          const ep1 = `${device.name}::${link.local_interface || ""}`;
-          const ep2 = `${remoteDevice.name}::${link.remote_interface || ""}`;
-          const signature = [ep1, ep2].sort().join("---");
-
-          if (!seenSignatures.has(signature)) {
-            seenSignatures.add(signature);
-            linkObj.isVisibleOnMap = true;
-              transformedLinks.push(linkObj);
-          }
-        }
+        linksBySignature.set(signature, linkObj);
+        if (link.local_interface) endpointToSignature.set(localEp, signature);
+        if (link.remote_interface) endpointToSignature.set(remoteEp, signature);
       });
     });
+
+    const allDrawerLinks = Array.from(linksBySignature.values());
+    const transformedLinks = allDrawerLinks.filter((l) => l.isVisibleOnMap);
 
     return {
       nodes: transformedNodes,
