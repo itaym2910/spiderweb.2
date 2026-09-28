@@ -197,7 +197,8 @@ export function drawCoreSiteChart(
     .style("cursor", "pointer")
     .on("mouseover.nodehighlight", function (event, d_hovered_node) {
       const currentNodeSelection = d3.select(this);
-      currentNodeSelection.attr("fill", themeColors.nodeHighlightFill);
+      currentNodeSelection.attr("fill", themeColors.nodeHighlightFill)
+        .style("filter", "drop-shadow(0 1px 2px rgba(0, 0, 0, 0.05))");
 
       // Highlight connected links
       linksGroup
@@ -223,7 +224,13 @@ export function drawCoreSiteChart(
         .selectAll("circle.node")
         .filter((n) => n.id !== d_hovered_node.id && connectedNodeIds.has(n.id))
         .attr("fill", themeColors.nodeHoverFill)
-        .attr("stroke", themeColors.nodeHoverStroke);
+        .attr("stroke", themeColors.nodeHoverStroke)
+        .style("filter", "drop-shadow(0 1px 2px rgba(0, 0, 0, 0.05))");
+        
+      nodeLabelsGroup
+        .selectAll("text.node-label")
+        .filter((n) => n.id === d_hovered_node.id || connectedNodeIds.has(n.id))
+        .attr("fill", themeColors.nodeHoverTextFill);
     })
     .on("mouseout.nodehighlight", function (event, d_hovered_node) {
       nodesGroup
@@ -234,7 +241,12 @@ export function drawCoreSiteChart(
             ? themeColors.selectedNodePulseColor
             : themeColors.nodeStroke
         )
-        .attr("stroke-width", (d) => (d.id === focusedNodeId ? 3 : 2));
+        .attr("stroke-width", (d) => (d.id === focusedNodeId ? 3 : 2))
+        .style("filter", null);
+
+      nodeLabelsGroup
+        .selectAll("text.node-label")
+        .attr("fill", themeColors.nodeTextFill);
 
       linksGroup
         .selectAll("line.link")
@@ -284,7 +296,17 @@ export function drawCoreSiteChart(
             n.id === d_hovered_link.target.id
         )
         .attr("fill", themeColors.nodeHoverFill) // Yellowish for link-connected nodes
-        .attr("stroke", themeColors.nodeHoverStroke);
+        .attr("stroke", themeColors.nodeHoverStroke)
+        .style("filter", "drop-shadow(0 1px 2px rgba(0, 0, 0, 0.05))");
+        
+      nodeLabelsGroup
+        .selectAll("text.node-label")
+        .filter(
+          (n) =>
+            n.id === d_hovered_link.source.id ||
+            n.id === d_hovered_link.target.id
+        )
+        .attr("fill", themeColors.nodeHoverTextFill);
     })
     .on("mouseout", function (event, d_hovered_link) {
       // Reset the link itself
@@ -323,7 +345,12 @@ export function drawCoreSiteChart(
               ? themeColors.selectedNodePulseColor
               : themeColors.nodeStroke
         )
-        .attr("stroke-width", (n) => (n.id === focusedNodeId ? 3 : 2));
+        .attr("stroke-width", (n) => (n.id === focusedNodeId ? 3 : 2))
+        .style("filter", null);
+        
+      nodeLabelsGroup
+        .selectAll("text.node-label")
+        .attr("fill", themeColors.nodeTextFill);
     })
     .on("click", function (event, d_clicked_link) {
       if (onLinkClickCallback) {

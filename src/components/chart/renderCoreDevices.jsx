@@ -77,7 +77,8 @@ export function renderCoreDevices(
         .attr("font-size", "18px")
         .attr("text-anchor", "middle")
         .attr("font-weight", "bold")
-        .style("pointer-events", "none");
+        .style("pointer-events", "none")
+        .style("user-select", "none");
     });
 
   const filteredLinks = links;
@@ -135,6 +136,7 @@ export function renderCoreDevices(
     .attr("text-anchor", "middle")
     .attr("dy", ".35em")
     .style("pointer-events", "none")
+    .style("user-select", "none")
     .style("cursor", "default");
 
   return { link, linkHover, node, label, filteredLinks };

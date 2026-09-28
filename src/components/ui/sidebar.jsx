@@ -6,7 +6,6 @@ import {
   MdSearch,
   MdNotifications,
   MdHelp,
-  MdSettings,
   MdChevronLeft,
   MdChevronRight,
 } from "react-icons/md";
@@ -19,7 +18,6 @@ const navLinks = {
   "Admin Panel": "/admin",
   Notifications: "/notifications",
   Help: "/help",
-  Settings: "/settings",
 };
 
 // NavItem component remains unchanged
@@ -51,7 +49,6 @@ export function Sidebar({ currentPage, collapsed, setCollapsed }) {
 
   const footerItems = [
     { label: "Help", icon: <MdHelp size={20} /> },
-    { label: "Settings", icon: <MdSettings size={20} /> },
   ];
 
   return (

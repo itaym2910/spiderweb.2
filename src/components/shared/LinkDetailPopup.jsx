@@ -2,6 +2,16 @@ import React, { useState, useEffect, useRef } from "react";
 import { MdClose, MdArrowForward } from "react-icons/md";
 import { api, getLinkDetails } from "../../services/apiServices";
 
+const formatDate = (dateStr) => {
+  if (!dateStr || dateStr === "null") return "N/A";
+  try {
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? dateStr : d.toLocaleString();
+  } catch {
+    return dateStr;
+  }
+};
+
 /**
  * A reusable status indicator bulb.
  */
@@ -31,7 +41,7 @@ const DetailRow = ({ label, value, isDark }) => (
       className={`text-sm font-semibold ${isDark ? "text-gray-100" : "text-gray-800"
         }`}
     >
-      {value || "N/A"}
+      {value !== undefined && value !== null && value !== "" ? value : "N/A"}
     </span>
   </div>
 );
@@ -204,9 +214,9 @@ const LinkDetailPopup = ({
         </div>
 
         {/* Body */}
-        <div className="px-6 py-4">
+        <div className="px-6 py-4 max-h-[70vh] overflow-y-auto">
           {/* --- LINK TYPE CONTENT --- */}
-          {itemType === "link" && itemData && (
+          {itemType === "link" && itemData && !itemData.isCoreTopology && (
             <div className="space-y-1">
               <div
                 className={`divide-y ${isDark ? "divide-gray-700" : "divide-gray-100"
@@ -304,6 +314,77 @@ const LinkDetailPopup = ({
               </div>
             </div>
           )}
+
+          {/* --- CORE TOPOLOGY LINK CONTENT --- */}
+          {itemType === "link" && itemData && itemData.isCoreTopology && itemData.rawLink && (() => {
+            const localDeviceKeys = [];
+            const remoteDeviceKeys = [];
+            const linkDetailsKeys = [];
+
+            Object.entries(itemData.rawLink).forEach(([key, value]) => {
+              if (typeof value === "object" && value !== null) return;
+              
+              // Exclude IDs
+              if (key === "id" || key.endsWith("_id")) return;
+              // Exclude Remote Device IP
+              if (key === "remote_device_ip") return;
+              // Exclude Dates
+              if (key.endsWith("_at")) return;
+              if (typeof value === "string" && value.match(/^\d{4}-\d{2}-\d{2}T/)) return;
+              
+              // Exclude specific fields requested by user
+              if (key === "is_ospf_full" || key === "link_drops_last_24h" || key === "ospf_drops_last_24h") return;
+
+              if (key.startsWith("local_")) {
+                localDeviceKeys.push([key, value]);
+              } else if (key.startsWith("remote_")) {
+                remoteDeviceKeys.push([key, value]);
+              } else {
+                linkDetailsKeys.push([key, value]);
+              }
+            });
+
+            const renderGroup = (title, entries, hideBorderTop = false) => {
+              if (entries.length === 0) return null;
+              return (
+                <div className={hideBorderTop ? "" : `mt-4 pt-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+                  <p className={`text-xs font-semibold uppercase tracking-wider mb-3 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+                    {title}
+                  </p>
+                  <div className={`divide-y ${isDark ? "divide-gray-700" : "divide-gray-100"}`}>
+                    {entries.map(([key, value]) => {
+                      const formattedKey = key
+                        .split("_")
+                        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                        .join(" ");
+
+                      let displayValue = value;
+                      if (typeof value === "boolean") {
+                        displayValue = value ? "Yes" : "No";
+                      }
+
+                      return (
+                        <DetailRow
+                          key={key}
+                          label={formattedKey}
+                          value={displayValue}
+                          isDark={isDark}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            };
+
+            return (
+              <div className="space-y-1">
+                {renderGroup("Local Device", localDeviceKeys, true)}
+                {renderGroup("Remote Device", remoteDeviceKeys)}
+                {renderGroup("Link Details", linkDetailsKeys)}
+              </div>
+            );
+          })()}
 
           {/* --- SITE TYPE CONTENT --- */}
           {itemType === "site" && itemData && (

@@ -83,3 +83,39 @@ svg text.label {
 svg circle.zone {
   transition: fill 0.15s ease-out, fill-opacity 0.15s ease-out;
 }
+
+/* --- Prevent unwanted global text selection across the dashboard interface --- */
+html,
+body,
+#root {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Ensure buttons, tabs, navigation chrome, and SVG elements are not marked */
+button,
+[role="button"],
+[role="tab"],
+nav,
+svg,
+svg text {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Allow text selection in editable fields and selectable data content */
+input,
+textarea,
+[contenteditable="true"],
+.select-text,
+table td,
+[role="gridcell"] {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
