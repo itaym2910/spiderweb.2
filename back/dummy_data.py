@@ -12,26 +12,32 @@ def generate_dummy_data():
 
     # --- Net Types ---
     net_types = [
-        {"id": 1, "name": "L-Chart Network"},
-        {"id": 2, "name": "P-Chart Network"},
+        {"id": 1, "name": "L-Network (ns)"},
+        {"id": 2, "name": "P-Network (anan-lekaman)"},
     ]
 
     # --- Core Sites (Pikudim) ---
+    l_site_names = ["Pikud Merkaz", "Pikud Tzafon", "Pikud Darom", "Pikud Tel-Aviv", "Pikud Haifa", "Pikud Jerusalem"]
+    p_site_names = ["Pikud Negev", "Pikud Golan", "Pikud Eilat", "Pikud Shomron", "Pikud Galil"]
+
     core_sites = []
-    for i in range(1, 7):
-        core_sites.append({"id": i, "name": f"Pikud {fake.city()}", "network_ids": [1]})
-    for i in range(7, 12):
-        core_sites.append({"id": i, "name": f"Pikud {fake.city()}", "network_ids": [2]})
+    for i, name in enumerate(l_site_names, start=1):
+        core_sites.append({"id": i, "name": name, "core_site_name": name, "network_ids": [1]})
+    for i, name in enumerate(p_site_names, start=7):
+        core_sites.append({"id": i, "name": name, "core_site_name": name, "network_ids": [2]})
 
     # --- Core Devices ---
     core_devices = []
     device_id_counter = 1
     allowed_endings = [4, 5, 1, 2, 7, 8]
     for cs in core_sites:
-        num_devices = random.randint(2, 6)
+        num_devices = random.randint(3, 6)
+        site_slug = cs["name"].lower().replace(" ", "_")
+        is_l = 1 in cs["network_ids"]
+        prefix = "H" if is_l else "P"
         for i in range(num_devices):
             ending = allowed_endings[i] if i < len(allowed_endings) else random.choice(allowed_endings)
-            dev_name = f"rtr-{fake.word()}-{ending}"
+            dev_name = f"rtr-{site_slug}-{prefix}{ending}"
             dev_ip = fake.ipv4()
             device = {
                 "id": device_id_counter,
@@ -75,7 +81,9 @@ def generate_dummy_data():
         priority_order = [4, 5, 1, 2, 7, 8]
         def get_priority(device):
             try:
-                ending = int(device["name"].split("-")[-1])
+                import re
+                match = re.search(r'(\d+)(?!.*\d)', device["name"])
+                ending = int(match.group(1)) if match else 99
                 return priority_order.index(ending)
             except (ValueError, IndexError):
                 return 99
@@ -282,8 +290,8 @@ def generate_dummy_data():
 
     # --- Networks (associating sites and devices) ---
     networks = [
-        {"id": 1, "name": "L-Chart Network"},
-        {"id": 2, "name": "P-Chart Network"},
+        {"id": 1, "name": "L-Network (ns)"},
+        {"id": 2, "name": "P-Network (anan-lekaman)"},
     ]
 
     # --- Link Status Events (history of status changes) ---

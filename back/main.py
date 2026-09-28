@@ -426,6 +426,19 @@ async def update_favorite_links(data: FavoriteLinksUpdate, current_user: dict = 
 def get_links_with_neighbors():
     return db["links"]
 
+@router_link.get("/link/topology/{device_id}")
+async def get_device_links_topology(device_id: int):
+    dev_links = []
+    for l in db["links"]:
+        if l.get("coredevice_id") == device_id or l.get("neighbor_coredevice_id") == device_id:
+            other_id = l.get("neighbor_coredevice_id") if l.get("coredevice_id") == device_id else l.get("coredevice_id")
+            other_dev = next((d for d in db["core_devices"] if d["id"] == other_id), None)
+            link_copy = dict(l)
+            if other_dev:
+                link_copy["neighbor_coredevice"] = {"id": other_dev["id"], "name": other_dev["name"]}
+            dev_links.append(link_copy)
+    return dev_links
+
 # ==============================================================================
 # SITE ROUTES (from site.py)
 # ==============================================================================

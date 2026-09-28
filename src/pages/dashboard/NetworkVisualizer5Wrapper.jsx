@@ -85,9 +85,9 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
     // Filter devices for this chart's network
     const devicesForChart = allTopologyDevices.filter((d) => {
       if (!d.name || !d.network_name) return false;
-      const hasSharedName = ["H1", "H2", "H4", "H5", "H7", "H8"].some((str) => d.name.includes(str));
-      const isPNetwork = d.network_name.includes("anan-lekaman") || d.network_name.includes("anan_lekaman");
-      return hasSharedName || isPNetwork;
+      const hasPSharedName = ["P1", "P2", "P4", "P5", "P7", "P8"].some((str) => d.name.includes(str));
+      const isPNetwork = d.network_name.includes("anan-lekaman") || d.network_name.includes("anan_lekaman") || d.network_name.toLowerCase().includes("p");
+      return isPNetwork || hasPSharedName;
     });
 
     if (devicesForChart.length === 0) {

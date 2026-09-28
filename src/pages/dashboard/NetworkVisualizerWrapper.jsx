@@ -86,8 +86,8 @@ const NetworkVisualizerWrapper = ({ theme }) => {
     const devicesForChart = allTopologyDevices.filter((d) => {
       if (!d.name || !d.network_name) return false;
       const hasSharedName = ["H1", "H2", "H4", "H5", "H7", "H8"].some((str) => d.name.includes(str));
-      const isLNetwork = d.network_name.includes("ns");
-      return hasSharedName || isLNetwork;
+      const isLNetwork = d.network_name.includes("ns") || d.network_name.toLowerCase().includes("l");
+      return (hasSharedName && !d.network_name.includes("anan")) || isLNetwork;
     });
 
     if (devicesForChart.length === 0) {
