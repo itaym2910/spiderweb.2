@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { Routes, Route, useLocation, useNavigate, Navigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { LogOut } from "lucide-react";
 
@@ -19,7 +19,6 @@ import { Sidebar } from "../ui/sidebar";
 import { DashboardPage } from "../../pages/DashboardPage";
 import { AdminPanelPage } from "../../pages/AdminPanelPage";
 import { AlertsPage } from "../../pages/AlertsPage";
-import SearchPage from "../../pages/SearchPage";
 
 // --- Fullscreen Icon ---
 export const FullscreenIcon = ({ className = "w-5 h-5" }) => (
@@ -137,9 +136,7 @@ function AppLayout() {
     const path = location.pathname;
 
     if (path.startsWith("/admin")) return "Admin Panel";
-    if (path.startsWith("/search")) return "Search";
     if (path.startsWith("/notifications")) return "Alerts";
-    if (path.startsWith("/help")) return "Help";
 
     return "Dashboard";
   }, [location.pathname]);
@@ -320,14 +317,6 @@ function AppLayout() {
             />
 
             {/* =================================================
-                SEARCH
-            ================================================= */}
-            <Route
-              path="/search"
-              element={<SearchPage />}
-            />
-
-            {/* =================================================
                 ALERTS
             ================================================= */}
             <Route
@@ -335,17 +324,9 @@ function AppLayout() {
               element={<AlertsPage />}
             />
 
-            {/* =================================================
-                HELP
-            ================================================= */}
-            <Route
-              path="/help"
-              element={
-                <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow">
-                  Help Page Content
-                </div>
-              }
-            />
+            {/* Redirect unneeded pages */}
+            <Route path="/search" element={<Navigate to="/" replace />} />
+            <Route path="/help" element={<Navigate to="/" replace />} />
 
             {/* =================================================
                 DASHBOARD

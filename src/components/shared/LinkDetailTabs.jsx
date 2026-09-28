@@ -96,6 +96,9 @@ const LinkDetailTabs = ({
         ping_success_rate: fetchedDetails.ping_success_rate !== undefined ? fetchedDetails.ping_success_rate : itemData.ping_success_rate,
         ping_packets_success: fetchedDetails.ping_packets_success !== undefined ? fetchedDetails.ping_packets_success : itemData.ping_packets_success,
         ping_packets_total: fetchedDetails.ping_packets_total !== undefined ? fetchedDetails.ping_packets_total : itemData.ping_packets_total,
+        ping_ratio: fetchedDetails.ping_ratio ?? itemData.ping_ratio,
+        total_pings: fetchedDetails.total_pings ?? itemData.total_pings,
+        ping_total: fetchedDetails.ping_total ?? itemData.ping_total,
         last_ping_at: fetchedDetails.last_ping_at || itemData.last_ping_at,
       } : {})
     };
@@ -247,7 +250,7 @@ const LinkDetailTabs = ({
                   </span>
                   <span className="text-lg font-medium text-gray-800 dark:text-gray-100">
                     {itemData.ping_success_rate !== undefined && itemData.ping_success_rate !== null
-                      ? (formatPingRateWithPackets(itemData.ping_success_rate, itemData.ping_packets_success, itemData.ping_packets_total)?.full || `${itemData.ping_success_rate}%`)
+                      ? (formatPingRateWithPackets(itemData)?.full || `${itemData.ping_success_rate}%`)
                       : "N/A"}
                   </span>
                 </div>

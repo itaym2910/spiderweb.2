@@ -21,12 +21,8 @@ function PageTitleUpdater() {
 
     if (path.startsWith("/admin")) {
       page = "Admin Panel";
-    } else if (path.startsWith("/search")) {
-      page = "Search";
     } else if (path.startsWith("/notifications")) {
       page = "Alerts";
-    } else if (path.startsWith("/help")) {
-      page = "Help";
     } else if (path.startsWith("/login")) {
       page = "Login";
     } else {

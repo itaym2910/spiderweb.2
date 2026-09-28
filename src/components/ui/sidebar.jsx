@@ -3,9 +3,7 @@ import { Link } from "react-router-dom";
 import {
   MdDashboard,
   MdAdminPanelSettings,
-  MdSearch,
   MdNotifications,
-  MdHelp,
   MdChevronLeft,
   MdChevronRight,
 } from "react-icons/md";
@@ -14,10 +12,8 @@ import { DarkModeToggle } from "../ui/dark-mode-toggle";
 // Map labels to URL paths for clean routing
 const navLinks = {
   Dashboard: "/",
-  Search: "/search",
   "Admin Panel": "/admin",
   Notifications: "/notifications",
-  Help: "/help",
 };
 
 // NavItem component remains unchanged
@@ -42,13 +38,8 @@ function NavItem({ label, icon, collapsed, active }) {
 export function Sidebar({ currentPage, collapsed, setCollapsed }) {
   const navItems = [
     { label: "Dashboard", icon: <MdDashboard size={20} /> },
-    { label: "Search", icon: <MdSearch size={20} /> },
     { label: "Admin Panel", icon: <MdAdminPanelSettings size={20} /> },
     { label: "Notifications", icon: <MdNotifications size={20} /> },
-  ];
-
-  const footerItems = [
-    { label: "Help", icon: <MdHelp size={20} /> },
   ];
 
   return (
@@ -77,7 +68,7 @@ export function Sidebar({ currentPage, collapsed, setCollapsed }) {
         </button>
       </div>
 
-      {/* Main Navigation (unchanged) */}
+      {/* Main Navigation */}
       <nav className="flex-1 flex flex-col space-y-1 p-2 overflow-y-auto">
         {navItems.map((item) => (
           <NavItem
@@ -90,20 +81,9 @@ export function Sidebar({ currentPage, collapsed, setCollapsed }) {
         ))}
       </nav>
 
-      {/* Footer Navigation (unchanged) */}
-      <div className="px-2 py-2 border-t dark:border-gray-700 shrink-0">
-        {footerItems.map((item) => (
-          <NavItem
-            key={item.label}
-            label={item.label}
-            icon={item.icon}
-            collapsed={collapsed}
-            active={currentPage === item.label}
-          />
-        ))}
-        <div className="mt-2">
-          <DarkModeToggle collapsed={collapsed} />
-        </div>
+      {/* Footer Navigation */}
+      <div className="p-2 border-t dark:border-gray-700 shrink-0">
+        <DarkModeToggle collapsed={collapsed} />
       </div>
     </div>
   );
