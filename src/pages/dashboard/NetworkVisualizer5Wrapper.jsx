@@ -93,9 +93,11 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
     // Filter devices for this chart's network
     const devicesForChart = allTopologyDevices.filter((d) => {
       if (!d.name || !d.network_name) return false;
-      const hasSharedName = ["H1", "H2", "H4", "H5", "H7", "H8"].some((str) => d.name.includes(str));
-      const isPNetwork = d.network_name.includes("anan-lekaman") || d.network_name.includes("anan_lekaman");
-      return hasSharedName || isPNetwork;
+      const isLNet = (d.network_name.includes("ns") || d.network_name.toLowerCase().includes("l-network")) && !d.network_name.includes("anan");
+      if (isLNet) return false;
+      const hasPSharedName = ["P1", "P2", "P4", "P5", "P7", "P8"].some((str) => d.name.includes(str));
+      const isPNetwork = d.network_name.includes("anan-lekaman") || d.network_name.includes("anan_lekaman") || d.network_name.toLowerCase().includes("p-network");
+      return isPNetwork || hasPSharedName;
     });
 
     if (devicesForChart.length === 0) {
@@ -268,7 +270,17 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           normalizedStatus: normalized,
           statusChangedAt: link.last_state_change_at,
           linkType: "core",
-          bandwidth: link.bandwidth_mbps || "10G",
+          bandwidth: link.bandwidth_mbps
+            ? (typeof link.bandwidth_mbps === "number"
+              ? (link.bandwidth_mbps >= 1000 ? `${link.bandwidth_mbps / 1000} Gbps` : `${link.bandwidth_mbps} Mbps`)
+              : link.bandwidth_mbps)
+            : "10G",
+          bandwidth_mbps: link.bandwidth_mbps,
+          mtu: link.mtu,
+          ping_success_rate: link.ping_success_rate,
+          ping_packets_success: link.ping_packets_success,
+          ping_packets_total: link.ping_packets_total,
+          last_ping_at: link.last_ping_at,
           local_interface: link.local_interface,
           remote_interface: link.remote_interface,
           local_ip: link.local_link_ip || link.local_ip,

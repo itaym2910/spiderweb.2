@@ -60,6 +60,26 @@ export function createLinkPopupPayload(linkDataObject) {
   const tx = typeof rawTx === "number" ? `${rawTx} dBm` : String(rawTx);
   const rx = typeof rawRx === "number" ? `${rawRx} dBm` : String(rawRx);
   const mtu = typeof rawMtu === "number" ? String(rawMtu) : String(rawMtu);
+  const ping_success_rate =
+    raw.ping_success_rate ??
+    linkDataObject.ping_success_rate ??
+    raw.pingSuccessRate ??
+    linkDataObject.pingSuccessRate;
+  const ping_packets_success =
+    raw.ping_packets_success ??
+    linkDataObject.ping_packets_success ??
+    raw.packets_success ??
+    linkDataObject.packets_success;
+  const ping_packets_total =
+    raw.ping_packets_total ??
+    linkDataObject.ping_packets_total ??
+    raw.packets_total ??
+    linkDataObject.packets_total;
+  const last_ping_at =
+    raw.last_ping_at ??
+    linkDataObject.last_ping_at ??
+    raw.lastPingAt ??
+    linkDataObject.lastPingAt;
   const ip = raw.ip || linkDataObject.ip || "N/A";
   const sourceZone = linkDataObject.sourceZone || raw.sourceZone || "N/A";
   const targetZone = linkDataObject.targetZone || raw.targetZone || "N/A";
@@ -95,6 +115,10 @@ export function createLinkPopupPayload(linkDataObject) {
     tx,
     rx,
     mtu,
+    ping_success_rate,
+    ping_packets_success,
+    ping_packets_total,
+    last_ping_at,
     ip,
   };
 }
