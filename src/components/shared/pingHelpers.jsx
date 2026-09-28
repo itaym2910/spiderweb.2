@@ -138,29 +138,12 @@ export function extractPingMetrics(itemOrRate, packetsSuccess, packetsTotal, rat
       if (numRate !== null && numRate > 0) {
         total = Math.round((success / numRate) * 100);
       } else {
-        total = Math.max(5, success);
+        total = 10000;
       }
     } else if (numRate !== null) {
-      // Heuristic fallback probe sizes when total is not explicitly provided
-      if (numRate === 100) {
-        success = 5;
-        total = 5;
-      } else if (numRate === 0) {
-        success = 0;
-        total = 5;
-      } else if (numRate % 20 === 0) {
-        total = 5;
-        success = Math.round(numRate / 20);
-      } else if (numRate % 10 === 0) {
-        total = 10;
-        success = Math.round(numRate / 10);
-      } else if (numRate % 5 === 0) {
-        total = 20;
-        success = Math.round((numRate / 100) * 20);
-      } else {
-        total = 100;
-        success = Math.round(numRate);
-      }
+      // Default total is 10000 when backend only sends the rate
+      total = 10000;
+      success = Math.round((numRate / 100) * total);
     }
   }
 
