@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import LinkDetailPopup from "../shared/LinkDetailPopup";
+import { formatPingRateWithPackets, calculatePingSummary } from "../shared/pingHelpers";
 import {
   ArrowLeft,
   Server,
@@ -251,6 +252,12 @@ const LinkTable = ({
     };
   }, [interfaces, linksData]);
 
+  // Ping Telemetry Summary for this device's links
+  const pingSummary = useMemo(
+    () => calculatePingSummary(linksData),
+    [linksData]
+  );
+
   const isDark = theme === "dark";
 
   const handleDeviceButtonClick = (device) => {
@@ -294,7 +301,7 @@ const LinkTable = ({
       </div>
 
       {/* ─── Summary Stats ─── */}
-      <div className="flex-shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-2">
+      <div className="flex-shrink-0 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
         <StatCard
           icon={Link2}
           label="Total Links"
@@ -318,6 +325,18 @@ const LinkTable = ({
           label="Links Issues"
           value={stats.linksIssue}
           color="amber"
+        />
+        <StatCard
+          icon={Activity}
+          label="Ping Total"
+          value={pingSummary.monitoredCount > 0 ? `${pingSummary.formattedRate} (${pingSummary.formattedPackets})` : "N/A"}
+          color={
+            pingSummary.statusCategory === "optimal"
+              ? "green"
+              : pingSummary.statusCategory === "degraded"
+              ? "amber"
+              : "red"
+          }
         />
       </div>
 
@@ -469,6 +488,9 @@ const LinkTable = ({
                               (link.rawLink?.ping_success_rate !== undefined && link.rawLink?.ping_success_rate !== null)) ? (
                               (() => {
                                 const rate = link.ping_success_rate ?? link.additionalDetails?.ping_success_rate ?? link.rawLink?.ping_success_rate;
+                                const packetsSuccess = link.ping_packets_success ?? link.additionalDetails?.ping_packets_success ?? link.rawLink?.ping_packets_success ?? link.packets_success;
+                                const packetsTotal = link.ping_packets_total ?? link.additionalDetails?.ping_packets_total ?? link.rawLink?.ping_packets_total ?? link.packets_total;
+                                const pingInfo = formatPingRateWithPackets(rate, packetsSuccess, packetsTotal);
                                 const lastPing = link.last_ping_at ?? link.additionalDetails?.last_ping_at ?? link.rawLink?.last_ping_at;
                                 return (
                                   <span
@@ -479,10 +501,10 @@ const LinkTable = ({
                                         ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
                                         : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
                                     }`}
-                                    title={lastPing ? `Last ping: ${lastPing}` : undefined}
+                                    title={lastPing ? `${pingInfo?.full || `${rate}%`} • Last ping: ${lastPing}` : (pingInfo?.full || `${rate}%`)}
                                   >
                                     <Activity className="w-3 h-3" />
-                                    <span>{typeof rate === "number" ? `${rate}%` : `${rate}${String(rate).includes("%") ? "" : "%"}`}</span>
+                                    <span>{pingInfo ? pingInfo.short : `${rate}%`}</span>
                                   </span>
                                 );
                               })()

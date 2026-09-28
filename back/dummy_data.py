@@ -113,6 +113,8 @@ def generate_dummy_data():
                 "bandwidth_mbps": 10000,
                 "mtu": 1500,
                 "ping_success_rate": 100.0,
+                "ping_packets_success": 5,
+                "ping_packets_total": 5,
                 "last_ping_at": datetime.utcnow().isoformat(),
                 "ospf_state": "Full",
                 "media_type": "Fiber",
@@ -158,8 +160,21 @@ def generate_dummy_data():
                     continue
                 created_pairs.add(pair)
                 
-                phys_stat = random.choice(["Up", "Up", "Down"])
-                ping_rate = 100.0 if phys_stat == "Up" else random.choice([0.0, 40.0, 80.0])
+                phys_stat = random.choice(["Up", "Up", "Up", "Down"])
+                if phys_stat == "Up":
+                    ping_rate = random.choices([100.0, 80.0, 60.0], weights=[0.80, 0.15, 0.05])[0]
+                else:
+                    ping_rate = random.choices([0.0, 20.0, 40.0], weights=[0.80, 0.10, 0.10])[0]
+
+                packets_map = {
+                    100.0: (5, 5),
+                    80.0: (4, 5),
+                    60.0: (3, 5),
+                    40.0: (2, 5),
+                    20.0: (1, 5),
+                    0.0: (0, 5),
+                }
+                packets_succ, packets_tot = packets_map.get(ping_rate, (int(round((ping_rate / 100.0) * 5)), 5))
                 links.append({
                     "id": link_id_counter,
                     "coredevice_id": d1["id"],
@@ -180,8 +195,10 @@ def generate_dummy_data():
                     "bandwidth_mbps": 10000,
                     "mtu": 1500,
                     "ping_success_rate": ping_rate,
+                    "ping_packets_success": packets_succ,
+                    "ping_packets_total": packets_tot,
                     "last_ping_at": (datetime.utcnow() - timedelta(minutes=random.randint(1, 10))).isoformat(),
-                    "ospf_state": "Full" if phys_stat == "Up" else "Down",
+                    "ospf_state": "Full" if (phys_stat == "Up" and ping_rate >= 80.0) else ("2-Way" if phys_stat == "Up" else "Down"),
                     "media_type": "Fiber",
                     "input_rate": f"{random.randint(1,9)} Gbps",
                     "output_rate": f"{random.randint(1,9)} Gbps",
@@ -221,7 +238,15 @@ def generate_dummy_data():
             created_pairs.add(pair)
             
             is_core = random.choice([True, False])
-            p_status = random.choice(["Up", "Down"])
+            p_status = random.choice(["Up", "Up", "Down"])
+            if p_status == "Up":
+                ping_rate = random.choices([100.0, 80.0, 60.0], weights=[0.85, 0.10, 0.05])[0]
+            else:
+                ping_rate = random.choices([0.0, 20.0, 40.0], weights=[0.80, 0.10, 0.10])[0]
+
+            packets_succ = int(round((ping_rate / 100.0) * 5))
+            packets_tot = 5
+
             bw_choice = random.choice(["10G", "40G", "100G"])
             bw_map = {"10G": 10000, "40G": 40000, "100G": 100000}
             links.append({
@@ -243,9 +268,11 @@ def generate_dummy_data():
                 "bandwidth": bw_choice,
                 "bandwidth_mbps": bw_map.get(bw_choice, 10000),
                 "mtu": 1500,
-                "ping_success_rate": 100.0 if p_status == "Up" else 0.0,
+                "ping_success_rate": ping_rate,
+                "ping_packets_success": packets_succ,
+                "ping_packets_total": packets_tot,
                 "last_ping_at": (datetime.utcnow() - timedelta(minutes=random.randint(1, 15))).isoformat(),
-                "ospf_state": "Full" if p_status == "Up" else "Down",
+                "ospf_state": "Full" if (p_status == "Up" and ping_rate >= 80.0) else ("2-Way" if p_status == "Up" else "Down"),
                 "media_type": "Fiber",
                 "input_rate": f"{random.randint(1,9)} Gbps",
                 "output_rate": f"{random.randint(1,9)} Gbps",

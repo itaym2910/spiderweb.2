@@ -65,6 +65,16 @@ export function createLinkPopupPayload(linkDataObject) {
     linkDataObject.ping_success_rate ??
     raw.pingSuccessRate ??
     linkDataObject.pingSuccessRate;
+  const ping_packets_success =
+    raw.ping_packets_success ??
+    linkDataObject.ping_packets_success ??
+    raw.packets_success ??
+    linkDataObject.packets_success;
+  const ping_packets_total =
+    raw.ping_packets_total ??
+    linkDataObject.ping_packets_total ??
+    raw.packets_total ??
+    linkDataObject.packets_total;
   const last_ping_at =
     raw.last_ping_at ??
     linkDataObject.last_ping_at ??
@@ -106,6 +116,8 @@ export function createLinkPopupPayload(linkDataObject) {
     rx,
     mtu,
     ping_success_rate,
+    ping_packets_success,
+    ping_packets_total,
     last_ping_at,
     ip,
   };

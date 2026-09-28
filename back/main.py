@@ -193,6 +193,10 @@ async def get_core_topology(current_user: dict = Depends(user_role_checker)):
                 "bandwidth_mbps": link.bandwidth_mbps if link.bandwidth_mbps is not None else link.get("bw", "10G"),
                 "mtu": link.mtu if link.mtu is not None else 1500,
                 "ping_success_rate": link.ping_success_rate if link.ping_success_rate is not None else 100.0,
+                "ping_packets_success": link.ping_packets_success if link.ping_packets_success is not None else (
+                    int(round((link.ping_success_rate if link.ping_success_rate is not None else 100.0) / 20.0))
+                ),
+                "ping_packets_total": link.ping_packets_total if link.ping_packets_total is not None else 5,
                 "last_ping_at": _isoformat(link.last_ping_at),
                 "ospf_state": link.ospf_state or "Full",
                 "is_ospf_full": str(link.ospf_state or "Full").upper() == "FULL",

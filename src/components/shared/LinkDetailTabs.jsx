@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { MdClose, MdArrowForward } from "react-icons/md";
 import { api, getLinkDetails } from "../../services/apiServices";
+import { formatPingRateWithPackets } from "./pingHelpers";
 
 /**
  * A reusable status indicator bulb.
@@ -93,6 +94,8 @@ const LinkDetailTabs = ({
         ospf: fetchedDetails.ospf || fetchedDetails.ospf_state || itemData.ospf,
         bandwidth: fetchedDetails.bw || fetchedDetails.bandwidth || itemData.bandwidth,
         ping_success_rate: fetchedDetails.ping_success_rate !== undefined ? fetchedDetails.ping_success_rate : itemData.ping_success_rate,
+        ping_packets_success: fetchedDetails.ping_packets_success !== undefined ? fetchedDetails.ping_packets_success : itemData.ping_packets_success,
+        ping_packets_total: fetchedDetails.ping_packets_total !== undefined ? fetchedDetails.ping_packets_total : itemData.ping_packets_total,
         last_ping_at: fetchedDetails.last_ping_at || itemData.last_ping_at,
       } : {})
     };
@@ -244,7 +247,7 @@ const LinkDetailTabs = ({
                   </span>
                   <span className="text-lg font-medium text-gray-800 dark:text-gray-100">
                     {itemData.ping_success_rate !== undefined && itemData.ping_success_rate !== null
-                      ? `${itemData.ping_success_rate}%`
+                      ? (formatPingRateWithPackets(itemData.ping_success_rate, itemData.ping_packets_success, itemData.ping_packets_total)?.full || `${itemData.ping_success_rate}%`)
                       : "N/A"}
                   </span>
                 </div>

@@ -85,9 +85,11 @@ const NetworkVisualizerWrapper = ({ theme }) => {
     // Filter devices for this chart's network
     const devicesForChart = allTopologyDevices.filter((d) => {
       if (!d.name || !d.network_name) return false;
+      const isAnanOrP = d.network_name.includes("anan") || d.network_name.toLowerCase().includes("p-network");
+      if (isAnanOrP) return false;
       const hasSharedName = ["H1", "H2", "H4", "H5", "H7", "H8"].some((str) => d.name.includes(str));
-      const isLNetwork = d.network_name.includes("ns") || d.network_name.toLowerCase().includes("l");
-      return (hasSharedName && !d.network_name.includes("anan")) || isLNetwork;
+      const isLNetwork = d.network_name.includes("ns") || d.network_name.toLowerCase().includes("l-network");
+      return hasSharedName || isLNetwork;
     });
 
     if (devicesForChart.length === 0) {
@@ -187,6 +189,8 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           bandwidth_mbps: link.bandwidth_mbps,
           mtu: link.mtu,
           ping_success_rate: link.ping_success_rate,
+          ping_packets_success: link.ping_packets_success,
+          ping_packets_total: link.ping_packets_total,
           last_ping_at: link.last_ping_at,
           local_interface: link.local_interface,
           remote_interface: link.remote_interface,

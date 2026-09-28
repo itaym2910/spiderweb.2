@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { MdClose, MdArrowForward } from "react-icons/md";
 import { api, getLinkDetails } from "../../services/apiServices";
+import { formatPingRateWithPackets } from "./pingHelpers";
 
 /**
  * A reusable status indicator bulb.
@@ -157,6 +158,8 @@ const LinkDetailPopup = ({
       ospf: fetchedDetails?.ospf || fetchedDetails?.ospf_state || linkData?.ospf,
       bandwidth: fetchedDetails?.bw || fetchedDetails?.bandwidth || linkData?.bandwidth,
       ping_success_rate: fetchedDetails?.ping_success_rate !== undefined ? fetchedDetails.ping_success_rate : linkData?.ping_success_rate,
+      ping_packets_success: fetchedDetails?.ping_packets_success !== undefined ? fetchedDetails.ping_packets_success : (linkData?.ping_packets_success ?? linkData?.packets_success),
+      ping_packets_total: fetchedDetails?.ping_packets_total !== undefined ? fetchedDetails.ping_packets_total : (linkData?.ping_packets_total ?? linkData?.packets_total),
       last_ping_at: fetchedDetails?.last_ping_at || linkData?.last_ping_at,
     } : {}),
   };
@@ -165,6 +168,18 @@ const LinkDetailPopup = ({
     itemData?.ping_success_rate ??
     itemData?.rawLink?.ping_success_rate ??
     itemData?.pingSuccessRate;
+  const rawPingPacketsSuccess =
+    itemData?.ping_packets_success ??
+    itemData?.rawLink?.ping_packets_success ??
+    itemData?.packets_success ??
+    itemData?.rawLink?.packets_success ??
+    itemData?.pingPacketsSuccess;
+  const rawPingPacketsTotal =
+    itemData?.ping_packets_total ??
+    itemData?.rawLink?.ping_packets_total ??
+    itemData?.packets_total ??
+    itemData?.rawLink?.packets_total ??
+    itemData?.pingPacketsTotal;
   const rawLastPing =
     itemData?.last_ping_at ??
     itemData?.rawLink?.last_ping_at ??
@@ -273,41 +288,49 @@ const LinkDetailPopup = ({
                   }
                   isDark={isDark}
                 />
-                {rawPingRate !== undefined && rawPingRate !== null && (
-                  <div className="flex items-center justify-between py-2 px-1">
-                    <span
-                      className={`text-sm font-medium ${
-                        isDark ? "text-gray-400" : "text-gray-500"
-                      }`}
-                    >
-                      Ping Success Rate
-                    </span>
-                    <span className="flex items-center gap-1.5 text-sm font-semibold">
+                {rawPingRate !== undefined && rawPingRate !== null && (() => {
+                  const pingInfo = formatPingRateWithPackets(
+                    rawPingRate,
+                    rawPingPacketsSuccess,
+                    rawPingPacketsTotal
+                  );
+                  if (!pingInfo) return null;
+                  const numRate = Number(String(rawPingRate).replace("%", ""));
+                  return (
+                    <div className="flex items-center justify-between py-2 px-1">
                       <span
-                        className={`w-2 h-2 rounded-full ${
-                          Number(rawPingRate) >= 95
-                            ? "bg-emerald-500"
-                            : Number(rawPingRate) > 0
-                            ? "bg-amber-500"
-                            : "bg-rose-500"
+                        className={`text-sm font-medium ${
+                          isDark ? "text-gray-400" : "text-gray-500"
                         }`}
-                      />
-                      <span
-                        className={
-                          Number(rawPingRate) >= 95
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : Number(rawPingRate) > 0
-                            ? "text-amber-600 dark:text-amber-400"
-                            : "text-rose-600 dark:text-rose-400"
-                        }
                       >
-                        {typeof rawPingRate === "number"
-                          ? `${rawPingRate}%`
-                          : `${rawPingRate}${String(rawPingRate).includes("%") ? "" : "%"}`}
+                        Ping Success Rate
                       </span>
-                    </span>
-                  </div>
-                )}
+                      <span className="flex items-center gap-1.5 text-sm font-semibold">
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            numRate >= 95
+                              ? "bg-emerald-500"
+                              : numRate > 0
+                              ? "bg-amber-500"
+                              : "bg-rose-500"
+                          }`}
+                        />
+                        <span
+                          className={
+                            numRate >= 95
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : numRate > 0
+                              ? "text-amber-600 dark:text-amber-400"
+                              : "text-rose-600 dark:text-rose-400"
+                          }
+                          title={`${pingInfo.packetsSuccess ?? "?"}/${pingInfo.packetsTotal ?? "?"} packets received`}
+                        >
+                          {pingInfo.full}
+                        </span>
+                      </span>
+                    </div>
+                  );
+                })()}
                 {itemData.sourceZone && itemData.sourceZone !== "N/A" && (
                   <DetailRow
                     label="Source Zone"
