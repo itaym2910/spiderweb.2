@@ -1153,7 +1153,7 @@ export default function NetworkLinksSideDrawer({
                         isDark ? "border-gray-700/50" : "border-gray-100"
                       }`}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span>{link.Bandwidth || link.bandwidth || "10 Gbps"}</span>
                         <span>•</span>
                         <span>{link.MediaType || link.media_type || "Fiber"}</span>
@@ -1161,6 +1161,31 @@ export default function NetworkLinksSideDrawer({
                           <>
                             <span>•</span>
                             <span className="font-mono">{link.ip}</span>
+                          </>
+                        )}
+                        {((link.ping_success_rate !== undefined && link.ping_success_rate !== null) ||
+                          (link.rawLink?.ping_success_rate !== undefined && link.rawLink?.ping_success_rate !== null)) && (
+                          <>
+                            <span>•</span>
+                            <span
+                              className={`inline-flex items-center gap-1 font-semibold ${
+                                Number(link.ping_success_rate ?? link.rawLink?.ping_success_rate) >= 95
+                                  ? "text-emerald-600 dark:text-emerald-400"
+                                  : Number(link.ping_success_rate ?? link.rawLink?.ping_success_rate) > 0
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : "text-rose-600 dark:text-rose-400"
+                              }`}
+                              title={
+                                link.last_ping_at || link.rawLink?.last_ping_at
+                                  ? `Last ping: ${link.last_ping_at || link.rawLink?.last_ping_at}`
+                                  : undefined
+                              }
+                            >
+                              <Activity className="w-3 h-3" />
+                              <span>
+                                Ping: {link.ping_success_rate ?? link.rawLink?.ping_success_rate}%
+                              </span>
+                            </span>
                           </>
                         )}
                       </div>

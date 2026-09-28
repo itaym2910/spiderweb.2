@@ -122,6 +122,15 @@ async def get_link_status_events(since: str = "24h", current_user: dict = Depend
     ]
     return {"events": events, "since": since, "count": len(events)}
 
+def _isoformat(dt):
+    if dt is None:
+        return None
+    if isinstance(dt, str):
+        return dt
+    if hasattr(dt, "isoformat"):
+        return dt.isoformat()
+    return str(dt)
+
 @router_coredevice.get("/api/core-topology")
 async def get_core_topology(current_user: dict = Depends(user_role_checker)):
     """Returns the latest core-to-core link topology state."""
@@ -146,8 +155,30 @@ async def get_core_topology(current_user: dict = Depends(user_role_checker)):
             status = "up"
         # Build links list for this device
         links_out = []
-        for link in device_links:
-            neighbor_device = next((d for d in db["core_devices"] if d["id"] == link["neighbor_coredevice_id"]), None)
+        for raw_link in device_links:
+            neighbor_device = next((d for d in db["core_devices"] if d["id"] == (raw_link["neighbor_coredevice_id"] if isinstance(raw_link, dict) else raw_link.neighbor_coredevice_id)), None)
+            
+            # Helper to support both dict and object (attribute) access
+            class _LinkProxy:
+                def __init__(self, src):
+                    self._src = src
+                def __getattr__(self, name):
+                    if hasattr(self._src, name):
+                        return getattr(self._src, name)
+                    if isinstance(self._src, dict):
+                        return self._src.get(name)
+                    return None
+                def __getitem__(self, key):
+                    if isinstance(self._src, dict):
+                        return self._src[key]
+                    return getattr(self._src, key)
+                def get(self, key, default=None):
+                    if isinstance(self._src, dict):
+                        return self._src.get(key, default)
+                    return getattr(self._src, key, default)
+
+            link = _LinkProxy(raw_link)
+
             links_out.append({
                 "id": link["id"],
                 "local_interface": f"GigabitEthernet0/{link['id'] % 4}",
@@ -159,9 +190,12 @@ async def get_core_topology(current_user: dict = Depends(user_role_checker)):
                 "remote_ip": link.get("neighbor_ip", ""),
                 "oper_status": link.get("physical_status", "Up"),
                 "admin_status": "Up",
-                "bandwidth_mbps": link.get("bw", "10G"),
-                "ospf_state": "Full",
-                "is_ospf_full": True,
+                "bandwidth_mbps": link.bandwidth_mbps if link.bandwidth_mbps is not None else link.get("bw", "10G"),
+                "mtu": link.mtu if link.mtu is not None else 1500,
+                "ping_success_rate": link.ping_success_rate if link.ping_success_rate is not None else 100.0,
+                "last_ping_at": _isoformat(link.last_ping_at),
+                "ospf_state": link.ospf_state or "Full",
+                "is_ospf_full": str(link.ospf_state or "Full").upper() == "FULL",
                 "last_up_at": link.get("created_at", datetime.utcnow().isoformat()),
                 "last_down_at": link.get("updated_at", datetime.utcnow().isoformat()),
                 "last_ospf_full_at": link.get("created_at", datetime.utcnow().isoformat()),

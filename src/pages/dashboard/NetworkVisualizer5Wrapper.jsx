@@ -204,7 +204,15 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           normalizedStatus: normalized,
           statusChangedAt: link.last_state_change_at,
           linkType: "core",
-          bandwidth: link.bandwidth_mbps || "10G",
+          bandwidth: link.bandwidth_mbps
+            ? (typeof link.bandwidth_mbps === "number"
+              ? (link.bandwidth_mbps >= 1000 ? `${link.bandwidth_mbps / 1000} Gbps` : `${link.bandwidth_mbps} Mbps`)
+              : link.bandwidth_mbps)
+            : "10G",
+          bandwidth_mbps: link.bandwidth_mbps,
+          mtu: link.mtu,
+          ping_success_rate: link.ping_success_rate,
+          last_ping_at: link.last_ping_at,
           local_interface: link.local_interface,
           remote_interface: link.remote_interface,
           local_ip: link.local_link_ip || link.local_ip,

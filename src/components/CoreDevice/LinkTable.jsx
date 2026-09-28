@@ -428,6 +428,9 @@ const LinkTable = ({
                         Destination IP
                       </th>
                       <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Ping
+                      </th>
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Description
                       </th>
                     </tr>
@@ -459,6 +462,33 @@ const LinkTable = ({
                             <span className="text-xs font-mono text-gray-600 dark:text-gray-400">
                               {link.destinationIp || "N/A"}
                             </span>
+                          </td>
+                          <td className="px-4 py-2.5 whitespace-nowrap">
+                            {((link.ping_success_rate !== undefined && link.ping_success_rate !== null) ||
+                              (link.additionalDetails?.ping_success_rate !== undefined && link.additionalDetails?.ping_success_rate !== null) ||
+                              (link.rawLink?.ping_success_rate !== undefined && link.rawLink?.ping_success_rate !== null)) ? (
+                              (() => {
+                                const rate = link.ping_success_rate ?? link.additionalDetails?.ping_success_rate ?? link.rawLink?.ping_success_rate;
+                                const lastPing = link.last_ping_at ?? link.additionalDetails?.last_ping_at ?? link.rawLink?.last_ping_at;
+                                return (
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                      Number(rate) >= 95
+                                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                        : Number(rate) > 0
+                                        ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                                        : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+                                    }`}
+                                    title={lastPing ? `Last ping: ${lastPing}` : undefined}
+                                  >
+                                    <Activity className="w-3 h-3" />
+                                    <span>{typeof rate === "number" ? `${rate}%` : `${rate}${String(rate).includes("%") ? "" : "%"}`}</span>
+                                  </span>
+                                );
+                              })()
+                            ) : (
+                              <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
+                            )}
                           </td>
                           <td className="px-4 py-2.5 whitespace-nowrap">
                             <span className="text-xs text-gray-600 dark:text-gray-400">

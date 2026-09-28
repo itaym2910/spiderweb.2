@@ -48,6 +48,23 @@ const DetailRow = ({ label, value, isDark }) => (
  * - onNavigateToSite: Optional callback for site-type items.
  * - theme: "dark" or "light"
  */
+const formatLastPing = (timestamp) => {
+  if (!timestamp) return "N/A";
+  try {
+    const d = new Date(timestamp);
+    if (isNaN(d.getTime())) return String(timestamp);
+    return d.toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  } catch {
+    return String(timestamp);
+  }
+};
+
 const LinkDetailPopup = ({
   linkData,
   linkType,
@@ -133,14 +150,29 @@ const LinkDetailPopup = ({
       mediaType: fetchedDetails?.media_type || fetchedDetails?.mediaType || linkData?.mediaType,
       tx: fetchedDetails?.tx !== undefined ? (typeof fetchedDetails.tx === "number" ? `${fetchedDetails.tx} dBm` : fetchedDetails.tx) : linkData?.tx,
       rx: fetchedDetails?.rx !== undefined ? (typeof fetchedDetails.rx === "number" ? `${fetchedDetails.rx} dBm` : fetchedDetails.rx) : linkData?.rx,
-      mtu: fetchedDetails?.mtu !== undefined ? String(fetchedDetails.mtu) : linkData?.mtu,
+      mtu: fetchedDetails?.mtu !== undefined ? String(fetchedDetails.mtu) : (linkData?.mtu !== undefined ? String(linkData.mtu) : undefined),
       physicalStatus: fetchedDetails?.physical_status || linkData?.physicalStatus,
       protocolStatus: fetchedDetails?.protocol_status || linkData?.protocolStatus,
       mpls: fetchedDetails?.mpls_ldp || linkData?.mpls,
       ospf: fetchedDetails?.ospf || fetchedDetails?.ospf_state || linkData?.ospf,
       bandwidth: fetchedDetails?.bw || fetchedDetails?.bandwidth || linkData?.bandwidth,
+      ping_success_rate: fetchedDetails?.ping_success_rate !== undefined ? fetchedDetails.ping_success_rate : linkData?.ping_success_rate,
+      last_ping_at: fetchedDetails?.last_ping_at || linkData?.last_ping_at,
     } : {}),
   };
+
+  const rawPingRate =
+    itemData?.ping_success_rate ??
+    itemData?.rawLink?.ping_success_rate ??
+    itemData?.pingSuccessRate;
+  const rawLastPing =
+    itemData?.last_ping_at ??
+    itemData?.rawLink?.last_ping_at ??
+    itemData?.lastPingAt;
+  const mtuValue =
+    itemData?.mtu ??
+    itemData?.rawLink?.mtu ??
+    "N/A";
 
   const handleNavigate = (e) => {
     e.stopPropagation();
@@ -234,9 +266,48 @@ const LinkDetailPopup = ({
                 />
                 <DetailRow
                   label="Bandwidth"
-                  value={itemData.bandwidth || itemData.Bandwidth || "10 Gbps"}
+                  value={
+                    itemData.bandwidth ||
+                    itemData.Bandwidth ||
+                    (itemData.bandwidth_mbps ? `${itemData.bandwidth_mbps} Mbps` : "10 Gbps")
+                  }
                   isDark={isDark}
                 />
+                {rawPingRate !== undefined && rawPingRate !== null && (
+                  <div className="flex items-center justify-between py-2 px-1">
+                    <span
+                      className={`text-sm font-medium ${
+                        isDark ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
+                      Ping Success Rate
+                    </span>
+                    <span className="flex items-center gap-1.5 text-sm font-semibold">
+                      <span
+                        className={`w-2 h-2 rounded-full ${
+                          Number(rawPingRate) >= 95
+                            ? "bg-emerald-500"
+                            : Number(rawPingRate) > 0
+                            ? "bg-amber-500"
+                            : "bg-rose-500"
+                        }`}
+                      />
+                      <span
+                        className={
+                          Number(rawPingRate) >= 95
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : Number(rawPingRate) > 0
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-rose-600 dark:text-rose-400"
+                        }
+                      >
+                        {typeof rawPingRate === "number"
+                          ? `${rawPingRate}%`
+                          : `${rawPingRate}${String(rawPingRate).includes("%") ? "" : "%"}`}
+                      </span>
+                    </span>
+                  </div>
+                )}
                 {itemData.sourceZone && itemData.sourceZone !== "N/A" && (
                   <DetailRow
                     label="Source Zone"
@@ -290,9 +361,16 @@ const LinkDetailPopup = ({
                   />
                   <DetailRow
                     label="MTU"
-                    value={itemData.mtu || "N/A"}
+                    value={mtuValue}
                     isDark={isDark}
                   />
+                  {rawLastPing && (
+                    <DetailRow
+                      label="Last Ping"
+                      value={formatLastPing(rawLastPing)}
+                      isDark={isDark}
+                    />
+                  )}
                   {itemData.ip && itemData.ip !== "N/A" && (
                     <DetailRow
                       label="IP Address"

@@ -92,6 +92,8 @@ const LinkDetailTabs = ({
         mpls: fetchedDetails.mpls_ldp || itemData.mpls,
         ospf: fetchedDetails.ospf || fetchedDetails.ospf_state || itemData.ospf,
         bandwidth: fetchedDetails.bw || fetchedDetails.bandwidth || itemData.bandwidth,
+        ping_success_rate: fetchedDetails.ping_success_rate !== undefined ? fetchedDetails.ping_success_rate : itemData.ping_success_rate,
+        last_ping_at: fetchedDetails.last_ping_at || itemData.last_ping_at,
       } : {})
     };
   }
@@ -114,8 +116,6 @@ const LinkDetailTabs = ({
     }
   };
 
-  const isDark = theme === "dark";
-  const itemData = activeTab.data;
   const itemType = activeTab.type;
 
   return (
@@ -236,6 +236,16 @@ const LinkDetailTabs = ({
                   </span>
                   <span className="text-lg font-medium text-gray-800 dark:text-gray-100">
                     {itemData.mtu || "N/A"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-base text-gray-500 dark:text-gray-400 mr-2">
+                    Ping Rate:
+                  </span>
+                  <span className="text-lg font-medium text-gray-800 dark:text-gray-100">
+                    {itemData.ping_success_rate !== undefined && itemData.ping_success_rate !== null
+                      ? `${itemData.ping_success_rate}%`
+                      : "N/A"}
                   </span>
                 </div>
               </div>

@@ -102,6 +102,11 @@ def generate_dummy_data():
                 "espf_interface_address": fake.ipv4(),
                 "bw": "10G",
                 "bandwidth": "10G",
+                "bandwidth_mbps": 10000,
+                "mtu": 1500,
+                "ping_success_rate": 100.0,
+                "last_ping_at": datetime.utcnow().isoformat(),
+                "ospf_state": "Full",
                 "media_type": "Fiber",
                 "input_rate": "1.5 Gbps",
                 "output_rate": "1.2 Gbps",
@@ -145,6 +150,8 @@ def generate_dummy_data():
                     continue
                 created_pairs.add(pair)
                 
+                phys_stat = random.choice(["Up", "Up", "Down"])
+                ping_rate = 100.0 if phys_stat == "Up" else random.choice([0.0, 40.0, 80.0])
                 links.append({
                     "id": link_id_counter,
                     "coredevice_id": d1["id"],
@@ -155,13 +162,18 @@ def generate_dummy_data():
                     "neighbor_is_core": True,
                     "description": f"Inter-Site Link between {d1['name']} and {d2['name']}",
                     "cdp": f"neighbor-switch-{fake.word()}",
-                    "physical_status": random.choice(["Up", "Up", "Down"]),
-                    "protocol_status": random.choice(["Up", "Up", "Down"]),
+                    "physical_status": phys_stat,
+                    "protocol_status": phys_stat,
                     "mpls_ldp": "Enabled",
                     "isis": "Enabled",
                     "espf_interface_address": fake.ipv4(),
                     "bw": "10G",
                     "bandwidth": "10G",
+                    "bandwidth_mbps": 10000,
+                    "mtu": 1500,
+                    "ping_success_rate": ping_rate,
+                    "last_ping_at": (datetime.utcnow() - timedelta(minutes=random.randint(1, 10))).isoformat(),
+                    "ospf_state": "Full" if phys_stat == "Up" else "Down",
                     "media_type": "Fiber",
                     "input_rate": f"{random.randint(1,9)} Gbps",
                     "output_rate": f"{random.randint(1,9)} Gbps",
@@ -201,6 +213,9 @@ def generate_dummy_data():
             created_pairs.add(pair)
             
             is_core = random.choice([True, False])
+            p_status = random.choice(["Up", "Down"])
+            bw_choice = random.choice(["10G", "40G", "100G"])
+            bw_map = {"10G": 10000, "40G": 40000, "100G": 100000}
             links.append({
                 "id": link_id_counter,
                 "coredevice_id": device["id"],
@@ -211,13 +226,18 @@ def generate_dummy_data():
                 "neighbor_is_core": is_core,
                 "description": f"Link between {device['name']} and {neighbor['name']}",
                 "cdp": f"neighbor-switch-{fake.word()}",
-                "physical_status": random.choice(["Up", "Down"]),
-                "protocol_status": random.choice(["Up", "Down"]),
+                "physical_status": p_status,
+                "protocol_status": p_status,
                 "mpls_ldp": random.choice(["Enabled", "Disabled"]),
                 "isis": random.choice(["Enabled", "Disabled"]),
                 "espf_interface_address": fake.ipv4(),
-                "bw": random.choice(["10G", "40G", "100G"]),
-                "bandwidth": random.choice(["10G", "40G", "100G"]),
+                "bw": bw_choice,
+                "bandwidth": bw_choice,
+                "bandwidth_mbps": bw_map.get(bw_choice, 10000),
+                "mtu": 1500,
+                "ping_success_rate": 100.0 if p_status == "Up" else 0.0,
+                "last_ping_at": (datetime.utcnow() - timedelta(minutes=random.randint(1, 15))).isoformat(),
+                "ospf_state": "Full" if p_status == "Up" else "Down",
                 "media_type": "Fiber",
                 "input_rate": f"{random.randint(1,9)} Gbps",
                 "output_rate": f"{random.randint(1,9)} Gbps",
