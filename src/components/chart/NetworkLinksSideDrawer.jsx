@@ -821,12 +821,21 @@ export default function NetworkLinksSideDrawer({
                   return acc;
                 }, {});
 
+                const findLinkForGroup = (group) => {
+                  return enrichedLinks.find((l) =>
+                    l.id === group.linkId ||
+                    (l.allIds && l.allIds.includes(group.linkId)) ||
+                    (l.sourceName === group.deviceName && l.targetName === group.remoteDeviceName && l.local_interface === group.interface) ||
+                    (l.targetName === group.deviceName && l.sourceName === group.remoteDeviceName && (l.remote_interface === group.interface || l.local_interface === group.interface))
+                  );
+                };
+
                 const visibleGroupedEvents = Object.values(eventsByLink).filter(group => {
-                    const fullLink = enrichedLinks.find((l) => l.id === group.linkId);
+                    const fullLink = findLinkForGroup(group);
                     return fullLink && fullLink.isVisibleOnMap;
                   });
-                  const notVisibleGroupedEvents = Object.values(eventsByLink).filter(group => {
-                    const fullLink = enrichedLinks.find((l) => l.id === group.linkId);
+                const notVisibleGroupedEvents = Object.values(eventsByLink).filter(group => {
+                    const fullLink = findLinkForGroup(group);
                     return !fullLink || !fullLink.isVisibleOnMap;
                   });
                   
@@ -878,7 +887,7 @@ export default function NetworkLinksSideDrawer({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              const fullLink = enrichedLinks.find((l) => l.id === group.linkId);
+                              const fullLink = findLinkForGroup(group);
                               if (fullLink) {
                                 onLinkClick?.(fullLink);
                               } else {
@@ -1031,7 +1040,7 @@ export default function NetworkLinksSideDrawer({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              const fullLink = enrichedLinks.find((l) => l.id === group.linkId);
+                              const fullLink = findLinkForGroup(group);
                               if (fullLink) {
                                 onLinkClick?.(fullLink);
                               } else {

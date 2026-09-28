@@ -202,10 +202,15 @@ export function applyMarkedState({
   const markedIdsSet = new Set(markedLinkIds || []);
   if (hoveredLinkId) markedIdsSet.add(hoveredLinkId);
 
+  const isLinkMarked = (d) => {
+    if (!d) return false;
+    return markedIdsSet.has(d.id) || Boolean(d.allIds && d.allIds.some((id) => markedIdsSet.has(id)));
+  };
+
   // 1. Straight links
   svg.selectAll("line.visible-link").each(function (d) {
     if (!d) return;
-    const isMarked = markedIdsSet.has(d.id);
+    const isMarked = isLinkMarked(d);
     const highlightColor = getLinkColorByCategory(d, palette);
 
     const sourceId = typeof d.source === "object" ? d.source.id : d.source;
@@ -231,7 +236,7 @@ export function applyMarkedState({
   // 2. Duplicate / parallel links
   svg.selectAll("path.duplicate-link").each(function (d) {
     if (!d) return;
-    const isMarked = markedIdsSet.has(d.id);
+    const isMarked = isLinkMarked(d);
     const highlightColor = getLinkColorByCategory(d, palette);
 
     const sourceId = typeof d.source === "object" ? d.source.id : d.source;
@@ -256,14 +261,14 @@ export function applyMarkedState({
 
   // 3. Hover Hitboxes
   svg.selectAll("line.link-hover").each(function (d) {
-    const isMarked = d && markedIdsSet.has(d.id);
+    const isMarked = isLinkMarked(d);
     d3.select(this)
       .style("pointer-events", isMarked ? "auto" : "none")
       .style("cursor", isMarked ? "pointer" : "default");
   });
 
   svg.selectAll("path.duplicate-link-hover").each(function (d) {
-    const isMarked = d && markedIdsSet.has(d.id);
+    const isMarked = isLinkMarked(d);
     d3.select(this)
       .style("pointer-events", isMarked ? "auto" : "none")
       .style("cursor", isMarked ? "pointer" : "default");
