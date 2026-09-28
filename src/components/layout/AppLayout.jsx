@@ -144,6 +144,11 @@ function AppLayout() {
     return "Dashboard";
   }, [location.pathname]);
 
+  // --- Document title update ---
+  useEffect(() => {
+    document.title = `Spiderweb | ${activePageLabel}`;
+  }, [activePageLabel]);
+
   const isDashboardActive = activePageLabel === "Dashboard";
 
   // --- Dashboard logic ---
