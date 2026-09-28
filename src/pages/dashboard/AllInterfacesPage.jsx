@@ -40,6 +40,51 @@ export default function AllInterfacesPage({ theme }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [deviceFilter, setDeviceFilter] = useState("all");
 
+  // Format today's date in local YYYY-MM-DD
+  const today = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }, []);
+
+  const handleStartDateChange = useCallback(
+    (e) => {
+      const val = e.target.value;
+      if (!val) {
+        setStartDate("");
+        return;
+      }
+      // 2. Start date cannot be after current date
+      if (val > today) {
+        return;
+      }
+      // 1. If start date is set after current end date, clear end date so it is never before start date
+      if (endDate && val > endDate) {
+        setEndDate("");
+      }
+      setStartDate(val);
+    },
+    [today, endDate]
+  );
+
+  const handleEndDateChange = useCallback(
+    (e) => {
+      const val = e.target.value;
+      if (!val) {
+        setEndDate("");
+        return;
+      }
+      // 1. End date cannot be before start date
+      if (startDate && val < startDate) {
+        return;
+      }
+      setEndDate(val);
+    },
+    [startDate]
+  );
+
   const loadMore = useCallback(() => {
     if (isFetchingRef.current || !hasMoreLinks) return;
     isFetchingRef.current = true;
@@ -294,8 +339,9 @@ export default function AllInterfacesPage({ theme }) {
             <input
               id="start-date"
               type="date"
+              max={today}
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={handleStartDateChange}
               className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
             />
           </div>
@@ -311,8 +357,9 @@ export default function AllInterfacesPage({ theme }) {
             <input
               id="end-date"
               type="date"
+              min={startDate || undefined}
               value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              onChange={handleEndDateChange}
               className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
             />
           </div>
