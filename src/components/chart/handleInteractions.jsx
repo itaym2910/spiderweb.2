@@ -74,7 +74,22 @@ export function createLinkPopupPayload(linkDataObject) {
     raw.ping_packets_total ??
     linkDataObject.ping_packets_total ??
     raw.packets_total ??
-    linkDataObject.packets_total;
+    linkDataObject.packets_total ??
+    raw.total_pings ??
+    linkDataObject.total_pings ??
+    raw.ping_total ??
+    linkDataObject.ping_total;
+  const ping_ratio =
+    raw.ping_ratio ??
+    linkDataObject.ping_ratio ??
+    raw.packet_ratio ??
+    linkDataObject.packet_ratio;
+  const total_pings =
+    raw.total_pings ??
+    linkDataObject.total_pings ??
+    raw.ping_total ??
+    linkDataObject.ping_total ??
+    ping_packets_total;
   const last_ping_at =
     raw.last_ping_at ??
     linkDataObject.last_ping_at ??
@@ -118,6 +133,9 @@ export function createLinkPopupPayload(linkDataObject) {
     ping_success_rate,
     ping_packets_success,
     ping_packets_total,
+    ping_ratio,
+    total_pings,
+    ping_total: total_pings,
     last_ping_at,
     ip,
   };

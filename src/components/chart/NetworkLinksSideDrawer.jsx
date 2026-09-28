@@ -286,9 +286,9 @@ export default function NetworkLinksSideDrawer({
       if (activeFilter === "down" && link.normalizedStatus !== "down") return false;
       if (activeFilter === "issue" && link.normalizedStatus !== "issue") return false;
       if (activeFilter === "ping") {
-        const rate = link.ping_success_rate ?? link.rawLink?.ping_success_rate;
-        if (rate === undefined || rate === null || rate === "") return false;
-        const numRate = Number(String(rate).replace("%", "").trim());
+        const pInfo = formatPingRateWithPackets(link);
+        if (!pInfo) return false;
+        const numRate = pInfo.rate;
         if (pingSubFilter === "issues" && numRate >= 100) return false;
         if (pingSubFilter === "healthy" && numRate < 100) return false;
       }
@@ -341,8 +341,8 @@ export default function NetworkLinksSideDrawer({
     if (activeFilter === "ping") {
       // Sort worst ping first
       return [...baseList].sort((a, b) => {
-        const rateA = Number(String(a.ping_success_rate ?? a.rawLink?.ping_success_rate ?? 100).replace("%", ""));
-        const rateB = Number(String(b.ping_success_rate ?? b.rawLink?.ping_success_rate ?? 100).replace("%", ""));
+        const rateA = formatPingRateWithPackets(a)?.rate ?? 100;
+        const rateB = formatPingRateWithPackets(b)?.rate ?? 100;
         return rateA - rateB;
       });
     }
@@ -1553,38 +1553,30 @@ export default function NetworkLinksSideDrawer({
                             <span className="font-mono">{link.ip}</span>
                           </>
                         )}
-                        {((link.ping_success_rate !== undefined && link.ping_success_rate !== null) ||
-                          (link.rawLink?.ping_success_rate !== undefined && link.rawLink?.ping_success_rate !== null)) && (
-                          <>
-                            <span>•</span>
-                            <span
-                              className={`inline-flex items-center gap-1 font-semibold ${
-                                Number(link.ping_success_rate ?? link.rawLink?.ping_success_rate) >= 95
-                                  ? "text-emerald-600 dark:text-emerald-400"
-                                  : Number(link.ping_success_rate ?? link.rawLink?.ping_success_rate) > 0
-                                  ? "text-amber-600 dark:text-amber-400"
-                                  : "text-rose-600 dark:text-rose-400"
-                              }`}
-                              title={
-                                link.last_ping_at || link.rawLink?.last_ping_at
-                                  ? `Last ping: ${link.last_ping_at || link.rawLink?.last_ping_at}`
-                                  : undefined
-                              }
-                            >
-                              <Activity className="w-3 h-3" />
-                              <span>
-                                {(() => {
-                                  const pInfo = formatPingRateWithPackets(
-                                    link.ping_success_rate ?? link.rawLink?.ping_success_rate,
-                                    link.ping_packets_success ?? link.rawLink?.ping_packets_success,
-                                    link.ping_packets_total ?? link.rawLink?.ping_packets_total
-                                  );
-                                  return pInfo ? `Ping: ${pInfo.short}` : `Ping: ${link.ping_success_rate ?? link.rawLink?.ping_success_rate}%`;
-                                })()}
+                        {(() => {
+                          const pInfo = formatPingRateWithPackets(link);
+                          if (!pInfo) return null;
+                          const numRate = pInfo.rate;
+                          const lastPing = link.last_ping_at || link.rawLink?.last_ping_at;
+                          return (
+                            <>
+                              <span>•</span>
+                              <span
+                                className={`inline-flex items-center gap-1 font-semibold ${
+                                  numRate >= 95
+                                    ? "text-emerald-600 dark:text-emerald-400"
+                                    : numRate > 0
+                                    ? "text-amber-600 dark:text-amber-400"
+                                    : "text-rose-600 dark:text-rose-400"
+                                }`}
+                                title={lastPing ? `Last ping: ${lastPing} • ${pInfo.full}` : pInfo.full}
+                              >
+                                <Activity className="w-3 h-3" />
+                                <span>Ping: {pInfo.short}</span>
                               </span>
-                            </span>
-                          </>
-                        )}
+                            </>
+                          );
+                        })()}
                       </div>
 
                       <div className="flex items-center gap-1 text-blue-500 dark:text-blue-400 font-medium group-hover:underline">

@@ -170,6 +170,9 @@ const LinkDetailPopup = ({
       ping_success_rate: fetchedDetails?.ping_success_rate !== undefined ? fetchedDetails.ping_success_rate : linkData?.ping_success_rate,
       ping_packets_success: fetchedDetails?.ping_packets_success !== undefined ? fetchedDetails.ping_packets_success : (linkData?.ping_packets_success ?? linkData?.packets_success),
       ping_packets_total: fetchedDetails?.ping_packets_total !== undefined ? fetchedDetails.ping_packets_total : (linkData?.ping_packets_total ?? linkData?.packets_total),
+      ping_ratio: fetchedDetails?.ping_ratio ?? linkData?.ping_ratio,
+      total_pings: fetchedDetails?.total_pings ?? linkData?.total_pings,
+      ping_total: fetchedDetails?.ping_total ?? linkData?.ping_total,
       last_ping_at: fetchedDetails?.last_ping_at || linkData?.last_ping_at,
     } : {}),
   };
@@ -298,14 +301,10 @@ const LinkDetailPopup = ({
                   }
                   isDark={isDark}
                 />
-                {rawPingRate !== undefined && rawPingRate !== null && (() => {
-                  const pingInfo = formatPingRateWithPackets(
-                    rawPingRate,
-                    rawPingPacketsSuccess,
-                    rawPingPacketsTotal
-                  );
+                {(() => {
+                  const pingInfo = formatPingRateWithPackets(itemData);
                   if (!pingInfo) return null;
-                  const numRate = Number(String(rawPingRate).replace("%", ""));
+                  const numRate = pingInfo.rate;
                   return (
                     <div className="flex items-center justify-between py-2 px-1">
                       <span
@@ -462,6 +461,9 @@ const LinkDetailPopup = ({
                       let displayValue = value;
                       if (typeof value === "boolean") {
                         displayValue = value ? "Yes" : "No";
+                      } else if (key === "ping_success_rate") {
+                        const pInfo = formatPingRateWithPackets(itemData?.rawLink || itemData);
+                        displayValue = pInfo ? pInfo.full : `${value}%`;
                       }
 
                       return (

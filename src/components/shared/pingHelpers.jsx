@@ -1,60 +1,185 @@
 /**
- * Helper to calculate and format ping success rate and packet ratio (e.g. "80% (4/5 packets)").
+ * Parses a ratio string like "5/5", "4/5", "99/100", "8000/10000", "8000 / 10000 packets".
+ * Returns { success: number, total: number, rate: number } or null.
  */
-export function formatPingRateWithPackets(rate, packetsSuccess, packetsTotal) {
-  if (rate === undefined || rate === null || rate === "") return null;
-  const numRate = Number(String(rate).replace("%", "").trim());
-  if (isNaN(numRate)) {
-    return {
-      percentage: String(rate),
-      ratio: "",
-      full: String(rate),
-      short: String(rate),
-      packetsSuccess: null,
-      packetsTotal: null,
-    };
+export function parseRatioString(val) {
+  if (val === undefined || val === null) return null;
+  const str = String(val).trim();
+  const match = str.match(/(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/);
+  if (!match) return null;
+  const success = Number(match[1]);
+  const total = Number(match[2]);
+  if (isNaN(success) || isNaN(total) || total <= 0) return null;
+  const rate = Math.round((success / total) * 1000) / 10;
+  return { success, total, rate };
+}
+
+/**
+ * Extracts, normalizes, and calculates ping metrics from an object or individual arguments.
+ * Dynamically supports arbitrary probe sizes (5, 100, 10000) and ratio formats ("8000/10000", "99/100", "4/5").
+ */
+export function extractPingMetrics(itemOrRate, packetsSuccess, packetsTotal, ratioString) {
+  let rateRaw = null;
+  let successRaw = packetsSuccess;
+  let totalRaw = packetsTotal;
+  let ratioRaw = ratioString;
+
+  if (itemOrRate !== null && typeof itemOrRate === "object") {
+    const obj = itemOrRate;
+    const raw = obj.rawLink || obj.raw || obj.additionalDetails || {};
+
+    // Ratio string candidates
+    ratioRaw =
+      ratioRaw ??
+      obj.ping_ratio ??
+      raw.ping_ratio ??
+      obj.packet_ratio ??
+      raw.packet_ratio ??
+      obj.ping_packets_ratio ??
+      raw.ping_packets_ratio ??
+      obj.ratio ??
+      raw.ratio ??
+      (typeof obj.ping_packets === "string" && obj.ping_packets.includes("/") ? obj.ping_packets : null) ??
+      (typeof obj.packets === "string" && obj.packets.includes("/") ? obj.packets : null) ??
+      (typeof obj.pings === "string" && obj.pings.includes("/") ? obj.pings : null);
+
+    // Total pings candidates
+    totalRaw =
+      totalRaw ??
+      obj.ping_packets_total ??
+      raw.ping_packets_total ??
+      obj.ping_total ??
+      raw.ping_total ??
+      obj.total_pings ??
+      raw.total_pings ??
+      obj.packets_total ??
+      raw.packets_total ??
+      obj.total_packets ??
+      raw.total_packets ??
+      obj.total_amount_of_pings ??
+      raw.total_amount_of_pings ??
+      obj.pings_made ??
+      raw.pings_made ??
+      obj.pingPacketsTotal ??
+      raw.pingPacketsTotal;
+
+    // Packets success candidates
+    successRaw =
+      successRaw ??
+      obj.ping_packets_success ??
+      raw.ping_packets_success ??
+      obj.packets_success ??
+      raw.packets_success ??
+      obj.ping_success ??
+      raw.ping_success ??
+      obj.successful_pings ??
+      raw.successful_pings ??
+      obj.success_pings ??
+      raw.success_pings ??
+      obj.pingPacketsSuccess ??
+      raw.pingPacketsSuccess;
+
+    // Rate candidates
+    rateRaw =
+      obj.ping_success_rate ??
+      raw.ping_success_rate ??
+      obj.ping_rate ??
+      raw.ping_rate ??
+      obj.pingSuccessRate ??
+      raw.pingSuccessRate ??
+      obj.success_rate ??
+      raw.success_rate ??
+      obj.rate ??
+      raw.rate ??
+      obj.numRate;
+  } else {
+    rateRaw = itemOrRate;
   }
 
-  let success = packetsSuccess != null ? Number(packetsSuccess) : null;
-  let total = packetsTotal != null ? Number(packetsTotal) : null;
+  // 1. Try parsing ratio string if present
+  let parsedFromRatio = null;
+  if (ratioRaw) {
+    parsedFromRatio = parseRatioString(ratioRaw);
+  }
 
-  if (success == null || total == null || isNaN(success) || isNaN(total) || total <= 0) {
-    if (numRate === 100) {
-      success = 5;
-      total = 5;
-    } else if (numRate === 0) {
-      success = 0;
-      total = 5;
-    } else if (numRate % 20 === 0) {
-      // Standard 5-packet ICMP ping probe (e.g. 80% -> 4/5, 60% -> 3/5, 40% -> 2/5, 20% -> 1/5)
-      total = 5;
-      success = Math.round(numRate / 20);
-    } else if (numRate % 10 === 0) {
-      // 10-packet probe (e.g. 90% -> 9/10, 70% -> 7/10, 30% -> 3/10)
-      total = 10;
-      success = Math.round(numRate / 10);
-    } else if (numRate % 5 === 0) {
-      // 20-packet probe (e.g. 95% -> 19/20, 85% -> 17/20, 75% -> 15/20)
-      total = 20;
-      success = Math.round((numRate / 100) * 20);
-    } else {
-      total = 100;
-      success = Math.round(numRate);
+  let success = null;
+  let total = null;
+  let numRate = null;
+
+  if (rateRaw !== undefined && rateRaw !== null && rateRaw !== "") {
+    const parsedRate = Number(String(rateRaw).replace("%", "").trim());
+    if (!isNaN(parsedRate)) {
+      numRate = parsedRate;
     }
   }
 
-  const pctStr = `${numRate}%`;
+  if (parsedFromRatio) {
+    success = parsedFromRatio.success;
+    total = parsedFromRatio.total;
+    if (numRate === null) {
+      numRate = parsedFromRatio.rate;
+    }
+  } else {
+    const parsedTotal = totalRaw != null ? Number(totalRaw) : null;
+    const parsedSuccess = successRaw != null ? Number(successRaw) : null;
+
+    if (parsedTotal != null && !isNaN(parsedTotal) && parsedTotal > 0) {
+      total = parsedTotal;
+      if (parsedSuccess != null && !isNaN(parsedSuccess)) {
+        success = parsedSuccess;
+        if (numRate === null) {
+          numRate = Math.round((success / total) * 1000) / 10;
+        }
+      } else if (numRate !== null) {
+        success = Math.round((numRate / 100) * total);
+      }
+    } else if (parsedSuccess != null && !isNaN(parsedSuccess)) {
+      success = parsedSuccess;
+      if (numRate !== null && numRate > 0) {
+        total = Math.round((success / numRate) * 100);
+      } else {
+        total = 10000;
+      }
+    } else if (numRate !== null) {
+      // Default total is 10000 when backend only sends the rate
+      total = 10000;
+      success = Math.round((numRate / 100) * total);
+    }
+  }
+
+  if (numRate === null && (success === null || total === null)) {
+    return null;
+  }
+
+  if (numRate === null && success !== null && total !== null && total > 0) {
+    numRate = Math.round((success / total) * 1000) / 10;
+  }
+
+  const roundedRate = Math.round(numRate * 10) / 10;
+  const pctStr = `${roundedRate}%`;
   const ratioStr = `${success}/${total} packets`;
   const shortRatioStr = `${success}/${total}`;
 
   return {
     percentage: pctStr,
     ratio: ratioStr,
+    shortRatio: shortRatioStr,
     full: `${pctStr} (${ratioStr})`,
     short: `${pctStr} (${shortRatioStr})`,
     packetsSuccess: success,
     packetsTotal: total,
+    rate: roundedRate,
   };
+}
+
+/**
+ * Helper to calculate and format ping success rate and packet ratio (e.g. "80% (4/5 packets)", "80% (8000/10000)").
+ * Accepts either:
+ * - formatPingRateWithPackets(linkOrObject)
+ * - formatPingRateWithPackets(rate, packetsSuccess, packetsTotal, ratioString)
+ */
+export function formatPingRateWithPackets(rateOrObj, packetsSuccess, packetsTotal, ratioString) {
+  return extractPingMetrics(rateOrObj, packetsSuccess, packetsTotal, ratioString);
 }
 
 /**
@@ -95,21 +220,7 @@ export function calculatePingSummary(links) {
   const healthyLinks = [];
 
   links.forEach((l) => {
-    const rawRate = l.ping_success_rate ?? l.rawLink?.ping_success_rate;
-    if (rawRate === undefined || rawRate === null || rawRate === "") {
-      unmonitoredCount++;
-      return;
-    }
-
-    const packetsSuccess =
-      l.ping_packets_success ??
-      l.rawLink?.ping_packets_success ??
-      l.packets_success;
-    const packetsTotal =
-      l.ping_packets_total ??
-      l.rawLink?.ping_packets_total ??
-      l.packets_total;
-    const info = formatPingRateWithPackets(rawRate, packetsSuccess, packetsTotal);
+    const info = formatPingRateWithPackets(l);
 
     if (!info) {
       unmonitoredCount++;
@@ -118,7 +229,7 @@ export function calculatePingSummary(links) {
 
     const s = info.packetsSuccess ?? 0;
     const t = info.packetsTotal ?? 0;
-    const numRate = Number(String(rawRate).replace("%", "").trim());
+    const numRate = info.rate ?? 0;
 
     totalPacketsSuccess += s;
     totalPacketsTotal += t;

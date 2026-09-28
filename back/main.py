@@ -194,9 +194,12 @@ async def get_core_topology(current_user: dict = Depends(user_role_checker)):
                 "mtu": link.mtu if link.mtu is not None else 1500,
                 "ping_success_rate": link.ping_success_rate if link.ping_success_rate is not None else 100.0,
                 "ping_packets_success": link.ping_packets_success if link.ping_packets_success is not None else (
-                    int(round((link.ping_success_rate if link.ping_success_rate is not None else 100.0) / 20.0))
+                    int(round(((link.ping_success_rate if link.ping_success_rate is not None else 100.0) / 100.0) * 10000))
                 ),
-                "ping_packets_total": link.ping_packets_total if link.ping_packets_total is not None else 5,
+                "ping_packets_total": link.ping_packets_total if link.ping_packets_total is not None else 10000,
+                "total_pings": link.get("total_pings") or (link.ping_packets_total if link.ping_packets_total is not None else 10000),
+                "ping_total": link.get("ping_total") or (link.ping_packets_total if link.ping_packets_total is not None else 10000),
+                "ping_ratio": link.get("ping_ratio") or f"{link.ping_packets_success if link.ping_packets_success is not None else int(round(((link.ping_success_rate if link.ping_success_rate is not None else 100.0) / 100.0) * 10000))}/{link.ping_packets_total if link.ping_packets_total is not None else 10000}",
                 "last_ping_at": _isoformat(link.last_ping_at),
                 "ospf_state": link.ospf_state or "Full",
                 "is_ospf_full": str(link.ospf_state or "Full").upper() == "FULL",

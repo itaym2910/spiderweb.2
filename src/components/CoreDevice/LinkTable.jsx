@@ -483,34 +483,29 @@ const LinkTable = ({
                             </span>
                           </td>
                           <td className="px-4 py-2.5 whitespace-nowrap">
-                            {((link.ping_success_rate !== undefined && link.ping_success_rate !== null) ||
-                              (link.additionalDetails?.ping_success_rate !== undefined && link.additionalDetails?.ping_success_rate !== null) ||
-                              (link.rawLink?.ping_success_rate !== undefined && link.rawLink?.ping_success_rate !== null)) ? (
-                              (() => {
-                                const rate = link.ping_success_rate ?? link.additionalDetails?.ping_success_rate ?? link.rawLink?.ping_success_rate;
-                                const packetsSuccess = link.ping_packets_success ?? link.additionalDetails?.ping_packets_success ?? link.rawLink?.ping_packets_success ?? link.packets_success;
-                                const packetsTotal = link.ping_packets_total ?? link.additionalDetails?.ping_packets_total ?? link.rawLink?.ping_packets_total ?? link.packets_total;
-                                const pingInfo = formatPingRateWithPackets(rate, packetsSuccess, packetsTotal);
-                                const lastPing = link.last_ping_at ?? link.additionalDetails?.last_ping_at ?? link.rawLink?.last_ping_at;
-                                return (
-                                  <span
-                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                      Number(rate) >= 95
-                                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                                        : Number(rate) > 0
-                                        ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                                        : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
-                                    }`}
-                                    title={lastPing ? `${pingInfo?.full || `${rate}%`} • Last ping: ${lastPing}` : (pingInfo?.full || `${rate}%`)}
-                                  >
-                                    <Activity className="w-3 h-3" />
-                                    <span>{pingInfo ? pingInfo.short : `${rate}%`}</span>
-                                  </span>
-                                );
-                              })()
-                            ) : (
-                              <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
-                            )}
+                            {(() => {
+                              const pingInfo = formatPingRateWithPackets(link);
+                              if (!pingInfo) {
+                                return <span className="text-xs text-gray-400 dark:text-gray-500">—</span>;
+                              }
+                              const numRate = pingInfo.rate;
+                              const lastPing = link.last_ping_at ?? link.additionalDetails?.last_ping_at ?? link.rawLink?.last_ping_at;
+                              return (
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                    numRate >= 95
+                                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                      : numRate > 0
+                                      ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                                      : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+                                  }`}
+                                  title={lastPing ? `${pingInfo.full} • Last ping: ${lastPing}` : pingInfo.full}
+                                >
+                                  <Activity className="w-3 h-3" />
+                                  <span>{pingInfo.short}</span>
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="px-4 py-2.5 whitespace-nowrap">
                             <span className="text-xs text-gray-600 dark:text-gray-400">
