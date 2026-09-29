@@ -328,42 +328,129 @@ def generate_dummy_data():
         {"id": 2, "name": "P-Network (anan-lekaman)"},
     ]
 
+    # Ensure all links have local_interface and remote_interface defined
+    for link in links:
+        link["local_interface"] = f"GigabitEthernet0/{link['id'] % 4}"
+        link["remote_interface"] = f"GigabitEthernet0/{(link['id'] + 1) % 4}"
+
     # --- Link Status Events (history of status changes) ---
     link_status_events = []
     event_id_counter = 1
-    statuses = ["up", "down", "issue"]
-    # Generate ~80 random status change events spread across the last 60 days
-    for _ in range(80):
-        link = random.choice(links)
-        device = next((d for d in core_devices if d["id"] == link["coredevice_id"]), None)
-        neighbor = next((d for d in core_devices if d["id"] == link["neighbor_coredevice_id"]), None)
-        if not device or not neighbor:
-            continue
-        coresite = next((cs for cs in core_sites if cs["id"] == device["coresite_id"]), None)
-        old_status = random.choice(statuses)
-        new_status = random.choice([s for s in statuses if s != old_status])
-        changed_at = datetime.utcnow() - timedelta(
-            hours=random.choice([
-                random.uniform(0.1, 23),      # within last 24h
-                random.uniform(25, 167),       # within last week
-                random.uniform(168, 720),      # within last month
-                random.uniform(720, 1440),     # older than a month
-            ])
-        )
-        link_status_events.append({
-            "id": event_id_counter,
-            "link_id": link["id"],
-            "device_name": device["name"],
-            "remote_device_name": neighbor["name"],
-            "coresite_name": coresite["name"] if coresite else "Unknown",
-            "network_name": next((n["name"] for n in networks if n["id"] == device.get("network_type_id", 1)), "Unknown"),
-            "old_status": old_status,
-            "new_status": new_status,
-            "changed_at": changed_at.isoformat(),
-        })
-        event_id_counter += 1
+
+    # Transition templates matching the frontend event types and status states
+    transition_templates = [
+        {
+            "event_type": "link_down",
+            "old_oper_status": "Up",
+            "new_oper_status": "Down",
+            "old_ospf_state": "Full",
+            "new_ospf_state": "Down",
+            "reason": "Interface link down (carrier lost)",
+        },
+        {
+            "event_type": "link_up",
+            "old_oper_status": "Down",
+            "new_oper_status": "Up",
+            "old_ospf_state": "Down",
+            "new_ospf_state": "Full",
+            "reason": "Interface link restored to service",
+        },
+        {
+            "event_type": "ospf_drop",
+            "old_oper_status": "Up",
+            "new_oper_status": "Up",
+            "old_ospf_state": "Full",
+            "new_ospf_state": "Down",
+            "reason": "OSPF neighbor adjacency lost (dead timer expired)",
+        },
+        {
+            "event_type": "ospf_full",
+            "old_oper_status": "Up",
+            "new_oper_status": "Up",
+            "old_ospf_state": "2-Way",
+            "new_ospf_state": "Full",
+            "reason": "OSPF adjacency state reached Full",
+        },
+    ]
+
+    core_links = [l for l in links if l.get("neighbor_is_core")]
+    other_links = [l for l in links if not l.get("neighbor_is_core")]
+
+    now = datetime.utcnow()
+
+    # Time distribution windows: (count, min_hours_ago, max_hours_ago)
+    # Generates a realistic distribution across < 24h, < 1 week, and < 1 month
+    time_windows = [
+        (35, 0.1, 23.5),     # < 24h (last day)
+        (45, 24.5, 167.0),   # 1 - 7 days (< 1 week)
+        (45, 168.0, 715.0),  # 7 - 30 days (< 1 month)
+        (15, 720.0, 1440.0), # > 30 days
+    ]
+
+    for count, min_h, max_h in time_windows:
+        for _ in range(count):
+            # Prioritize core-to-core links so they appear under 'Visible on Map'
+            if core_links and (random.random() < 0.75 or not other_links):
+                link = random.choice(core_links)
+            else:
+                link = random.choice(links)
+
+            device = next((d for d in core_devices if d["id"] == link["coredevice_id"]), None)
+            neighbor = next((d for d in core_devices if d["id"] == link["neighbor_coredevice_id"]), None)
+            if not device or not neighbor:
+                continue
+
+            coresite = next((cs for cs in core_sites if cs["id"] == device["coresite_id"]), None)
+            network = next((n for n in networks if n["id"] == device.get("network_type_id", 1)), None)
+            tmpl = random.choice(transition_templates)
+
+            event_time = now - timedelta(hours=random.uniform(min_h, max_h))
+            event_time_iso = event_time.isoformat()
+
+            link_status_events.append({
+                "id": event_id_counter,
+                "link_id": link["id"],
+                "local_device_id": device["id"],
+                "local_device_name": device["name"],
+                "remote_device_id": neighbor["id"],
+                "remote_device_name": neighbor["name"],
+                "local_interface": link["local_interface"],
+                "remote_interface": link["remote_interface"],
+                "event_type": tmpl["event_type"],
+                "old_oper_status": tmpl["old_oper_status"],
+                "new_oper_status": tmpl["new_oper_status"],
+                "old_ospf_state": tmpl["old_ospf_state"],
+                "new_ospf_state": tmpl["new_ospf_state"],
+                "old_status": tmpl["old_oper_status"].lower(),
+                "new_status": tmpl["new_oper_status"].lower(),
+                "created_at": event_time_iso,
+                "changed_at": event_time_iso,
+                "device_name": device["name"],
+                "coresite_name": coresite["name"] if coresite else "Unknown",
+                "network_name": network["name"] if network else "Unknown",
+                "network_type_id": device.get("network_type_id", 1),
+                "details": {
+                    "reason": tmpl["reason"],
+                    "description": f"{device['name']} {link['local_interface']} -> {neighbor['name']} {link['remote_interface']} [{tmpl['event_type'].upper()}]",
+                },
+            })
+            event_id_counter += 1
+
     # Sort events newest first
-    link_status_events.sort(key=lambda e: e["changed_at"], reverse=True)
+    link_status_events.sort(key=lambda e: e["created_at"], reverse=True)
+
+    # Synchronize each link's status timestamp with its most recent event
+    for link in links:
+        evs = [e for e in link_status_events if e["link_id"] == link["id"]]
+        if evs:
+            latest = evs[0]
+            link["status_changed_at"] = latest["created_at"]
+            if latest["new_oper_status"] == "Down":
+                link["last_down_at"] = latest["created_at"]
+            elif latest["new_oper_status"] == "Up":
+                link["last_up_at"] = latest["created_at"]
+            if latest["new_ospf_state"] == "Full":
+                link["last_ospf_full_at"] = latest["created_at"]
 
     print("Dummy data generation complete.")
     return {

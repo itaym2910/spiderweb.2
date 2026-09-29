@@ -16,6 +16,7 @@ import {
   Sparkles,
   AlertTriangle,
   ArrowRight,
+  ChevronDown,
 } from "lucide-react";
 import { api } from "../../services/apiServices";
 import { formatPingRateWithPackets, calculatePingSummary } from "../shared/pingHelpers";
@@ -69,6 +70,193 @@ export function formatExactTime(timestamp) {
 import { normalizeLinkStatus } from "./drawHelpers";
 
 /**
+ * EventLinkCard
+ * Renders an expandable card for a link's status events in the "All" tab.
+ * Includes:
+ * - A chevron arrow indicator that shows it can be opened, rotating smoothly when expanded
+ * - A lightweight CSS grid-template-rows & opacity animation on expand/collapse
+ */
+function EventLinkCard({ group, isExpanded, onToggle, onInspect, isDark }) {
+  const eventCount = group.events.length;
+
+  return (
+    <div
+      className={`group relative p-3 rounded-xl border transition-all duration-200 ${
+        isDark
+          ? "bg-gray-800/60 border-gray-700/60 hover:border-gray-600"
+          : "bg-white border-gray-200/80 hover:border-gray-300 shadow-sm"
+      }`}
+    >
+      {/* Link Header (Clickable) */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
+        className="flex items-center justify-between cursor-pointer select-none"
+      >
+        <div className="flex flex-col min-w-0 pr-3">
+          <div className="flex items-center gap-2 text-xs font-semibold text-gray-800 dark:text-gray-100">
+            <span className="truncate font-mono">{group.deviceName}</span>
+            <span className="text-gray-400 dark:text-gray-500 font-mono text-[10px]">⟷</span>
+            <span className="truncate font-mono">{group.remoteDeviceName}</span>
+          </div>
+          <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+            {group.interface || "Unknown Interface"}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold">
+            {eventCount} {eventCount === 1 ? "event" : "events"}
+          </span>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onInspect();
+            }}
+            title="Inspect link details"
+            className={`p-1.5 rounded-lg transition-colors ${
+              isDark
+                ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
+                : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+            }`}
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Expand / Collapse Chevron Arrow Indicator */}
+          <div
+            className={`p-1 rounded-lg transition-colors flex items-center justify-center ${
+              isExpanded
+                ? isDark
+                  ? "bg-blue-900/40 text-blue-400"
+                  : "bg-blue-50 text-blue-600"
+                : isDark
+                ? "text-gray-400 group-hover:text-gray-200 group-hover:bg-gray-700/50"
+                : "text-gray-400 group-hover:text-gray-600 group-hover:bg-gray-100"
+            }`}
+            title={isExpanded ? "Collapse status changes" : "Expand to view status changes"}
+            aria-expanded={isExpanded}
+          >
+            <ChevronDown
+              className={`w-4 h-4 transition-transform duration-200 ease-in-out ${
+                isExpanded ? "rotate-180" : ""
+              }`}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Expanded Events List with Lightweight Animation */}
+      <div
+        className="grid transition-[grid-template-rows] duration-200 ease-out"
+        style={{
+          gridTemplateRows: isExpanded ? "1fr" : "0fr",
+          transition: "grid-template-rows 220ms cubic-bezier(0.4, 0, 0.2, 1)",
+        }}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div
+            className={`transition-opacity duration-200 ease-out ${
+              isExpanded ? "opacity-100" : "opacity-0 pointer-events-none"
+            }`}
+          >
+            <div
+              className={`mt-3 pt-3 border-t space-y-2.5 ${
+                isDark ? "border-gray-700/50" : "border-gray-100"
+              }`}
+            >
+              {group.events.map((event) => {
+                const statusColors = {
+                  up: { bg: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" },
+                  down: { bg: "bg-rose-500", text: "text-rose-600 dark:text-rose-400" },
+                  issue: { bg: "bg-amber-500", text: "text-amber-600 dark:text-amber-400" },
+                };
+
+                const isOspfEvent =
+                  event.event_type === "ospf_drop" || event.event_type === "ospf_full";
+                const oldStatusStr = isOspfEvent ? event.old_ospf_state : event.old_oper_status;
+                const newStatusStr = isOspfEvent ? event.new_ospf_state : event.new_oper_status;
+
+                const getStatusColor = (statusStr) => {
+                  if (!statusStr) return statusColors.issue;
+                  const s = statusStr.toLowerCase();
+                  if (s === "up" || s === "full") return statusColors.up;
+                  if (s === "down" || s === "drop") return statusColors.down;
+                  return statusColors.issue;
+                };
+
+                const oldStyle = getStatusColor(oldStatusStr);
+                const newStyle = getStatusColor(newStatusStr);
+
+                const oldLabel = oldStatusStr ? String(oldStatusStr).toUpperCase() : "N/A";
+                const newLabel = newStatusStr ? String(newStatusStr).toUpperCase() : "N/A";
+
+                const eventTime = formatExactTime(event.created_at);
+                const eventDuration = formatDuration(event.created_at);
+
+                const eventTypeLabel = String(event.event_type || "Event")
+                  .replace("_", " ")
+                  .toUpperCase();
+
+                return (
+                  <div
+                    key={event.id}
+                    className={`p-2 rounded-lg border ${
+                      isDark ? "bg-gray-800/80 border-gray-700/80" : "bg-gray-50 border-gray-100"
+                    }`}
+                  >
+                    {/* Status Change Badge */}
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${oldStyle.text}`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${oldStyle.bg}`} />
+                          {oldLabel}
+                        </span>
+                        <ArrowRight className="w-3 h-3 text-gray-400" />
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${newStyle.text}`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${newStyle.bg}`} />
+                          {newLabel}
+                        </span>
+                      </div>
+                      <div
+                        title={eventTime}
+                        className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-white dark:bg-gray-700 shadow-sm text-gray-600 dark:text-gray-300"
+                      >
+                        <Clock className="w-2.5 h-2.5 flex-shrink-0" />
+                        <span>{eventDuration} ago</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
+                      <span className="font-medium text-blue-600 dark:text-blue-400">
+                        {eventTypeLabel}
+                      </span>
+                      <span className="font-mono">{eventTime}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * NetworkLinksSideDrawer
  *
  * Renders:
@@ -89,6 +277,7 @@ export default function NetworkLinksSideDrawer({
   onMarkAll,
   onClearMarks,
   onHoverLink,
+  onHoverFilter,
 }) {
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
@@ -433,6 +622,8 @@ export default function NetworkLinksSideDrawer({
         <button
           type="button"
           onClick={() => handleButtonClick("up")}
+          onMouseEnter={() => onHoverFilter?.("up")}
+          onMouseLeave={() => onHoverFilter?.(null)}
           title={`View all Up links (${upCount})`}
           className={`group flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold shadow-lg transition-all duration-200 border ${
             isOpen && activeFilter === "up"
@@ -467,6 +658,8 @@ export default function NetworkLinksSideDrawer({
         <button
           type="button"
           onClick={() => handleButtonClick("down")}
+          onMouseEnter={() => onHoverFilter?.("down")}
+          onMouseLeave={() => onHoverFilter?.(null)}
           title={`View all Down links (${downCount})`}
           className={`group flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold shadow-lg transition-all duration-200 border ${
             isOpen && activeFilter === "down"
@@ -503,6 +696,8 @@ export default function NetworkLinksSideDrawer({
         <button
           type="button"
           onClick={() => handleButtonClick("issue")}
+          onMouseEnter={() => onHoverFilter?.("issue")}
+          onMouseLeave={() => onHoverFilter?.(null)}
           title={`View all Issue links (${issueCount})`}
           className={`group flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold shadow-lg transition-all duration-200 border ${
             isOpen && activeFilter === "issue"
@@ -539,6 +734,8 @@ export default function NetworkLinksSideDrawer({
         <button
           type="button"
           onClick={() => setIsPingModalOpen(true)}
+          onMouseEnter={() => onHoverFilter?.("ping")}
+          onMouseLeave={() => onHoverFilter?.(null)}
           title={`Total Ping: ${pingSummary.formattedRate} (${pingSummary.formattedPackets} packets received). Click for full summary.`}
           className={`group flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold shadow-lg transition-all duration-200 border ${
             isOpen && activeFilter === "ping"
@@ -674,6 +871,8 @@ export default function NetworkLinksSideDrawer({
             <button
               type="button"
               onClick={() => handleStatusTabClick("up")}
+              onMouseEnter={() => onHoverFilter?.("up")}
+              onMouseLeave={() => onHoverFilter?.(null)}
               className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[11px] font-semibold transition-all ${
                 activeFilter === "up"
                   ? "bg-emerald-600 text-white shadow-sm"
@@ -687,6 +886,8 @@ export default function NetworkLinksSideDrawer({
             <button
               type="button"
               onClick={() => handleStatusTabClick("down")}
+              onMouseEnter={() => onHoverFilter?.("down")}
+              onMouseLeave={() => onHoverFilter?.(null)}
               className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[11px] font-semibold transition-all ${
                 activeFilter === "down"
                   ? "bg-rose-600 text-white shadow-sm"
@@ -700,6 +901,8 @@ export default function NetworkLinksSideDrawer({
             <button
               type="button"
               onClick={() => handleStatusTabClick("issue")}
+              onMouseEnter={() => onHoverFilter?.("issue")}
+              onMouseLeave={() => onHoverFilter?.(null)}
               className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[11px] font-semibold transition-all ${
                 activeFilter === "issue"
                   ? "bg-amber-600 text-white shadow-sm"
@@ -713,6 +916,8 @@ export default function NetworkLinksSideDrawer({
             <button
               type="button"
               onClick={() => handleStatusTabClick("ping")}
+              onMouseEnter={() => onHoverFilter?.("ping")}
+              onMouseLeave={() => onHoverFilter?.(null)}
               className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[11px] font-semibold transition-all ${
                 activeFilter === "ping"
                   ? "bg-blue-600 text-white shadow-sm"
@@ -1028,312 +1233,84 @@ export default function NetworkLinksSideDrawer({
                     return !fullLink || !fullLink.isVisibleOnMap;
                   });
                   
-                  return (
-                    <>
-                      {visibleGroupedEvents.length > 0 && (
-                        <div className="mb-4">
-                          <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-1">Visible on Map</h4>
-                          {visibleGroupedEvents.map((group) => {
-                  const isExpanded = expandedEventLinks.has(group.linkId);
-                  const eventCount = group.events.length;
+                const handleInspectGroup = (group) => {
+                  const fullLink = findLinkForGroup(group);
+                  if (fullLink) {
+                    onLinkClick?.(fullLink);
+                  } else {
+                    // Fallback
+                    onLinkClick?.({
+                      id: group.linkId,
+                      sourceName: group.deviceName,
+                      targetName: group.remoteDeviceName,
+                      sourceNode: group.deviceName,
+                      targetNode: group.remoteDeviceName,
+                      local_interface: group.interface,
+                      statusChangedAt: group.events[0]?.created_at,
+                      category: "issue",
+                      status: "issue",
+                    });
+                  }
+                };
 
-                  return (
-                    <div
-                      key={group.linkId}
-                      className={`group relative p-3 rounded-xl border transition-all duration-200 ${
-                        isDark
-                          ? "bg-gray-800/60 border-gray-700/60 hover:border-gray-600"
-                          : "bg-white border-gray-200/80 hover:border-gray-300 shadow-sm"
-                      }`}
-                    >
-                      {/* Link Header (Clickable) */}
-                      <div
-                        className="flex items-center justify-between cursor-pointer select-none"
-                        onClick={() => {
-                          setExpandedEventLinks(prev => {
-                            const next = new Set(prev);
-                            if (next.has(group.linkId)) next.delete(group.linkId);
-                            else next.add(group.linkId);
-                            return next;
-                          });
-                        }}
-                      >
-                        <div className="flex flex-col min-w-0 pr-4">
-                          <div className="flex items-center gap-2 text-xs font-semibold text-gray-800 dark:text-gray-100">
-                            <span className="truncate font-mono">{group.deviceName}</span>
-                            <span className="text-gray-400 dark:text-gray-500 font-mono text-[10px]">⟷</span>
-                            <span className="truncate font-mono">{group.remoteDeviceName}</span>
-                          </div>
-                          <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-                            {group.interface || "Unknown Interface"}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold">
-                            {eventCount} {eventCount === 1 ? 'event' : 'events'}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const fullLink = findLinkForGroup(group);
-                              if (fullLink) {
-                                onLinkClick?.(fullLink);
-                              } else {
-                                // Fallback
-                                onLinkClick?.({
-                                  id: group.linkId,
-                                  sourceName: group.deviceName,
-                                  targetName: group.remoteDeviceName,
-                                  sourceNode: group.deviceName,
-                                  targetNode: group.remoteDeviceName,
-                                  local_interface: group.interface,
-                                  statusChangedAt: group.events[0]?.created_at,
-                                  category: "issue",
-                                  status: "issue"
-                                });
-                              }
+                return (
+                  <>
+                    {visibleGroupedEvents.length > 0 && (
+                      <div className="mb-4 space-y-2.5">
+                        <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-1">
+                          Visible on Map
+                        </h4>
+                        {visibleGroupedEvents.map((group) => (
+                          <EventLinkCard
+                            key={group.linkId}
+                            group={group}
+                            isExpanded={expandedEventLinks.has(group.linkId)}
+                            onToggle={() => {
+                              setExpandedEventLinks((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(group.linkId)) next.delete(group.linkId);
+                                else next.add(group.linkId);
+                                return next;
+                              });
                             }}
-                            title="Inspect link details"
-                            className={`p-1.5 rounded-lg transition-colors ${
-                              isDark
-                                ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
-                                : "bg-gray-100 hover:bg-gray-200 text-gray-600"
-                            }`}
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                            onInspect={() => handleInspectGroup(group)}
+                            isDark={isDark}
+                          />
+                        ))}
                       </div>
+                    )}
 
-                      {/* Expanded Events List */}
-                      {isExpanded && (
-                        <div className={`mt-3 pt-3 border-t space-y-3 ${isDark ? "border-gray-700/50" : "border-gray-100"}`}>
-                          {group.events.map((event) => {
-                            const statusColors = {
-                              up: { bg: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" },
-                              down: { bg: "bg-rose-500", text: "text-rose-600 dark:text-rose-400" },
-                              issue: { bg: "bg-amber-500", text: "text-amber-600 dark:text-amber-400" },
-                            };
+                    {visibleGroupedEvents.length > 0 && notVisibleGroupedEvents.length > 0 && (
+                      <div className="my-4 border-t border-gray-200 dark:border-gray-700"></div>
+                    )}
 
-                            const isOspfEvent = event.event_type === "ospf_drop" || event.event_type === "ospf_full";
-                            const oldStatusStr = isOspfEvent ? event.old_ospf_state : event.old_oper_status;
-                            const newStatusStr = isOspfEvent ? event.new_ospf_state : event.new_oper_status;
-
-                            const getStatusColor = (statusStr) => {
-                              if (!statusStr) return statusColors.issue;
-                              const s = statusStr.toLowerCase();
-                              if (s === "up" || s === "full") return statusColors.up;
-                              if (s === "down" || s === "drop") return statusColors.down;
-                              return statusColors.issue;
-                            };
-
-                            const oldStyle = getStatusColor(oldStatusStr);
-                            const newStyle = getStatusColor(newStatusStr);
-                            
-                            const oldLabel = oldStatusStr ? String(oldStatusStr).toUpperCase() : "N/A";
-                            const newLabel = newStatusStr ? String(newStatusStr).toUpperCase() : "N/A";
-
-                            const eventTime = formatExactTime(event.created_at);
-                            const eventDuration = formatDuration(event.created_at);
-
-                            const eventTypeLabel = String(event.event_type || "Event").replace("_", " ").toUpperCase();
-
-                            return (
-                              <div key={event.id} className={`p-2 rounded-lg border ${isDark ? "bg-gray-800/80 border-gray-700/80" : "bg-gray-50 border-gray-100"}`}>
-                                {/* Status Change Badge */}
-                                <div className="flex items-center justify-between gap-2 mb-2">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${oldStyle.text}`}>
-                                      <span className={`w-1.5 h-1.5 rounded-full ${oldStyle.bg}`} />
-                                      {oldLabel}
-                                    </span>
-                                    <ArrowRight className="w-3 h-3 text-gray-400" />
-                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${newStyle.text}`}>
-                                      <span className={`w-1.5 h-1.5 rounded-full ${newStyle.bg}`} />
-                                      {newLabel}
-                                    </span>
-                                  </div>
-                                  <div
-                                    title={eventTime}
-                                    className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-white dark:bg-gray-700 shadow-sm text-gray-600 dark:text-gray-300"
-                                  >
-                                    <Clock className="w-2.5 h-2.5 flex-shrink-0" />
-                                    <span>{eventDuration} ago</span>
-                                  </div>
-                                </div>
-                                <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
-                                  <span className="font-medium text-blue-600 dark:text-blue-400">
-                                    {eventTypeLabel}
-                                  </span>
-                                  <span className="font-mono">{eventTime}</span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                          })}
-                        </div>
-                      )}
-                      
-                      {visibleGroupedEvents.length > 0 && notVisibleGroupedEvents.length > 0 && (
-                        <div className="my-4 border-t border-gray-200 dark:border-gray-700"></div>
-                      )}
-                      
-                      {notVisibleGroupedEvents.length > 0 && (
-                        <div>
-                          <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-1">Not Shown on Map</h4>
-                          {notVisibleGroupedEvents.map((group) => {
-                  const isExpanded = expandedEventLinks.has(group.linkId);
-                  const eventCount = group.events.length;
-
-                  return (
-                    <div
-                      key={group.linkId}
-                      className={`group relative p-3 rounded-xl border transition-all duration-200 ${
-                        isDark
-                          ? "bg-gray-800/60 border-gray-700/60 hover:border-gray-600"
-                          : "bg-white border-gray-200/80 hover:border-gray-300 shadow-sm"
-                      }`}
-                    >
-                      {/* Link Header (Clickable) */}
-                      <div
-                        className="flex items-center justify-between cursor-pointer select-none"
-                        onClick={() => {
-                          setExpandedEventLinks(prev => {
-                            const next = new Set(prev);
-                            if (next.has(group.linkId)) next.delete(group.linkId);
-                            else next.add(group.linkId);
-                            return next;
-                          });
-                        }}
-                      >
-                        <div className="flex flex-col min-w-0 pr-4">
-                          <div className="flex items-center gap-2 text-xs font-semibold text-gray-800 dark:text-gray-100">
-                            <span className="truncate font-mono">{group.deviceName}</span>
-                            <span className="text-gray-400 dark:text-gray-500 font-mono text-[10px]">⟷</span>
-                            <span className="truncate font-mono">{group.remoteDeviceName}</span>
-                          </div>
-                          <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-                            {group.interface || "Unknown Interface"}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold">
-                            {eventCount} {eventCount === 1 ? 'event' : 'events'}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const fullLink = findLinkForGroup(group);
-                              if (fullLink) {
-                                onLinkClick?.(fullLink);
-                              } else {
-                                // Fallback
-                                onLinkClick?.({
-                                  id: group.linkId,
-                                  sourceName: group.deviceName,
-                                  targetName: group.remoteDeviceName,
-                                  sourceNode: group.deviceName,
-                                  targetNode: group.remoteDeviceName,
-                                  local_interface: group.interface,
-                                  statusChangedAt: group.events[0]?.created_at,
-                                  category: "issue",
-                                  status: "issue"
-                                });
-                              }
+                    {notVisibleGroupedEvents.length > 0 && (
+                      <div className="space-y-2.5">
+                        <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-1">
+                          Not Shown on Map
+                        </h4>
+                        {notVisibleGroupedEvents.map((group) => (
+                          <EventLinkCard
+                            key={group.linkId}
+                            group={group}
+                            isExpanded={expandedEventLinks.has(group.linkId)}
+                            onToggle={() => {
+                              setExpandedEventLinks((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(group.linkId)) next.delete(group.linkId);
+                                else next.add(group.linkId);
+                                return next;
+                              });
                             }}
-                            title="Inspect link details"
-                            className={`p-1.5 rounded-lg transition-colors ${
-                              isDark
-                                ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
-                                : "bg-gray-100 hover:bg-gray-200 text-gray-600"
-                            }`}
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                            onInspect={() => handleInspectGroup(group)}
+                            isDark={isDark}
+                          />
+                        ))}
                       </div>
-
-                      {/* Expanded Events List */}
-                      {isExpanded && (
-                        <div className={`mt-3 pt-3 border-t space-y-3 ${isDark ? "border-gray-700/50" : "border-gray-100"}`}>
-                          {group.events.map((event) => {
-                            const statusColors = {
-                              up: { bg: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" },
-                              down: { bg: "bg-rose-500", text: "text-rose-600 dark:text-rose-400" },
-                              issue: { bg: "bg-amber-500", text: "text-amber-600 dark:text-amber-400" },
-                            };
-
-                            const isOspfEvent = event.event_type === "ospf_drop" || event.event_type === "ospf_full";
-                            const oldStatusStr = isOspfEvent ? event.old_ospf_state : event.old_oper_status;
-                            const newStatusStr = isOspfEvent ? event.new_ospf_state : event.new_oper_status;
-
-                            const getStatusColor = (statusStr) => {
-                              if (!statusStr) return statusColors.issue;
-                              const s = statusStr.toLowerCase();
-                              if (s === "up" || s === "full") return statusColors.up;
-                              if (s === "down" || s === "drop") return statusColors.down;
-                              return statusColors.issue;
-                            };
-
-                            const oldStyle = getStatusColor(oldStatusStr);
-                            const newStyle = getStatusColor(newStatusStr);
-                            
-                            const oldLabel = oldStatusStr ? String(oldStatusStr).toUpperCase() : "N/A";
-                            const newLabel = newStatusStr ? String(newStatusStr).toUpperCase() : "N/A";
-
-                            const eventTime = formatExactTime(event.created_at);
-                            const eventDuration = formatDuration(event.created_at);
-
-                            const eventTypeLabel = String(event.event_type || "Event").replace("_", " ").toUpperCase();
-
-                            return (
-                              <div key={event.id} className={`p-2 rounded-lg border ${isDark ? "bg-gray-800/80 border-gray-700/80" : "bg-gray-50 border-gray-100"}`}>
-                                {/* Status Change Badge */}
-                                <div className="flex items-center justify-between gap-2 mb-2">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${oldStyle.text}`}>
-                                      <span className={`w-1.5 h-1.5 rounded-full ${oldStyle.bg}`} />
-                                      {oldLabel}
-                                    </span>
-                                    <ArrowRight className="w-3 h-3 text-gray-400" />
-                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${newStyle.text}`}>
-                                      <span className={`w-1.5 h-1.5 rounded-full ${newStyle.bg}`} />
-                                      {newLabel}
-                                    </span>
-                                  </div>
-                                  <div
-                                    title={eventTime}
-                                    className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-white dark:bg-gray-700 shadow-sm text-gray-600 dark:text-gray-300"
-                                  >
-                                    <Clock className="w-2.5 h-2.5 flex-shrink-0" />
-                                    <span>{eventDuration} ago</span>
-                                  </div>
-                                </div>
-                                <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
-                                  <span className="font-medium text-blue-600 dark:text-blue-400">
-                                    {eventTypeLabel}
-                                  </span>
-                                  <span className="font-mono">{eventTime}</span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                          })}
-                        </div>
-                      )}
-                    </>
-                  );
-                })()
+                    )}
+                  </>
+                );
+              })()
             )
           ) : (
             /* ===== STANDARD LINK CARDS for Up/Down/Issue tabs ===== */

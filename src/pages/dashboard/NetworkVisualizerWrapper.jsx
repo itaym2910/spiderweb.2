@@ -65,6 +65,7 @@ const NetworkVisualizerWrapper = ({ theme }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [markedLinkIds, setMarkedLinkIds] = useState(new Set());
   const [hoveredLinkId, setHoveredLinkId] = useState(null);
+  const [hoveredFilter, setHoveredFilter] = useState(null);
 
   const handleToggleMarkLink = (linkId) => {
     setMarkedLinkIds((prev) => {
@@ -224,6 +225,14 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           if (!existing.remote_ip && (link.local_link_ip || link.local_ip)) {
             existing.remote_ip = link.local_link_ip || link.local_ip;
           }
+          if (existing.ping_success_rate === undefined && link.ping_success_rate !== undefined) {
+            existing.ping_success_rate = link.ping_success_rate;
+            existing.ping_packets_success = link.ping_packets_success;
+            existing.ping_packets_total = link.ping_packets_total;
+            existing.ping_ratio = link.ping_ratio;
+            existing.total_pings = link.total_pings ?? link.ping_total;
+            existing.ping_total = link.ping_total ?? link.total_pings;
+          }
           return;
         }
 
@@ -379,6 +388,7 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           onMarkAll={handleMarkAll}
           onClearMarks={handleClearMarks}
           onHoverLink={setHoveredLinkId}
+          onHoverFilter={setHoveredFilter}
         />
         <NetworkVisualizer
           key={`${theme}-detailed`}
@@ -388,6 +398,7 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           isDrawerOpen={isDrawerOpen}
           markedLinkIds={markedLinkIds}
           hoveredLinkId={hoveredLinkId}
+          hoveredFilter={hoveredFilter}
           onZoneClick={handleZoneClick}
           onLinkClick={handleLinkClick}
           onNodeClick={handleNodeClick}

@@ -1,5 +1,6 @@
 // src/chart/handleInteractions.jsx
 import { linkPositionFromEdges, normalizeLinkStatus } from "./drawHelpers";
+import { formatPingRateWithPackets } from "../shared/pingHelpers";
 import * as d3 from "d3";
 
 // --- Helper function to create payload for link popups ---
@@ -184,12 +185,52 @@ export function getTooltipDirectionalText(d, sourceNode, targetNode) {
 }
 
 // ===================================================================
+// Helper to calculate ping packet loss and color from green to red
+// ===================================================================
+export function getPingColorInfo(linkData, isDark = false) {
+  if (!linkData) return null;
+  const metrics = formatPingRateWithPackets(linkData);
+  if (!metrics) return null;
+
+  let lossRate = 0;
+  if (
+    metrics.packetsTotal != null &&
+    metrics.packetsTotal > 0 &&
+    metrics.packetsSuccess != null
+  ) {
+    const dropped = Math.max(0, metrics.packetsTotal - metrics.packetsSuccess);
+    lossRate = (dropped / metrics.packetsTotal) * 100;
+  } else if (metrics.rate != null) {
+    lossRate = Math.max(0, 100 - metrics.rate);
+  }
+  lossRate = Math.max(0, Math.min(100, lossRate));
+
+  // Color gradient from green (0% packets fell) to red (100% packets fell)
+  const range = isDark
+    ? ["#4ade80", "#a3e635", "#facc15", "#fb923c", "#f87171"]
+    : ["#22c55e", "#84cc16", "#eab308", "#f97316", "#ef4444"];
+
+  const scale = d3
+    .scaleLinear()
+    .domain([0, 25, 50, 75, 100])
+    .range(range)
+    .clamp(true);
+
+  return {
+    color: scale(lossRate),
+    lossRate,
+    metrics,
+  };
+}
+
+// ===================================================================
 // Fast Apply / Restore Marked Links & Nodes State (Hardware CSS Accelerated)
 // ===================================================================
 export function applyMarkedState({
   svg,
   markedLinkIds,
   hoveredLinkId,
+  hoveredFilter,
   palette,
   theme,
 }) {
@@ -200,8 +241,11 @@ export function applyMarkedState({
   const defaultNodeColor = palette?.node || "#29c6e0";
   const defaultNodeStroke = palette?.stroke || (isDark ? "#60a5fa" : "#1d4ed8");
 
+  const hasFilter = Boolean(hoveredFilter);
   const hasMarked =
-    (markedLinkIds && markedLinkIds.size > 0) || Boolean(hoveredLinkId);
+    (markedLinkIds && markedLinkIds.size > 0) ||
+    Boolean(hoveredLinkId) ||
+    hasFilter;
 
   if (!hasMarked) {
     svg
@@ -218,7 +262,8 @@ export function applyMarkedState({
       .attr("stroke", defaultNodeStroke)
       .attr("stroke-width", 2)
       .style("pointer-events", "auto")
-      .style("cursor", "pointer");
+      .style("cursor", "pointer")
+      .style("filter", null);
 
     svg
       .selectAll("path.duplicate-link")
@@ -237,80 +282,168 @@ export function applyMarkedState({
       .attr("font-weight", "normal")
       .attr("fill", palette.label);
 
+    svg.selectAll("line.visible-link > title, path.duplicate-link > title").remove();
+
     return;
   }
 
+  // =================================================================
+  // 1. SPECIAL PING MODE (hovering Ping Total)
+  // Shows a color on every link relative to packets that fell (green -> red)
+  // =================================================================
+  if (hoveredFilter === "ping") {
+    const activeEndpoints = new Set();
+
+    const applyPingStyle = (selection) => {
+      selection.each(function (d) {
+        if (!d) return;
+        const pingInfo = getPingColorInfo(d, isDark);
+        const sourceId = typeof d.source === "object" ? d.source.id : d.source;
+        const targetId = typeof d.target === "object" ? d.target.id : d.target;
+        const el = d3.select(this);
+
+        if (pingInfo) {
+          activeEndpoints.add(sourceId);
+          activeEndpoints.add(targetId);
+
+          el.raise()
+            .attr("stroke", pingInfo.color)
+            .attr("stroke-opacity", 1)
+            .attr("stroke-width", 4.5);
+
+          let titleEl = el.select("title");
+          if (titleEl.empty()) {
+            titleEl = el.append("title");
+          }
+          const sName = typeof d.source === "object" ? d.source.name || d.source.id : d.source;
+          const tName = typeof d.target === "object" ? d.target.name || d.target.id : d.target;
+          const lossText = `${pingInfo.lossRate.toFixed(1)}% packet loss`;
+          const packetText = pingInfo.metrics.shortRatio ? ` (${pingInfo.metrics.shortRatio} received)` : "";
+          titleEl.text(`${sName} ⟷ ${tName}: ${lossText}${packetText}`);
+        } else {
+          el.attr("stroke", defaultLinkColor)
+            .attr("stroke-opacity", 0.15)
+            .attr("stroke-width", 1.5);
+          el.select("title").remove();
+        }
+      });
+    };
+
+    applyPingStyle(svg.selectAll("line.visible-link"));
+    applyPingStyle(svg.selectAll("path.duplicate-link"));
+
+    svg.selectAll("line.link-hover, path.duplicate-link-hover").each(function (d) {
+      const hasPing = Boolean(getPingColorInfo(d, isDark));
+      d3.select(this)
+        .style("pointer-events", hasPing ? "auto" : "none")
+        .style("cursor", hasPing ? "pointer" : "default");
+    });
+
+    // In ping mode, keep nodes active and clean cyan
+    svg.selectAll("circle.node").each(function (d) {
+      if (!d) return;
+      const isEndpoint = activeEndpoints.has(d.id);
+      if (isEndpoint) {
+        d3.select(this)
+          .raise()
+          .style("opacity", 1)
+          .attr("fill", defaultNodeColor)
+          .attr("stroke", defaultNodeStroke)
+          .attr("stroke-width", 2.5)
+          .style("pointer-events", "auto")
+          .style("cursor", "pointer")
+          .style("filter", "drop-shadow(0 1px 3px rgba(0, 0, 0, 0.25))");
+      } else {
+        d3.select(this)
+          .style("opacity", 0.25)
+          .attr("fill", defaultNodeColor)
+          .attr("stroke", defaultNodeStroke)
+          .attr("stroke-width", 2)
+          .style("pointer-events", "none")
+          .style("cursor", "default")
+          .style("filter", null);
+      }
+    });
+
+    svg.selectAll("text.label").each(function (d) {
+      if (!d) return;
+      const isEndpoint = activeEndpoints.has(d.id);
+      d3.select(this)
+        .style("opacity", isEndpoint ? 1 : 0.3)
+        .attr("font-weight", isEndpoint ? "600" : "normal")
+        .attr("fill", palette.label);
+    });
+
+    return;
+  }
+
+  // =================================================================
+  // 2. STATUS FILTER (Up / Down / Issue) OR MARKED LINKS MODE
+  // =================================================================
   const activeEndpoints = new Set();
   const markedIdsSet = new Set(markedLinkIds || []);
   if (hoveredLinkId) markedIdsSet.add(hoveredLinkId);
 
-  const isLinkMarked = (d) => {
+  const isLinkActive = (d) => {
     if (!d) return false;
-    return markedIdsSet.has(d.id) || Boolean(d.allIds && d.allIds.some((id) => markedIdsSet.has(id)));
+    if (hoveredFilter) {
+      const status = normalizeLinkStatus(d);
+      return status === hoveredFilter;
+    }
+    return (
+      markedIdsSet.has(d.id) ||
+      Boolean(d.allIds && d.allIds.some((id) => markedIdsSet.has(id)))
+    );
   };
 
-  // 1. Straight links
-  svg.selectAll("line.visible-link").each(function (d) {
-    if (!d) return;
-    const isMarked = isLinkMarked(d);
-    const highlightColor = getLinkColorByCategory(d, palette);
+  const applyStatusStyle = (selection) => {
+    selection.each(function (d) {
+      if (!d) return;
+      const isMarked = isLinkActive(d);
+      const highlightColor = getLinkColorByCategory(d, palette);
+      const sourceId = typeof d.source === "object" ? d.source.id : d.source;
+      const targetId = typeof d.target === "object" ? d.target.id : d.target;
+      const el = d3.select(this);
 
-    const sourceId = typeof d.source === "object" ? d.source.id : d.source;
-    const targetId = typeof d.target === "object" ? d.target.id : d.target;
+      if (isMarked) {
+        activeEndpoints.add(sourceId);
+        activeEndpoints.add(targetId);
 
-    if (isMarked) {
-      activeEndpoints.add(sourceId);
-      activeEndpoints.add(targetId);
+        el.raise()
+          .attr("stroke", highlightColor)
+          .attr("stroke-opacity", 1)
+          .attr("stroke-width", 4.5);
 
-      d3.select(this)
-        .raise()
-        .attr("stroke", highlightColor)
-        .attr("stroke-opacity", 1)
-        .attr("stroke-width", 4.5);
-    } else {
-      d3.select(this)
-        .attr("stroke", defaultLinkColor)
-        .attr("stroke-opacity", 0.12)
-        .attr("stroke-width", 1.5);
-    }
-  });
+        let titleEl = el.select("title");
+        if (titleEl.empty()) {
+          titleEl = el.append("title");
+        }
+        const sName = typeof d.source === "object" ? d.source.name || d.source.id : d.source;
+        const tName = typeof d.target === "object" ? d.target.name || d.target.id : d.target;
+        const statusLabel = d.status || d.normalizedStatus || "link";
+        titleEl.text(`${sName} ⟷ ${tName} (${statusLabel.toUpperCase()})`);
+      } else {
+        el.attr("stroke", defaultLinkColor)
+          .attr("stroke-opacity", 0.12)
+          .attr("stroke-width", 1.5);
+        el.select("title").remove();
+      }
+    });
+  };
 
-  // 2. Duplicate / parallel links
-  svg.selectAll("path.duplicate-link").each(function (d) {
-    if (!d) return;
-    const isMarked = isLinkMarked(d);
-    const highlightColor = getLinkColorByCategory(d, palette);
-
-    const sourceId = typeof d.source === "object" ? d.source.id : d.source;
-    const targetId = typeof d.target === "object" ? d.target.id : d.target;
-
-    if (isMarked) {
-      activeEndpoints.add(sourceId);
-      activeEndpoints.add(targetId);
-
-      d3.select(this)
-        .raise()
-        .attr("stroke", highlightColor)
-        .attr("stroke-opacity", 1)
-        .attr("stroke-width", 4.5);
-    } else {
-      d3.select(this)
-        .attr("stroke", defaultLinkColor)
-        .attr("stroke-opacity", 0.12)
-        .attr("stroke-width", 1.5);
-    }
-  });
+  applyStatusStyle(svg.selectAll("line.visible-link"));
+  applyStatusStyle(svg.selectAll("path.duplicate-link"));
 
   // 3. Hover Hitboxes
   svg.selectAll("line.link-hover").each(function (d) {
-    const isMarked = isLinkMarked(d);
+    const isMarked = isLinkActive(d);
     d3.select(this)
       .style("pointer-events", isMarked ? "auto" : "none")
       .style("cursor", isMarked ? "pointer" : "default");
   });
 
   svg.selectAll("path.duplicate-link-hover").each(function (d) {
-    const isMarked = isLinkMarked(d);
+    const isMarked = isLinkActive(d);
     d3.select(this)
       .style("pointer-events", isMarked ? "auto" : "none")
       .style("cursor", isMarked ? "pointer" : "default");

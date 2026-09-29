@@ -41,19 +41,24 @@ class LinkBase(BaseModel):
 app = FastAPI(title="Spiderweb Dummy Backend")
 
 # --- CORS Middleware ---
-# Allows the frontend (e.g., from http://localhost:5173) to communicate with the backend.
+# Allows the frontend (e.g., from http://localhost:5173, 127.0.0.1, or LAN) to communicate with the backend.
 origins = [
     "http://localhost",
-    "http://localhost:5173",  # Default Vite dev server port
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:5174",
     "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r".*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_private_network=True,
 )
 
 # In-memory database from our dummy data generator
@@ -108,19 +113,63 @@ def get_all_alerts_severity():
 # ==============================================================================
 router_coredevice = APIRouter()
 
+@router_coredevice.get("/api/core-topology-events")
 @router_coredevice.get("/api/link-status-events")
-async def get_link_status_events(since: str = "24h", current_user: dict = Depends(user_role_checker)):
-    """Returns link status change events filtered by time window."""
-    # Parse the 'since' parameter into hours
-    hours_map = {"24h": 24, "7d": 24 * 7, "30d": 24 * 30}
-    max_hours = hours_map.get(since, 24)
-    cutoff = datetime.utcnow() - timedelta(hours=max_hours)
+async def get_core_topology_events(
+    days: Optional[int] = None,
+    since: Optional[str] = None,
+    event_type: Optional[str] = None,
+    local_device_id: Optional[int] = None,
+    remote_device_id: Optional[int] = None,
+    current_user: dict = Depends(user_role_checker)
+):
+    """Returns link status change events filtered by time window and criteria."""
+    now = datetime.utcnow()
 
-    events = [
-        e for e in db.get("link_status_events", [])
-        if datetime.fromisoformat(e["changed_at"]) >= cutoff
-    ]
-    return {"events": events, "since": since, "count": len(events)}
+    # Determine time window cutoff
+    filter_days = days
+    if filter_days is None:
+        if since == "24h":
+            filter_days = 1
+        elif since == "7d":
+            filter_days = 7
+        elif since == "30d":
+            filter_days = 30
+        else:
+            filter_days = 30  # Default to 30 days if no filter specified
+
+    cutoff = now - timedelta(days=filter_days)
+
+    filtered = []
+    for ev in db.get("link_status_events", []):
+        t_str = ev.get("created_at") or ev.get("changed_at")
+        if not t_str:
+            continue
+        try:
+            ev_dt = datetime.fromisoformat(t_str)
+        except Exception:
+            continue
+
+        if ev_dt < cutoff:
+            continue
+
+        if event_type and ev.get("event_type") != event_type:
+            continue
+
+        if local_device_id is not None and ev.get("local_device_id") != local_device_id:
+            continue
+
+        if remote_device_id is not None and ev.get("remote_device_id") != remote_device_id:
+            continue
+
+        filtered.append(ev)
+
+    return {
+        "events": filtered,
+        "count": len(filtered),
+        "days": filter_days,
+        "since": since or f"{filter_days}d",
+    }
 
 def _isoformat(dt):
     if dt is None:
@@ -179,6 +228,18 @@ async def get_core_topology(current_user: dict = Depends(user_role_checker)):
 
             link = _LinkProxy(raw_link)
 
+            cutoff_24h = datetime.utcnow() - timedelta(hours=24)
+            ev_for_link = [
+                e for e in db.get("link_status_events", [])
+                if e.get("link_id") == link["id"]
+            ]
+            ev_24h = [
+                e for e in ev_for_link
+                if datetime.fromisoformat(e.get("created_at", e.get("changed_at"))) >= cutoff_24h
+            ]
+            link_drops_24h = len([e for e in ev_24h if e.get("event_type") == "link_down"])
+            ospf_drops_24h = len([e for e in ev_24h if e.get("event_type") == "ospf_drop"])
+
             links_out.append({
                 "id": link["id"],
                 "local_interface": f"GigabitEthernet0/{link['id'] % 4}",
@@ -203,13 +264,13 @@ async def get_core_topology(current_user: dict = Depends(user_role_checker)):
                 "last_ping_at": _isoformat(link.last_ping_at),
                 "ospf_state": link.ospf_state or "Full",
                 "is_ospf_full": str(link.ospf_state or "Full").upper() == "FULL",
-                "last_up_at": link.get("created_at", datetime.utcnow().isoformat()),
-                "last_down_at": link.get("updated_at", datetime.utcnow().isoformat()),
-                "last_ospf_full_at": link.get("created_at", datetime.utcnow().isoformat()),
+                "last_up_at": link.get("last_up_at", link.get("created_at", datetime.utcnow().isoformat())),
+                "last_down_at": link.get("last_down_at", link.get("updated_at", datetime.utcnow().isoformat())),
+                "last_ospf_full_at": link.get("last_ospf_full_at", link.get("created_at", datetime.utcnow().isoformat())),
                 "last_seen_at": link.get("updated_at", datetime.utcnow().isoformat()),
                 "last_state_change_at": link.get("status_changed_at", link.get("updated_at", datetime.utcnow().isoformat())),
-                "link_drops_last_24h": 0,
-                "ospf_drops_last_24h": 0,
+                "link_drops_last_24h": link_drops_24h,
+                "ospf_drops_last_24h": ospf_drops_24h,
             })
         devices_out.append({
             "id": device["id"],
