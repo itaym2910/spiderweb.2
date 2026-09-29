@@ -71,7 +71,8 @@ export function normalizeLinkStatus(link) {
     }
 
     const ospfState = String(raw.ospf_state || "").toLowerCase().trim();
-    if (ospfState !== "full" && raw.last_ospf_full_at !== "null" && raw.last_ospf_full_at !== null && raw.last_ospf_full_at !== undefined) {
+    const isOspfFull = raw.is_ospf_full !== undefined ? Boolean(raw.is_ospf_full) : ospfState === "full";
+    if (!isOspfFull && (raw.last_ospf_full_at !== "null" && raw.last_ospf_full_at != null || raw.is_ospf_full === false)) {
       return "issue";
     }
 

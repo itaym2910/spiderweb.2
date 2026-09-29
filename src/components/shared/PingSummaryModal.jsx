@@ -145,14 +145,22 @@ export default function PingSummaryModal({
                   className={`text-[11px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider border ${badgeBgClass}`}
                 >
                   {statusCategory === "optimal"
-                    ? "Healthy"
+                    ? "Healthy (0 Loss)"
                     : statusCategory === "degraded"
-                    ? "Degraded"
-                    : "Critical"}
+                    ? "Packet Loss Detected"
+                    : "Critical (High Loss)"}
                 </span>
               </div>
               <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-                {healthyCount} of {monitoredCount} lines at 100%
+                {problemLinks.length > 0 ? (
+                  <span className="text-amber-600 dark:text-amber-400 font-semibold">
+                    ⚠️ {problemLinks.length} line{problemLinks.length > 1 ? "s" : ""} with packet loss ({healthyCount}/{monitoredCount} healthy)
+                  </span>
+                ) : (
+                  <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                    All {monitoredCount} lines at 100% (0 loss)
+                  </span>
+                )}
               </p>
             </div>
 
@@ -177,9 +185,9 @@ export default function PingSummaryModal({
               <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
                 {totalPacketsLost > 0 ? (
                   <>
-                    <TrendingDown className="w-3 h-3 text-rose-500" />
-                    <span className="text-rose-600 dark:text-rose-400 font-medium">
-                      {totalPacketsLost} pkts lost ({overallLossRate}%)
+                    <TrendingDown className="w-3 h-3 text-rose-500 shrink-0" />
+                    <span className="text-rose-600 dark:text-rose-400 font-bold">
+                      {totalPacketsLost} pkt{totalPacketsLost > 1 ? "s" : ""} lost ({pingSummary.formattedLossRate || (overallLossRate < 0.1 ? "<0.1%" : `${overallLossRate}%`)})
                     </span>
                   </>
                 ) : (
@@ -206,12 +214,13 @@ export default function PingSummaryModal({
               </div>
               <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
                 {problemLinks.length > 0 ? (
-                  <span className="text-amber-600 dark:text-amber-400 font-medium">
-                    {problemLinks.length} line(s) have packet drop
+                  <span className="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+                    <span>{problemLinks.length} line(s) have packet drop</span>
                   </span>
                 ) : (
                   <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                    All lines operational
+                    All lines operational (100%)
                   </span>
                 )}
               </p>
@@ -408,10 +417,17 @@ export default function PingSummaryModal({
             ) : (
               <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
                 {displayedLinks.map((link) => {
+                  const pInfo = link.pingInfo;
                   const numRate =
+                    pInfo?.rate ??
                     link.numRate ??
                     Number(String(link.ping_success_rate ?? 0).replace("%", ""));
-                  const pInfo = link.pingInfo;
+                  const packetsLost =
+                    pInfo?.packetsLost ??
+                    link.packetsLost ??
+                    (numRate < 100 ? 1 : 0);
+                  const hasLoss = packetsLost > 0 || numRate < 100;
+                  const isDown = numRate === 0;
                   const srcName = link.sourceName || link.source || "Node A";
                   const tgtName = link.targetName || link.target || "Node B";
 
@@ -428,11 +444,11 @@ export default function PingSummaryModal({
                       <div className="flex items-center gap-2.5 min-w-0">
                         <span
                           className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                            numRate >= 95
-                              ? "bg-emerald-500"
-                              : numRate > 0
-                              ? "bg-amber-500"
-                              : "bg-rose-500"
+                            isDown
+                              ? "bg-rose-500"
+                              : hasLoss
+                              ? "bg-amber-500 animate-pulse"
+                              : "bg-emerald-500"
                           }`}
                         />
                         <div className="min-w-0">
@@ -445,24 +461,40 @@ export default function PingSummaryModal({
                               {tgtName}
                             </span>
                           </div>
-                          <div className="text-[11px] text-gray-400 font-mono mt-0.5">
-                            {link.local_interface || "GigabitEthernet"} •{" "}
-                            {link.sourceZone || link.coresite_name || "Core"}
+                          <div className="text-[11px] text-gray-400 font-mono mt-0.5 flex items-center gap-1.5 flex-wrap">
+                            <span>{link.local_interface || "GigabitEthernet"}</span>
+                            <span>•</span>
+                            <span>{link.sourceZone || link.coresite_name || "Core"}</span>
+                            {hasLoss && (
+                              <>
+                                <span>•</span>
+                                <span className="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
+                                  <AlertTriangle className="w-3 h-3 text-amber-500" />
+                                  <span>{packetsLost} packet{packetsLost > 1 ? "s" : ""} dropped</span>
+                                </span>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
                         <span
-                          className={`px-2 py-0.5 rounded-md text-xs font-bold border ${
-                            numRate >= 95
-                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                              : numRate > 0
+                          className={`px-2 py-0.5 rounded-md text-xs font-bold border flex items-center gap-1 ${
+                            isDown
+                              ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
+                              : hasLoss
                               ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
-                              : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
+                              : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
                           }`}
                         >
-                          {pInfo ? pInfo.short : `${numRate}%`}
+                          {hasLoss && !isDown && <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />}
+                          <span>{pInfo ? pInfo.short : `${numRate}%`}</span>
+                          {hasLoss && !isDown && (
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
+                              ({packetsLost} lost)
+                            </span>
+                          )}
                         </span>
                         <span className="text-[10px] text-blue-500 group-hover:underline">
                           Details →

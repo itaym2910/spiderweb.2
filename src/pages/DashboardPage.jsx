@@ -24,6 +24,7 @@ import { useRelatedDevices } from "../hooks/useRelatedDevices";
 import { selectAllDevices, selectDeviceInfo } from "../redux/slices/devicesSlice";
 import { selectAllSites } from "../redux/slices/sitesSlice";
 import { selectAllTenGigLinks } from "../redux/slices/tenGigLinksSlice";
+import { selectTopologyDevices } from "../redux/slices/coreTopologySlice";
 import { api } from "../services/apiServices";
 
 // This helper component can be used by other pages like FavoritesPage
@@ -50,6 +51,7 @@ function StatusIndicator({ status }) {
 function NodeDetailView({ chartType, theme }) {
   const { nodeId: deviceHostname, zoneId } = useParams();
   const allDevices = useSelector(selectAllDevices);
+  const allTopologyDevices = useSelector(selectTopologyDevices);
   const allSites = useSelector(selectAllSites);
   const deviceInfo = useSelector(selectDeviceInfo);
   const otherDevicesInZone = useRelatedDevices(deviceHostname, zoneId);
@@ -58,22 +60,44 @@ function NodeDetailView({ chartType, theme }) {
 
   // Find the current device object and its interfaces
   const currentDevice = React.useMemo(() => {
-    return allDevices.find((d) => 
-      d.hostname === deviceHostname || 
-      d.name === deviceHostname || 
-      String(d.id) === String(deviceHostname)
-    ) || null;
-  }, [allDevices, deviceHostname]);
+    return (
+      allDevices.find((d) => 
+        d.hostname === deviceHostname || 
+        d.name === deviceHostname || 
+        String(d.id) === String(deviceHostname)
+      ) ||
+      allTopologyDevices.find((d) =>
+        d.name === deviceHostname ||
+        d.hostname === deviceHostname ||
+        String(d.id) === String(deviceHostname)
+      ) ||
+      null
+    );
+  }, [allDevices, allTopologyDevices, deviceHostname]);
 
   React.useEffect(() => {
     if (currentDevice?.id) {
       api.getLinksTopologyByDevice(currentDevice.id)
         .then((data) => {
-          setApiDeviceLinks(Array.isArray(data) ? data : data.links || []);
+          const links = Array.isArray(data) ? data : data.links || [];
+          if (links.length > 0) {
+            setApiDeviceLinks(links);
+          } else if (currentDevice.links && currentDevice.links.length > 0) {
+            setApiDeviceLinks(currentDevice.links);
+          } else {
+            setApiDeviceLinks([]);
+          }
         })
-        .catch((err) => console.error("Failed to fetch device links:", err));
+        .catch((err) => {
+          console.error("Failed to fetch device links:", err);
+          if (currentDevice.links && currentDevice.links.length > 0) {
+            setApiDeviceLinks(currentDevice.links);
+          }
+        });
+    } else if (currentDevice?.links && currentDevice.links.length > 0) {
+      setApiDeviceLinks(currentDevice.links);
     }
-  }, [currentDevice?.id]);
+  }, [currentDevice]);
 
   const deviceInterfaces = React.useMemo(() => {
     if (!currentDevice) return [];
@@ -81,30 +105,38 @@ function NodeDetailView({ chartType, theme }) {
     // 1. Map API topology links to interfaces format
     if (apiDeviceLinks && apiDeviceLinks.length > 0) {
       return apiDeviceLinks.map((link) => {
-        const remoteName = link.neighbor_coredevice?.name || link.neighbor_site?.name || link.target || "Unknown Device";
+        const remoteName = link.remote_device_name || link.neighbor_coredevice?.name || link.neighbor_site?.name || link.target || "Unknown Device";
         const operStatus = String(link.oper_status || link.status || link.physicalStatus || "down").toLowerCase() === "up" ? "Up" : "Down";
         const ospfStatus = String(link.ospf_state || link.ospfStatus || link.protocolStatus || "down").toLowerCase() === "full" ? "Up" : "Down";
         
         return {
           id: link.id || Math.random().toString(),
           name: link.local_interface || link.name || "Unknown Interface",
-          description: link.description || `Link to ${typeof remoteName === "object" ? remoteName.name || remoteName.hostname : remoteName}`,
+          description: link.local_interface_description || link.description || `Link to ${typeof remoteName === "object" ? remoteName.name || remoteName.hostname : remoteName}`,
+          local_interface_description: link.local_interface_description || link.description || "",
           physical_status: operStatus,
           protocol_status: ospfStatus,
-          bandwidth: link.bandwidth || link.bw || 10000,
+          bandwidth: link.bandwidth || link.bw || (link.bandwidth_mbps ? (link.bandwidth_mbps >= 1000 ? `${link.bandwidth_mbps / 1000} Gbps` : `${link.bandwidth_mbps} Mbps`) : 10000),
           bandwidth_mbps: link.bandwidth_mbps,
           mtu: link.mtu || 9000,
           ping_success_rate: link.ping_success_rate,
-          ping_packets_success: link.ping_packets_success,
+          ping_success_attempts: link.ping_success_attempts,
+          ping_packets_success: link.ping_packets_success ?? link.ping_success_attempts,
           ping_packets_total: link.ping_packets_total,
           ping_ratio: link.ping_ratio,
           total_pings: link.total_pings ?? link.ping_total,
           ping_total: link.ping_total ?? link.total_pings,
           last_ping_at: link.last_ping_at,
+          local_link_ip: link.local_link_ip || link.local_ip,
+          remote_link_ip: link.remote_link_ip || link.remote_ip,
+          remote_device_ip: link.remote_device_ip,
+          destinationIp: link.remote_link_ip || link.remote_device_ip || link.neighbor_ip || link.remote_ip || "N/A",
           media_type: link.media_type || link.MediaType || "Fiber Optic",
           cdp: typeof remoteName === "object" ? remoteName.name || remoteName.hostname : remoteName,
           ospf: ospfStatus,
           mpls: link.mpls || "Enabled",
+          is_ospf_full: link.is_ospf_full !== undefined ? Boolean(link.is_ospf_full) : ospfStatus === "Up",
+          last_state_change_at: link.last_state_change_at,
           tx: link.tx !== undefined ? link.tx : (link.tx_power !== undefined ? link.tx_power : (link.TX !== undefined ? link.TX : "N/A")),
           rx: link.rx !== undefined ? link.rx : (link.rx_power !== undefined ? link.rx_power : (link.RX !== undefined ? link.RX : "N/A")),
           crc: link.crc || 0,
@@ -245,20 +277,25 @@ function NodeDetailView({ chartType, theme }) {
           ...link,
           id: link.id || `link-${Math.random()}`,
           name: finalOtherHost,
-          destinationIp: link.neighbor_ip || "N/A",
-          description: link.description || "N/A",
+          destinationIp: link.remote_link_ip || link.remote_device_ip || link.neighbor_ip || link.remote_ip || "N/A",
+          description: link.local_interface_description || link.description || "N/A",
+          local_interface_description: link.local_interface_description || link.description || "N/A",
+          local_link_ip: link.local_link_ip || link.local_ip,
+          remote_link_ip: link.remote_link_ip || link.remote_ip,
+          remote_device_ip: link.remote_device_ip,
           status: normalizedStatus,
           bandwidth: formattedBw,
           bandwidth_mbps: link.bandwidth_mbps,
           mtu: link.mtu,
           ping_success_rate: link.ping_success_rate,
-          ping_packets_success: link.ping_packets_success,
+          ping_success_attempts: link.ping_success_attempts,
+          ping_packets_success: link.ping_packets_success ?? link.ping_success_attempts,
           ping_packets_total: link.ping_packets_total,
           ping_ratio: link.ping_ratio,
           total_pings: link.total_pings ?? link.ping_total,
           ping_total: link.ping_total ?? link.total_pings,
           last_ping_at: link.last_ping_at,
-          ospfStatus: link.OSPF || link.ospfStatus || "Enabled",
+          ospfStatus: link.OSPF || link.ospfStatus || link.ospf_state || "Enabled",
           mplsStatus: link.MPLS || link.mplsStatus || "Enabled",
           type: linkType,
           additionalDetails: {
@@ -267,7 +304,8 @@ function NodeDetailView({ chartType, theme }) {
             containerName: link.containerName || "Core Backbone",
             mtu: link.mtu || 9000,
             ping_success_rate: link.ping_success_rate,
-            ping_packets_success: link.ping_packets_success,
+            ping_success_attempts: link.ping_success_attempts,
+            ping_packets_success: link.ping_packets_success ?? link.ping_success_attempts,
             ping_packets_total: link.ping_packets_total,
             ping_ratio: link.ping_ratio,
             total_pings: link.total_pings ?? link.ping_total,

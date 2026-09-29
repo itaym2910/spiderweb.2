@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { MdClose, MdArrowForward } from "react-icons/md";
+import { AlertTriangle } from "lucide-react";
 import { api, getLinkDetails } from "../../services/apiServices";
 import { formatPingRateWithPackets } from "./pingHelpers";
 
@@ -305,6 +306,9 @@ const LinkDetailPopup = ({
                   const pingInfo = formatPingRateWithPackets(itemData);
                   if (!pingInfo) return null;
                   const numRate = pingInfo.rate;
+                  const packetsLost = pingInfo.packetsLost ?? (numRate < 100 ? 1 : 0);
+                  const hasLoss = packetsLost > 0 || numRate < 100;
+                  const isDown = numRate === 0;
                   return (
                     <div className="flex items-center justify-between py-2 px-1">
                       <span
@@ -314,28 +318,34 @@ const LinkDetailPopup = ({
                       >
                         Ping Success Rate
                       </span>
-                      <span className="flex items-center gap-1.5 text-sm font-semibold">
+                      <span className="flex items-center gap-1.5 text-sm font-semibold flex-wrap justify-end">
                         <span
                           className={`w-2 h-2 rounded-full ${
-                            numRate >= 95
-                              ? "bg-emerald-500"
-                              : numRate > 0
-                              ? "bg-amber-500"
-                              : "bg-rose-500"
+                            isDown
+                              ? "bg-rose-500"
+                              : hasLoss
+                              ? "bg-amber-500 animate-pulse"
+                              : "bg-emerald-500"
                           }`}
                         />
                         <span
                           className={
-                            numRate >= 95
-                              ? "text-emerald-600 dark:text-emerald-400"
-                              : numRate > 0
+                            isDown
+                              ? "text-rose-600 dark:text-rose-400"
+                              : hasLoss
                               ? "text-amber-600 dark:text-amber-400"
-                              : "text-rose-600 dark:text-rose-400"
+                              : "text-emerald-600 dark:text-emerald-400"
                           }
-                          title={`${pingInfo.packetsSuccess ?? "?"}/${pingInfo.packetsTotal ?? "?"} packets received`}
+                          title={`${pingInfo.packetsSuccess ?? "?"}/${pingInfo.packetsTotal ?? "?"} packets received${hasLoss ? ` • ${packetsLost} packet(s) lost!` : ""}`}
                         >
                           {pingInfo.full}
                         </span>
+                        {hasLoss && !isDown && (
+                          <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+                            <span>{packetsLost} lost</span>
+                          </span>
+                        )}
                       </span>
                     </div>
                   );
@@ -463,7 +473,16 @@ const LinkDetailPopup = ({
                         displayValue = value ? "Yes" : "No";
                       } else if (key === "ping_success_rate") {
                         const pInfo = formatPingRateWithPackets(itemData?.rawLink || itemData);
-                        displayValue = pInfo ? pInfo.full : `${value}%`;
+                        if (pInfo) {
+                          const lostCount = pInfo.packetsLost ?? (pInfo.rate < 100 ? 1 : 0);
+                          displayValue = lostCount > 0 ? `${pInfo.full} (⚠️ ${lostCount} lost)` : pInfo.full;
+                        } else {
+                          displayValue = `${value}%`;
+                        }
+                      } else if (key === "bandwidth_mbps") {
+                        displayValue = typeof value === "number"
+                          ? (value >= 1000 ? `${value / 1000} Gbps (${value} Mbps)` : `${value} Mbps`)
+                          : value;
                       }
 
                       return (

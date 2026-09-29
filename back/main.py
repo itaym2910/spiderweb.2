@@ -192,14 +192,14 @@ async def get_core_topology(current_user: dict = Depends(user_role_checker)):
         network_id = device.get("network_type_id", 1)
         network = next((n for n in db["networks"] if n["id"] == network_id), None)
         network_name = network["name"] if network else "Unknown"
-        # Determine device status based on its links
+        # Determine device status based on its links: <up | unreachable | unknown>
         device_links = [l for l in db["links"] if l["coredevice_id"] == device["id"] and l["neighbor_is_core"]]
         if not device_links:
             status = "unknown"
         elif all(l["physical_status"] == "Up" for l in device_links):
             status = "up"
         elif all(l["physical_status"] == "Down" for l in device_links):
-            status = "down"
+            status = "unreachable"
         else:
             status = "up"
         # Build links list for this device
@@ -240,27 +240,25 @@ async def get_core_topology(current_user: dict = Depends(user_role_checker)):
             link_drops_24h = len([e for e in ev_24h if e.get("event_type") == "link_down"])
             ospf_drops_24h = len([e for e in ev_24h if e.get("event_type") == "ospf_drop"])
 
+            rate_val = link.ping_success_rate if link.ping_success_rate is not None else 100.0
+            attempts_val = link.ping_packets_success if link.ping_packets_success is not None else int(round((rate_val / 100.0) * 10000))
+
             links_out.append({
                 "id": link["id"],
-                "local_interface": f"GigabitEthernet0/{link['id'] % 4}",
+                "local_interface": link.get("local_interface") or f"GigabitEthernet0/{link['id'] % 4}",
                 "local_interface_description": link.get("description", ""),
-                "local_ip": device["ip"],
+                "local_link_ip": device.get("ip") or f"10.0.{link['id'] % 250}.1",
                 "remote_device_id": link["neighbor_coredevice_id"],
                 "remote_device_name": neighbor_device["name"] if neighbor_device else "Unknown",
-                "remote_interface": f"GigabitEthernet0/{(link['id'] + 1) % 4}",
-                "remote_ip": link.get("neighbor_ip", ""),
+                "remote_interface": link.get("remote_interface") or f"GigabitEthernet0/{(link['id'] + 1) % 4}",
+                "remote_device_ip": neighbor_device.get("ip", "") if neighbor_device else "",
+                "remote_link_ip": link.get("neighbor_ip", "") or f"10.0.{link['id'] % 250}.2",
                 "oper_status": link.get("physical_status", "Up"),
                 "admin_status": "Up",
-                "bandwidth_mbps": link.bandwidth_mbps if link.bandwidth_mbps is not None else link.get("bw", "10G"),
+                "bandwidth_mbps": link.bandwidth_mbps if link.bandwidth_mbps is not None else 10000,
                 "mtu": link.mtu if link.mtu is not None else 1500,
-                "ping_success_rate": link.ping_success_rate if link.ping_success_rate is not None else 100.0,
-                "ping_packets_success": link.ping_packets_success if link.ping_packets_success is not None else (
-                    int(round(((link.ping_success_rate if link.ping_success_rate is not None else 100.0) / 100.0) * 10000))
-                ),
-                "ping_packets_total": link.ping_packets_total if link.ping_packets_total is not None else 10000,
-                "total_pings": link.get("total_pings") or (link.ping_packets_total if link.ping_packets_total is not None else 10000),
-                "ping_total": link.get("ping_total") or (link.ping_packets_total if link.ping_packets_total is not None else 10000),
-                "ping_ratio": link.get("ping_ratio") or f"{link.ping_packets_success if link.ping_packets_success is not None else int(round(((link.ping_success_rate if link.ping_success_rate is not None else 100.0) / 100.0) * 10000))}/{link.ping_packets_total if link.ping_packets_total is not None else 10000}",
+                "ping_success_rate": rate_val,
+                "ping_success_attempts": attempts_val,
                 "last_ping_at": _isoformat(link.last_ping_at),
                 "ospf_state": link.ospf_state or "Full",
                 "is_ospf_full": str(link.ospf_state or "Full").upper() == "FULL",
@@ -271,6 +269,11 @@ async def get_core_topology(current_user: dict = Depends(user_role_checker)):
                 "last_state_change_at": link.get("status_changed_at", link.get("updated_at", datetime.utcnow().isoformat())),
                 "link_drops_last_24h": link_drops_24h,
                 "ospf_drops_last_24h": ospf_drops_24h,
+                # Backwards-compatibility aliases
+                "local_ip": device.get("ip") or f"10.0.{link['id'] % 250}.1",
+                "remote_ip": link.get("neighbor_ip", "") or f"10.0.{link['id'] % 250}.2",
+                "ping_packets_success": attempts_val,
+                "ping_packets_total": link.ping_packets_total if link.ping_packets_total is not None else 10000,
             })
         devices_out.append({
             "id": device["id"],

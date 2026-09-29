@@ -186,6 +186,7 @@ export function getTooltipDirectionalText(d, sourceNode, targetNode) {
 
 // ===================================================================
 // Helper to calculate ping packet loss and color from green to red
+// Even one lost packet is a problem!
 // ===================================================================
 export function getPingColorInfo(linkData, isDark = false) {
   if (!linkData) return null;
@@ -193,32 +194,46 @@ export function getPingColorInfo(linkData, isDark = false) {
   if (!metrics) return null;
 
   let lossRate = 0;
+  let dropped = 0;
   if (
     metrics.packetsTotal != null &&
     metrics.packetsTotal > 0 &&
     metrics.packetsSuccess != null
   ) {
-    const dropped = Math.max(0, metrics.packetsTotal - metrics.packetsSuccess);
+    dropped = Math.max(0, metrics.packetsTotal - metrics.packetsSuccess);
     lossRate = (dropped / metrics.packetsTotal) * 100;
   } else if (metrics.rate != null) {
     lossRate = Math.max(0, 100 - metrics.rate);
+    dropped = lossRate > 0 ? 1 : 0;
+  }
+  if (metrics.packetsLost != null) {
+    dropped = Math.max(dropped, metrics.packetsLost);
   }
   lossRate = Math.max(0, Math.min(100, lossRate));
 
-  // Color gradient from green (0% packets fell) to red (100% packets fell)
-  const range = isDark
-    ? ["#4ade80", "#a3e635", "#facc15", "#fb923c", "#f87171"]
-    : ["#22c55e", "#84cc16", "#eab308", "#f97316", "#ef4444"];
-
-  const scale = d3
-    .scaleLinear()
-    .domain([0, 25, 50, 75, 100])
-    .range(range)
-    .clamp(true);
+  // Even one lost packet is a problem!
+  // When zero packets fell: healthy green
+  // When ANY packet fell (dropped > 0 or lossRate > 0): immediately show warning amber, scaling to critical red
+  let color;
+  if (dropped === 0 && lossRate === 0) {
+    color = isDark ? "#4ade80" : "#22c55e"; // Healthy green
+  } else {
+    // Problem range: amber -> orange -> red
+    const problemRange = isDark
+      ? ["#facc15", "#fb923c", "#f87171"]
+      : ["#f59e0b", "#ea580c", "#ef4444"];
+    const problemScale = d3
+      .scaleLinear()
+      .domain([0, 20, 100])
+      .range(problemRange)
+      .clamp(true);
+    color = problemScale(Math.max(1, lossRate));
+  }
 
   return {
-    color: scale(lossRate),
+    color,
     lossRate,
+    dropped,
     metrics,
   };
 }
@@ -306,10 +321,13 @@ export function applyMarkedState({
           activeEndpoints.add(sourceId);
           activeEndpoints.add(targetId);
 
+          const dropped = pingInfo.dropped ?? (pingInfo.metrics?.packetsLost ?? 0);
+          const hasLoss = dropped > 0 || pingInfo.lossRate > 0;
+
           el.raise()
             .attr("stroke", pingInfo.color)
             .attr("stroke-opacity", 1)
-            .attr("stroke-width", 4.5);
+            .attr("stroke-width", hasLoss ? 5.5 : 4.0);
 
           let titleEl = el.select("title");
           if (titleEl.empty()) {
@@ -317,8 +335,14 @@ export function applyMarkedState({
           }
           const sName = typeof d.source === "object" ? d.source.name || d.source.id : d.source;
           const tName = typeof d.target === "object" ? d.target.name || d.target.id : d.target;
-          const lossText = `${pingInfo.lossRate.toFixed(1)}% packet loss`;
-          const packetText = pingInfo.metrics.shortRatio ? ` (${pingInfo.metrics.shortRatio} received)` : "";
+          let lossText;
+          if (!hasLoss) {
+            lossText = "0% packet loss (Healthy)";
+          } else {
+            const lossPctText = pingInfo.lossRate < 0.1 ? "<0.1%" : `${pingInfo.lossRate.toFixed(1)}%`;
+            lossText = `⚠️ ${dropped} packet${dropped > 1 ? "s" : ""} lost (${lossPctText} loss)`;
+          }
+          const packetText = pingInfo.metrics?.shortRatio ? ` (${pingInfo.metrics.shortRatio} received)` : "";
           titleEl.text(`${sName} ⟷ ${tName}: ${lossText}${packetText}`);
         } else {
           el.attr("stroke", defaultLinkColor)

@@ -93,11 +93,12 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
   const graphData = useMemo(() => {
     // Filter devices for this chart's network
     const devicesForChart = allTopologyDevices.filter((d) => {
-      if (!d.name || !d.network_name) return false;
-      const isLNet = (d.network_name.includes("ns") || d.network_name.toLowerCase().includes("l-network")) && !d.network_name.includes("anan");
+      if (!d.name) return false;
+      const netName = (d.network_name || "").toLowerCase();
+      const isLNet = (netName.includes("ns") || netName.includes("l-network")) && !netName.includes("anan");
       if (isLNet) return false;
       const hasPSharedName = ["P1", "P2", "P4", "P5", "P7", "P8"].some((str) => d.name.includes(str));
-      const isPNetwork = d.network_name.includes("anan-lekaman") || d.network_name.includes("anan_lekaman") || d.network_name.toLowerCase().includes("p-network");
+      const isPNetwork = netName.includes("anan-lekaman") || netName.includes("anan_lekaman") || netName.includes("p-network");
       return isPNetwork || hasPSharedName;
     });
 
@@ -123,6 +124,7 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
     const visibleDeviceNames = new Set(topDevicesPerSite.map((d) => d.name));
 
     // Build a map of device id -> device for link resolution
+    const allDevicesMapById = new Map(allTopologyDevices.map((d) => [d.id, d]));
     const deviceMapById = new Map(devicesForChart.map((d) => [d.id, d]));
 
     // Helper to get short name
@@ -163,9 +165,10 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
       name: device.name,
       shortName: getShortName(device.name),
       ip: device.ip,
-      zone: device.coresite_name,
-      pikudId: device.coresite_name,
+      zone: device.coresite_name || "Unknown",
+      pikudId: device.coresite_name || "Unknown",
       nodeType: "router",
+      status: device.status || "up",
       device: device,
     }));
 
@@ -182,18 +185,19 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
         if (seenLinkIds.has(link.id)) return;
         seenLinkIds.add(link.id);
 
-        const remoteDevice = deviceMapById.get(link.remote_device_id);
-        const remoteDeviceName = remoteDevice ? remoteDevice.name : "Unknown";
-        const remoteZone = remoteDevice ? remoteDevice.coresite_name : "Unknown";
+        const remoteDevice = deviceMapById.get(link.remote_device_id) || allDevicesMapById.get(link.remote_device_id);
+        const remoteDeviceName = link.remote_device_name || (remoteDevice ? remoteDevice.name : "Unknown");
+        const remoteZone = (remoteDevice ? remoteDevice.coresite_name : null) || link.remote_coresite_name || "Unknown";
 
         // Normalize oper_status and ospf_state to up/down/issue
         const operStatus = (link.oper_status || "").toLowerCase();
         const ospfState = (link.ospf_state || "").toLowerCase();
+        const isOspfFull = link.is_ospf_full !== undefined ? Boolean(link.is_ospf_full) : ospfState === "full";
         let normalized = "up";
 
         if (operStatus !== "up") {
           normalized = "down";
-        } else if (ospfState !== "full" && link.last_ospf_full_at !== "null" && link.last_ospf_full_at != null) {
+        } else if (!isOspfFull && (link.last_ospf_full_at !== "null" && link.last_ospf_full_at != null || link.is_ospf_full === false)) {
           normalized = "issue";
         }
 
@@ -244,15 +248,28 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           }
 
           // Fill any missing metadata from reciprocal link
+          if (!existing.remote_device_name && (link.remote_device_name || remoteDeviceName)) {
+            existing.remote_device_name = link.remote_device_name || remoteDeviceName;
+          }
           if (!existing.remote_interface && link.local_interface) {
             existing.remote_interface = link.local_interface;
+          }
+          if (!existing.remote_link_ip && (link.local_link_ip || link.local_ip)) {
+            existing.remote_link_ip = link.local_link_ip || link.local_ip;
           }
           if (!existing.remote_ip && (link.local_link_ip || link.local_ip)) {
             existing.remote_ip = link.local_link_ip || link.local_ip;
           }
+          if (!existing.description && (link.local_interface_description || link.description)) {
+            existing.description = link.local_interface_description || link.description;
+            existing.local_interface_description = existing.description;
+          }
+          if (existing.ping_success_attempts === undefined && link.ping_success_attempts !== undefined) {
+            existing.ping_success_attempts = link.ping_success_attempts;
+          }
           if (existing.ping_success_rate === undefined && link.ping_success_rate !== undefined) {
             existing.ping_success_rate = link.ping_success_rate;
-            existing.ping_packets_success = link.ping_packets_success;
+            existing.ping_packets_success = link.ping_packets_success ?? link.ping_success_attempts;
             existing.ping_packets_total = link.ping_packets_total;
             existing.ping_ratio = link.ping_ratio;
             existing.total_pings = link.total_pings ?? link.ping_total;
@@ -270,14 +287,21 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           targetName: remoteDeviceName,
           coredevice_id: device.id,
           neighbor_coredevice_id: link.remote_device_id,
-          sourceZone: device.coresite_name,
+          remote_device_id: link.remote_device_id,
+          remote_device_name: link.remote_device_name || remoteDeviceName,
+          sourceZone: device.coresite_name || "Unknown",
           targetZone: remoteZone,
           physical_status: link.oper_status,
           protocol_status: link.admin_status,
+          oper_status: link.oper_status,
+          admin_status: link.admin_status,
+          description: link.local_interface_description || link.description || "",
+          local_interface_description: link.local_interface_description || link.description || "",
           category: normalized,
           status: normalized,
           normalizedStatus: normalized,
           statusChangedAt: link.last_state_change_at,
+          last_state_change_at: link.last_state_change_at,
           linkType: "core",
           bandwidth: link.bandwidth_mbps
             ? (typeof link.bandwidth_mbps === "number"
@@ -287,7 +311,8 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           bandwidth_mbps: link.bandwidth_mbps,
           mtu: link.mtu,
           ping_success_rate: link.ping_success_rate,
-          ping_packets_success: link.ping_packets_success,
+          ping_success_attempts: link.ping_success_attempts,
+          ping_packets_success: link.ping_packets_success ?? link.ping_success_attempts,
           ping_packets_total: link.ping_packets_total,
           ping_ratio: link.ping_ratio,
           total_pings: link.total_pings ?? link.ping_total,
@@ -295,12 +320,20 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           last_ping_at: link.last_ping_at,
           local_interface: link.local_interface,
           remote_interface: link.remote_interface,
+          local_link_ip: link.local_link_ip || link.local_ip,
           local_ip: link.local_link_ip || link.local_ip,
+          remote_device_ip: link.remote_device_ip,
+          remote_link_ip: link.remote_link_ip || link.remote_ip,
           remote_ip: link.remote_link_ip || link.remote_ip || link.remote_interface_ip,
+          destinationIp: link.remote_link_ip || link.remote_device_ip || link.remote_ip,
           ospf_state: link.ospf_state,
-          is_ospf_full: link.ospf_state === "FULL" || link.is_ospf_full,
-          link_drops_last_24h: link.link_drops_last_24h,
-          ospf_drops_last_24h: link.ospf_drops_last_24h,
+          is_ospf_full: link.is_ospf_full !== undefined ? Boolean(link.is_ospf_full) : (String(link.ospf_state || "").toUpperCase() === "FULL"),
+          last_up_at: link.last_up_at,
+          last_down_at: link.last_down_at,
+          last_ospf_full_at: link.last_ospf_full_at,
+          last_seen_at: link.last_seen_at,
+          link_drops_last_24h: link.link_drops_last_24h ?? 0,
+          ospf_drops_last_24h: link.ospf_drops_last_24h ?? 0,
           rawLink: link,
           isVisibleOnMap: isBothDevicesVisible,
         };
