@@ -478,8 +478,9 @@ export default function NetworkLinksSideDrawer({
         const pInfo = formatPingRateWithPackets(link);
         if (!pInfo) return false;
         const numRate = pInfo.rate;
-        if (pingSubFilter === "issues" && numRate >= 100) return false;
-        if (pingSubFilter === "healthy" && numRate < 100) return false;
+        const hasLoss = (pInfo.packetsLost ?? 0) > 0 || numRate < 100;
+        if (pingSubFilter === "issues" && !hasLoss) return false;
+        if (pingSubFilter === "healthy" && hasLoss) return false;
       }
 
       // Time filter
@@ -528,10 +529,15 @@ export default function NetworkLinksSideDrawer({
     });
 
     if (activeFilter === "ping") {
-      // Sort worst ping first
+      // Sort worst ping first: any link with lost packets first, descending by packet loss count / ascending by rate
       return [...baseList].sort((a, b) => {
-        const rateA = formatPingRateWithPackets(a)?.rate ?? 100;
-        const rateB = formatPingRateWithPackets(b)?.rate ?? 100;
+        const infoA = formatPingRateWithPackets(a);
+        const infoB = formatPingRateWithPackets(b);
+        const lostA = infoA?.packetsLost ?? (infoA && infoA.rate < 100 ? 1 : 0);
+        const lostB = infoB?.packetsLost ?? (infoB && infoB.rate < 100 ? 1 : 0);
+        if (lostA !== lostB) return lostB - lostA;
+        const rateA = infoA?.rate ?? 100;
+        const rateB = infoB?.rate ?? 100;
         return rateA - rateB;
       });
     }
@@ -736,7 +742,7 @@ export default function NetworkLinksSideDrawer({
           onClick={() => setIsPingModalOpen(true)}
           onMouseEnter={() => onHoverFilter?.("ping")}
           onMouseLeave={() => onHoverFilter?.(null)}
-          title={`Total Ping: ${pingSummary.formattedRate} (${pingSummary.formattedPackets} packets received). Click for full summary.`}
+          title={`Total Ping: ${pingSummary.formattedRate} (${pingSummary.formattedPackets} packets received${pingSummary.totalPacketsLost > 0 ? `, ${pingSummary.totalPacketsLost} lost!` : ""}). Click for full summary.`}
           className={`group flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold shadow-lg transition-all duration-200 border ${
             isOpen && activeFilter === "ping"
               ? "bg-blue-600 text-white border-blue-500 ring-2 ring-blue-400/50 shadow-blue-500/20"
@@ -756,7 +762,11 @@ export default function NetworkLinksSideDrawer({
                 : "bg-rose-500/15 text-rose-600 dark:text-rose-400 group-hover:bg-rose-500 group-hover:text-white"
             }`}
           >
-            <Activity className="w-3.5 h-3.5 stroke-[2.5]" />
+            {pingSummary.totalPacketsLost > 0 && activeFilter !== "ping" ? (
+              <AlertTriangle className="w-3.5 h-3.5 stroke-[2.5]" />
+            ) : (
+              <Activity className="w-3.5 h-3.5 stroke-[2.5]" />
+            )}
           </div>
           <span
             className={
@@ -784,13 +794,25 @@ export default function NetworkLinksSideDrawer({
           >
             {pingSummary.formattedRate}
           </span>
-          <span
-            className={`text-xs font-mono hidden md:inline opacity-75 ${
-              isOpen && activeFilter === "ping" ? "text-white" : "text-gray-500 dark:text-gray-400"
-            }`}
-          >
-            ({pingSummary.formattedPackets})
-          </span>
+          {pingSummary.totalPacketsLost > 0 ? (
+            <span
+              className={`text-xs font-bold font-mono px-1.5 py-0.5 rounded ${
+                isOpen && activeFilter === "ping"
+                  ? "bg-rose-500/30 text-rose-100"
+                  : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+              }`}
+            >
+              {pingSummary.totalPacketsLost} lost
+            </span>
+          ) : (
+            <span
+              className={`text-xs font-mono hidden md:inline opacity-75 ${
+                isOpen && activeFilter === "ping" ? "text-white" : "text-gray-500 dark:text-gray-400"
+              }`}
+            >
+              ({pingSummary.formattedPackets})
+            </span>
+          )}
         </button>
       </div>
 
@@ -924,8 +946,18 @@ export default function NetworkLinksSideDrawer({
                   : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
               }`}
             >
-              <Activity className="w-3 h-3 shrink-0" />
+              {pingSummary.totalPacketsLost > 0 ? (
+                <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+              ) : (
+                <Activity className="w-3 h-3 shrink-0" />
+              )}
               <span className="truncate">Ping ({pingSummary.formattedRate})</span>
+              {pingSummary.totalPacketsLost > 0 && (
+                <span
+                  className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0"
+                  title={`${pingSummary.totalPacketsLost} packets lost`}
+                />
+              )}
             </button>
 
             <button
@@ -952,18 +984,28 @@ export default function NetworkLinksSideDrawer({
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <div className="p-1 rounded-lg bg-blue-500/10 text-blue-500">
-                    <Activity className="w-4 h-4" />
+                  <div className={`p-1 rounded-lg ${pingSummary.totalPacketsLost > 0 ? "bg-amber-500/10 text-amber-500" : "bg-blue-500/10 text-blue-500"}`}>
+                    {pingSummary.totalPacketsLost > 0 ? (
+                      <AlertTriangle className="w-4 h-4" />
+                    ) : (
+                      <Activity className="w-4 h-4" />
+                    )}
                   </div>
                   <div>
-                    <div className="flex items-center gap-1.5 font-bold text-gray-900 dark:text-gray-100">
+                    <div className="flex items-center gap-1.5 font-bold text-gray-900 dark:text-gray-100 flex-wrap">
                       <span>{pingSummary.formattedRate}</span>
                       <span className="text-[11px] font-normal text-gray-400 font-mono">
                         ({pingSummary.formattedPackets} received)
                       </span>
+                      {pingSummary.totalPacketsLost > 0 && (
+                        <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-0.5">
+                          <AlertTriangle className="w-3 h-3 text-rose-500 shrink-0" />
+                          <span>{pingSummary.totalPacketsLost} lost ({pingSummary.formattedLossRate || (pingSummary.overallLossRate < 0.1 ? "<0.1%" : `${pingSummary.overallLossRate}%`)})</span>
+                        </span>
+                      )}
                     </div>
                     <div className="text-[10px] text-gray-500 dark:text-gray-400">
-                      {pingSummary.healthyCount} Healthy • {pingSummary.degradedCount} Degraded • {pingSummary.downCount} Offline
+                      {pingSummary.healthyCount} Healthy • {pingSummary.degradedCount} Degraded (Loss) • {pingSummary.downCount} Offline
                     </div>
                   </div>
                 </div>
@@ -1534,22 +1576,34 @@ export default function NetworkLinksSideDrawer({
                           const pInfo = formatPingRateWithPackets(link);
                           if (!pInfo) return null;
                           const numRate = pInfo.rate;
+                          const packetsLost = pInfo.packetsLost ?? (numRate < 100 ? 1 : 0);
+                          const hasLoss = packetsLost > 0 || numRate < 100;
+                          const isDown = numRate === 0;
                           const lastPing = link.last_ping_at || link.rawLink?.last_ping_at;
                           return (
                             <>
                               <span>•</span>
                               <span
                                 className={`inline-flex items-center gap-1 font-semibold ${
-                                  numRate >= 95
-                                    ? "text-emerald-600 dark:text-emerald-400"
-                                    : numRate > 0
+                                  isDown
+                                    ? "text-rose-600 dark:text-rose-400"
+                                    : hasLoss
                                     ? "text-amber-600 dark:text-amber-400"
-                                    : "text-rose-600 dark:text-rose-400"
+                                    : "text-emerald-600 dark:text-emerald-400"
                                 }`}
-                                title={lastPing ? `Last ping: ${lastPing} • ${pInfo.full}` : pInfo.full}
+                                title={lastPing ? `Last ping: ${lastPing} • ${pInfo.full}${hasLoss ? ` • ${packetsLost} packet(s) lost!` : ""}` : `${pInfo.full}${hasLoss ? ` • ${packetsLost} packet(s) lost!` : ""}`}
                               >
-                                <Activity className="w-3 h-3" />
+                                {hasLoss && !isDown ? (
+                                  <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+                                ) : (
+                                  <Activity className="w-3 h-3 shrink-0" />
+                                )}
                                 <span>Ping: {pInfo.short}</span>
+                                {hasLoss && !isDown && (
+                                  <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                    {packetsLost} lost
+                                  </span>
+                                )}
                               </span>
                             </>
                           );

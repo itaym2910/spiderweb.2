@@ -479,7 +479,7 @@ const LinkTable = ({
                           </td>
                           <td className="px-4 py-2.5 whitespace-nowrap">
                             <span className="text-xs font-mono text-gray-600 dark:text-gray-400">
-                              {link.destinationIp || "N/A"}
+                              {link.destinationIp || link.remote_link_ip || link.remote_device_ip || link.remote_ip || "N/A"}
                             </span>
                           </td>
                           <td className="px-4 py-2.5 whitespace-nowrap">
@@ -489,27 +489,39 @@ const LinkTable = ({
                                 return <span className="text-xs text-gray-400 dark:text-gray-500">—</span>;
                               }
                               const numRate = pingInfo.rate;
+                              const packetsLost = pingInfo.packetsLost ?? (numRate < 100 ? 1 : 0);
+                              const hasLoss = packetsLost > 0 || numRate < 100;
+                              const isDown = numRate === 0;
                               const lastPing = link.last_ping_at ?? link.additionalDetails?.last_ping_at ?? link.rawLink?.last_ping_at;
                               return (
                                 <span
-                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                    numRate >= 95
-                                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                                      : numRate > 0
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                    isDown
+                                      ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+                                      : hasLoss
                                       ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                                      : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+                                      : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
                                   }`}
-                                  title={lastPing ? `${pingInfo.full} • Last ping: ${lastPing}` : pingInfo.full}
+                                  title={lastPing ? `${pingInfo.full}${hasLoss ? ` • ${packetsLost} packet(s) lost!` : ""} • Last ping: ${lastPing}` : `${pingInfo.full}${hasLoss ? ` • ${packetsLost} packet(s) lost!` : ""}`}
                                 >
-                                  <Activity className="w-3 h-3" />
+                                  {hasLoss && !isDown ? (
+                                    <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+                                  ) : (
+                                    <Activity className="w-3 h-3 shrink-0" />
+                                  )}
                                   <span>{pingInfo.short}</span>
+                                  {hasLoss && !isDown && (
+                                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
+                                      ({packetsLost} lost)
+                                    </span>
+                                  )}
                                 </span>
                               );
                             })()}
                           </td>
                           <td className="px-4 py-2.5 whitespace-nowrap">
                             <span className="text-xs text-gray-600 dark:text-gray-400">
-                              {link.description}
+                              {link.local_interface_description || link.description || "—"}
                             </span>
                           </td>
                         </tr>

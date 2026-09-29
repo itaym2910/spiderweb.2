@@ -141,7 +141,7 @@ const createTenGigLink = (sourceDevice, targetDevice, sourceInterface) => {
     Date.now() - daysAgo * 24 * 60 * 60 * 1000
   ).toISOString();
 
-  const statuses = ["up", "down", "up", "issue", "up", "down", "up", "down", "up", "issue"];
+  const statuses = ["up", "up", "up", "up", "up", "up", "up", "up", "down", "issue"];
   const status = statuses[linkCounter % statuses.length];
 
   return {
@@ -327,12 +327,12 @@ export const generateAllDummyData = () => {
   };
 
   // First, generate links between the highly visible top devices to make the chart look nice and connected
-  const lChartPairs = createRandomInterSiteLinks(lChartTopDevices, 40);
-  const pChartPairs = createRandomInterSiteLinks(pChartTopDevices, 30);
+  const lChartPairs = createRandomInterSiteLinks(lChartTopDevices, 50);
+  const pChartPairs = createRandomInterSiteLinks(pChartTopDevices, 45);
 
   // Then, generate additional links between any devices for detail pages
-  createRandomInterSiteLinks(lChartDevices, 100, lChartPairs);
-  createRandomInterSiteLinks(pChartDevices, 80, pChartPairs);
+  createRandomInterSiteLinks(lChartDevices, 180, lChartPairs);
+  createRandomInterSiteLinks(pChartDevices, 170, pChartPairs);
 
   const tenGigLinks = [...sameSiteLinks, ...differentSiteLinks];
 

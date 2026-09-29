@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { MdClose, MdArrowForward } from "react-icons/md";
+import { AlertTriangle } from "lucide-react";
 import { api, getLinkDetails } from "../../services/apiServices";
 import { formatPingRateWithPackets } from "./pingHelpers";
 
@@ -248,11 +249,39 @@ const LinkDetailTabs = ({
                   <span className="text-base text-gray-500 dark:text-gray-400 mr-2">
                     Ping Rate:
                   </span>
-                  <span className="text-lg font-medium text-gray-800 dark:text-gray-100">
-                    {itemData.ping_success_rate !== undefined && itemData.ping_success_rate !== null
-                      ? (formatPingRateWithPackets(itemData)?.full || `${itemData.ping_success_rate}%`)
-                      : "N/A"}
-                  </span>
+                  {(() => {
+                    const pInfo = formatPingRateWithPackets(itemData);
+                    if (!pInfo) {
+                      return (
+                        <span className="text-lg font-medium text-gray-800 dark:text-gray-100">
+                          {itemData.ping_success_rate !== undefined && itemData.ping_success_rate !== null ? `${itemData.ping_success_rate}%` : "N/A"}
+                        </span>
+                      );
+                    }
+                    const numRate = pInfo.rate;
+                    const packetsLost = pInfo.packetsLost ?? (numRate < 100 ? 1 : 0);
+                    const hasLoss = packetsLost > 0 || numRate < 100;
+                    const isDown = numRate === 0;
+                    return (
+                      <span
+                        className={`text-lg font-bold inline-flex items-center gap-1.5 ${
+                          isDown
+                            ? "text-rose-600 dark:text-rose-400"
+                            : hasLoss
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-emerald-600 dark:text-emerald-400"
+                        }`}
+                      >
+                        {hasLoss && !isDown && <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />}
+                        <span>{pInfo.full}</span>
+                        {hasLoss && !isDown && (
+                          <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
+                            {packetsLost} lost
+                          </span>
+                        )}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
             )}
