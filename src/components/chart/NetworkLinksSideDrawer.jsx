@@ -277,6 +277,7 @@ export default function NetworkLinksSideDrawer({
   onMarkAll,
   onClearMarks,
   onHoverLink,
+  onHoverFilter,
 }) {
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
@@ -621,6 +622,8 @@ export default function NetworkLinksSideDrawer({
         <button
           type="button"
           onClick={() => handleButtonClick("up")}
+          onMouseEnter={() => onHoverFilter?.("up")}
+          onMouseLeave={() => onHoverFilter?.(null)}
           title={`View all Up links (${upCount})`}
           className={`group flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold shadow-lg transition-all duration-200 border ${
             isOpen && activeFilter === "up"
@@ -655,6 +658,8 @@ export default function NetworkLinksSideDrawer({
         <button
           type="button"
           onClick={() => handleButtonClick("down")}
+          onMouseEnter={() => onHoverFilter?.("down")}
+          onMouseLeave={() => onHoverFilter?.(null)}
           title={`View all Down links (${downCount})`}
           className={`group flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold shadow-lg transition-all duration-200 border ${
             isOpen && activeFilter === "down"
@@ -691,6 +696,8 @@ export default function NetworkLinksSideDrawer({
         <button
           type="button"
           onClick={() => handleButtonClick("issue")}
+          onMouseEnter={() => onHoverFilter?.("issue")}
+          onMouseLeave={() => onHoverFilter?.(null)}
           title={`View all Issue links (${issueCount})`}
           className={`group flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold shadow-lg transition-all duration-200 border ${
             isOpen && activeFilter === "issue"
@@ -727,6 +734,8 @@ export default function NetworkLinksSideDrawer({
         <button
           type="button"
           onClick={() => setIsPingModalOpen(true)}
+          onMouseEnter={() => onHoverFilter?.("ping")}
+          onMouseLeave={() => onHoverFilter?.(null)}
           title={`Total Ping: ${pingSummary.formattedRate} (${pingSummary.formattedPackets} packets received). Click for full summary.`}
           className={`group flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold shadow-lg transition-all duration-200 border ${
             isOpen && activeFilter === "ping"
@@ -862,6 +871,8 @@ export default function NetworkLinksSideDrawer({
             <button
               type="button"
               onClick={() => handleStatusTabClick("up")}
+              onMouseEnter={() => onHoverFilter?.("up")}
+              onMouseLeave={() => onHoverFilter?.(null)}
               className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[11px] font-semibold transition-all ${
                 activeFilter === "up"
                   ? "bg-emerald-600 text-white shadow-sm"
@@ -875,6 +886,8 @@ export default function NetworkLinksSideDrawer({
             <button
               type="button"
               onClick={() => handleStatusTabClick("down")}
+              onMouseEnter={() => onHoverFilter?.("down")}
+              onMouseLeave={() => onHoverFilter?.(null)}
               className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[11px] font-semibold transition-all ${
                 activeFilter === "down"
                   ? "bg-rose-600 text-white shadow-sm"
@@ -888,6 +901,8 @@ export default function NetworkLinksSideDrawer({
             <button
               type="button"
               onClick={() => handleStatusTabClick("issue")}
+              onMouseEnter={() => onHoverFilter?.("issue")}
+              onMouseLeave={() => onHoverFilter?.(null)}
               className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[11px] font-semibold transition-all ${
                 activeFilter === "issue"
                   ? "bg-amber-600 text-white shadow-sm"
@@ -901,6 +916,8 @@ export default function NetworkLinksSideDrawer({
             <button
               type="button"
               onClick={() => handleStatusTabClick("ping")}
+              onMouseEnter={() => onHoverFilter?.("ping")}
+              onMouseLeave={() => onHoverFilter?.(null)}
               className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[11px] font-semibold transition-all ${
                 activeFilter === "ping"
                   ? "bg-blue-600 text-white shadow-sm"

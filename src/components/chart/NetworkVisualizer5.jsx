@@ -16,6 +16,7 @@ const NetworkVisualizer5 = ({
   isDrawerOpen = false,
   markedLinkIds = new Set(),
   hoveredLinkId = null,
+  hoveredFilter = null,
   onZoneClick,
   onLinkClick,
   onNodeClick,
@@ -123,6 +124,7 @@ const NetworkVisualizer5 = ({
         svg,
         markedLinkIds: markedLinkIdsRef.current,
         hoveredLinkId,
+        hoveredFilter,
         palette,
         theme,
       });
@@ -282,6 +284,7 @@ const NetworkVisualizer5 = ({
       svg,
       markedLinkIds: markedLinkIdsRef.current,
       hoveredLinkId,
+      hoveredFilter,
       palette,
       theme,
     });
@@ -296,10 +299,11 @@ const NetworkVisualizer5 = ({
       svg,
       markedLinkIds,
       hoveredLinkId,
+      hoveredFilter,
       palette,
       theme,
     });
-  }, [markedLinkIds, hoveredLinkId, palette, theme]);
+  }, [markedLinkIds, hoveredLinkId, hoveredFilter, palette, theme]);
 
   return (
     <div className="w-full h-full relative">
