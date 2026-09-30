@@ -18,6 +18,7 @@ import {
   X,
   ExternalLink,
 } from "lucide-react";
+import CoreSiteTrafficBadge from "../CoreSite/CoreSiteTrafficBadge";
 
 // ─── Status Badge Component ───
 const StatusBadge = ({ status, size = "sm" }) => {
@@ -289,6 +290,17 @@ const LinkTable = ({
               Device Details
             </h1>
           </div>
+        </div>
+
+        {/* Live Site Traffic Badge */}
+        <div className="flex items-center gap-2">
+          <CoreSiteTrafficBadge
+            coreSiteId={currentDevice?.coresite_id || currentDevice?.core_pikudim_site_id}
+            siteName={coreSiteName}
+            theme={theme}
+            showActivity={true}
+            size="md"
+          />
         </div>
       </div>
 

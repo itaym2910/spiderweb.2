@@ -20,6 +20,7 @@ export default function CoreSitePage({ theme = "dark", chartType }) {
     onLinkClick,
     onNodeClickInZone,
     devicesInZoneCount,
+    coreSiteId,
     popupDetail,
     handleClosePopup,
     handleNavigateToSite,
@@ -29,6 +30,7 @@ export default function CoreSitePage({ theme = "dark", chartType }) {
     <CoreSiteView
       theme={theme}
       zoneId={zoneId}
+      coreSiteId={coreSiteId}
       containerRef={containerRef}
       dimensions={dimensions}
       nodes={nodes}

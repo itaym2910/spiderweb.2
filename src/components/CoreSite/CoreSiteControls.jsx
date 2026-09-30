@@ -1,8 +1,11 @@
 import React from "react";
+import CoreSiteTrafficBadge from "./CoreSiteTrafficBadge";
 
 export default function CoreSiteControls({
   theme,
   displayZoneId,
+  zoneId,
+  coreSiteId,
   onToggleExtendedNodes,
   showExtendedNodes,
   devicesInZoneCount,
@@ -39,9 +42,20 @@ export default function CoreSiteControls({
       }}
     >
       <div
-        className={`mb-2 text-lg font-bold ${zoneTitleColor} pointer-events-auto`}
+        className={`mb-1.5 text-lg font-bold ${zoneTitleColor} pointer-events-auto`}
       >
         {displayZoneId}
+      </div>
+
+      {/* Live Core Site Inbound/Outbound Traffic Badge */}
+      <div className="mb-2 pointer-events-auto">
+        <CoreSiteTrafficBadge
+          coreSiteId={coreSiteId}
+          siteName={zoneId || displayZoneId}
+          theme={theme}
+          showActivity={true}
+          size="md"
+        />
       </div>
 
       {isConditionalButtonVisible && (

@@ -17,6 +17,7 @@ const NetworkVisualizer5 = ({
   markedLinkIds = new Set(),
   hoveredLinkId = null,
   hoveredFilter = null,
+  trafficByZone = {},
   onZoneClick,
   onLinkClick,
   onNodeClick,
@@ -77,9 +78,13 @@ const NetworkVisualizer5 = ({
       return;
     }
 
+    const trafficKey = Object.entries(trafficByZone || {})
+      .map(([k, v]) => `${k}:${v?.traffic?.in}/${v?.traffic?.out}`)
+      .join(";");
+
     const currentTopology = `${rawNodes.length}-${rawLinks.length}-${rawNodes
       .map((n) => n.id)
-      .join(",")}-${showDetailedLinks}-${theme}-${isDrawerOpen}-${width}x${height}`;
+      .join(",")}-${showDetailedLinks}-${theme}-${isDrawerOpen}-${width}x${height}-${trafficKey}`;
 
     const nodes = structuredClone(rawNodes);
     const links = structuredClone(rawLinks);
@@ -184,7 +189,8 @@ const NetworkVisualizer5 = ({
       NODE_GROUPS,
       palette,
       onZoneClick,
-      onNodeClick
+      onNodeClick,
+      trafficByZone
     );
 
     link.attr("stroke", palette.link);

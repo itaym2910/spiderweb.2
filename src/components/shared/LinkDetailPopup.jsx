@@ -3,6 +3,7 @@ import { MdClose, MdArrowForward } from "react-icons/md";
 import { AlertTriangle } from "lucide-react";
 import { api, getLinkDetails } from "../../services/apiServices";
 import { formatPingRateWithPackets } from "./pingHelpers";
+import CoreSiteTrafficBadge from "../CoreSite/CoreSiteTrafficBadge";
 
 const formatDate = (dateStr) => {
   if (!dateStr || dateStr === "null") return "N/A";
@@ -263,6 +264,33 @@ const LinkDetailPopup = ({
             <MdClose size={20} />
           </button>
         </div>
+
+        {/* Core Site Live Traffic Badges */}
+        {((itemData?.sourceZone && itemData.sourceZone !== "Unknown" && itemData.sourceZone !== "N/A") || itemData?.zone) && (
+          <div className={`px-6 py-2 border-b flex flex-wrap items-center justify-between gap-2 ${isDark ? "border-gray-700/60 bg-slate-800/40" : "border-gray-100 bg-sky-50/50"}`}>
+            <span className={`text-xs font-semibold ${isDark ? "text-gray-400" : "text-sky-800"}`}>
+              {itemType === "site" ? `${itemData.name || "Site"} Live Traffic:` : `${itemData.sourceZone || itemData.zone} Traffic:`}
+            </span>
+            <CoreSiteTrafficBadge
+              siteName={itemData.sourceZone || itemData.zone}
+              coreSiteId={itemData.coresite_id || itemData.id}
+              theme={theme}
+              size="sm"
+            />
+          </div>
+        )}
+        {itemData?.targetZone && itemData.targetZone !== "Unknown" && itemData.targetZone !== "N/A" && itemData.targetZone !== itemData.sourceZone && (
+          <div className={`px-6 py-2 border-b flex flex-wrap items-center justify-between gap-2 ${isDark ? "border-gray-700/60 bg-slate-800/40" : "border-gray-100 bg-sky-50/50"}`}>
+            <span className={`text-xs font-semibold ${isDark ? "text-gray-400" : "text-sky-800"}`}>
+              {`${itemData.targetZone} Traffic:`}
+            </span>
+            <CoreSiteTrafficBadge
+              siteName={itemData.targetZone}
+              theme={theme}
+              size="sm"
+            />
+          </div>
+        )}
 
         {/* Body */}
         <div className="px-6 py-4 max-h-[70vh] overflow-y-auto">

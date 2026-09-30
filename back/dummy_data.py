@@ -641,6 +641,19 @@ def generate_dummy_data():
             if latest["new_ospf_state"] == "Full":
                 link["last_ospf_full_at"] = latest["created_at"]
 
+    # --- Core Site Traffic (Inbound and Outbound) ---
+    core_site_traffic = {}
+    for cs in core_sites:
+        total_in = round(random.uniform(12.5, 450.0), 1)
+        total_out = round(random.uniform(10.0, 420.0), 1)
+        core_site_traffic[cs["id"]] = {
+            "id": cs["id"],
+            "traffic": {
+                "in": f"{total_in} Gbps",
+                "out": f"{total_out} Gbps",
+            },
+        }
+
     print(f"Dummy data generation complete. Generated {len(links)} network lines and {len(link_status_events)} events.")
     return {
         "net_types": net_types,
@@ -652,6 +665,7 @@ def generate_dummy_data():
         "alerts": alerts,
         "networks": networks,
         "link_status_events": link_status_events,
+        "core_site_traffic": core_site_traffic,
         "crawler_cycle": {"id": 1, "count": 125}
     }
 

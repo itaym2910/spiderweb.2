@@ -8,7 +8,8 @@ export function renderCoreDevices(
   NODE_GROUPS,
   palette, // palette will be passed from NetworkVisualizer.js / NetworkVisualizer5.js
   onZoneClick,
-  onNodeClick
+  onNodeClick,
+  trafficByZone = {}
 ) {
   // Define default zone fill and opacity (can be overridden by palette if provided)
   const defaultZoneFill = palette.zone?.fill || "#38bdf8";
@@ -27,58 +28,169 @@ export function renderCoreDevices(
       // Renamed 'd' to be more specific
       const screenCenterY = window.innerHeight / 2;
 
+      const isDarkTheme = palette.bg !== "#f8fafc" && palette.bg !== "#ffffff";
+      const isTopZone = d_zone_group_data.cy < screenCenterY;
+
+      // Resolve live traffic for this zone
+      const zoneTraffic =
+        trafficByZone[d_zone_group_data.id] ||
+        trafficByZone[d_zone_group_data.id?.toLowerCase()] ||
+        Object.values(trafficByZone).find(
+          (t) =>
+            t &&
+            (t.name === d_zone_group_data.id ||
+              t.core_site_name === d_zone_group_data.id)
+        );
+
+      const hasTraffic = Boolean(zoneTraffic && zoneTraffic.traffic);
+
+      // Capsule sizing and positioning
+      const cardWidth = 184;
+      const cardHeight = hasTraffic ? 46 : 30;
+      const cardRadius = 12;
+      const cardX = d_zone_group_data.cx - cardWidth / 2;
+      const cardY = isTopZone
+        ? d_zone_group_data.cy - 150 - cardHeight - 8
+        : d_zone_group_data.cy + 150 + 8;
+
+      // Group for the unified zone header capsule
+      const headerGroup = d3
+        .select(this)
+        .append("g")
+        .attr("class", "zone-header-capsule")
+        .style("cursor", "pointer");
+
+      // Capsule background
+      const cardRect = headerGroup
+        .append("rect")
+        .attr("x", cardX)
+        .attr("y", cardY)
+        .attr("width", cardWidth)
+        .attr("height", cardHeight)
+        .attr("rx", cardRadius)
+        .attr("ry", cardRadius)
+        .attr(
+          "fill",
+          isDarkTheme ? "rgba(15, 23, 42, 0.88)" : "rgba(255, 255, 255, 0.95)"
+        )
+        .attr(
+          "stroke",
+          isDarkTheme ? "rgba(56, 189, 248, 0.35)" : "rgba(186, 230, 253, 0.9)"
+        )
+        .attr("stroke-width", 1.2)
+        .style("transition", "all 0.18s ease-in-out");
+
       // Draw the zone circle
-      d3.select(this)
+      const circleSelection = d3
+        .select(this)
         .append("circle")
         .attr("class", "zone")
         .attr("r", 150)
         .attr("cx", d_zone_group_data.cx)
         .attr("cy", d_zone_group_data.cy)
-        .attr("fill", defaultZoneFill) // Use defaultZoneFill from palette or fallback
-        .attr("fill-opacity", defaultZoneOpacity) // Use defaultZoneOpacity
-        .style("cursor", "pointer")
-        .on("click", (_event, d_clicked_zone) => {
-          // d_clicked_zone is the datum of the CIRCLE, which is d_zone_group_data
-          // console.log("[renderCoreDevices] Zone clicked in D3. Zone data:",d_clicked_zone);
-          // console.log("[renderCoreDevices] Is onZoneClick prop available? Type:", typeof onZoneClick);
-          if (onZoneClick) {
-            // console.log("[renderCoreDevices] Calling onZoneClick with ID:", d_clicked_zone.id);
-            onZoneClick(d_clicked_zone.id);
-          } else {
-            // console.error("[renderCoreDevices] onZoneClick is NOT defined here!");
-          }
-        })
-        .on("mouseover", function () {
-          // 'this' refers to the circle element
-          d3.select(this)
-            .transition()
-            .duration(150) // Smooth transition
-            .attr("fill", hoverZoneFill)
-            .attr("fill-opacity", hoverZoneOpacity);
-        })
-        .on("mouseout", function () {
-          d3.select(this)
-            .transition()
-            .duration(150)
-            .attr("fill", defaultZoneFill)
-            .attr("fill-opacity", defaultZoneOpacity);
-        });
+        .attr("fill", defaultZoneFill)
+        .attr("fill-opacity", defaultZoneOpacity)
+        .style("cursor", "pointer");
 
-      // Determine label offset
-      const labelOffset = d_zone_group_data.cy < screenCenterY ? -160 : 180;
+      // Synchronized click interaction
+      const handleZoneNavigate = () => {
+        if (onZoneClick) {
+          onZoneClick(d_zone_group_data.id);
+        }
+      };
 
-      // Draw the zone label
-      d3.select(this)
+      circleSelection.on("click", handleZoneNavigate);
+      headerGroup.on("click", handleZoneNavigate);
+
+      // Synchronized hover interaction
+      const setHoverState = (hovered) => {
+        circleSelection
+          .transition()
+          .duration(150)
+          .attr("fill", hovered ? hoverZoneFill : defaultZoneFill)
+          .attr("fill-opacity", hovered ? hoverZoneOpacity : defaultZoneOpacity);
+
+        cardRect
+          .attr(
+            "stroke",
+            hovered
+              ? isDarkTheme
+                ? "rgba(56, 189, 248, 0.95)"
+                : "rgba(2, 132, 199, 0.95)"
+              : isDarkTheme
+              ? "rgba(56, 189, 248, 0.35)"
+              : "rgba(186, 230, 253, 0.9)"
+          )
+          .attr("stroke-width", hovered ? 1.8 : 1.2)
+          .attr(
+            "fill",
+            hovered
+              ? isDarkTheme
+                ? "rgba(30, 41, 59, 0.95)"
+                : "rgba(240, 249, 255, 0.98)"
+              : isDarkTheme
+              ? "rgba(15, 23, 42, 0.88)"
+              : "rgba(255, 255, 255, 0.95)"
+          );
+      };
+
+      circleSelection
+        .on("mouseover", () => setHoverState(true))
+        .on("mouseout", () => setHoverState(false));
+
+      headerGroup
+        .on("mouseover", () => setHoverState(true))
+        .on("mouseout", () => setHoverState(false));
+
+      // Zone Name (Title) - always on top inside the capsule
+      const titleY = hasTraffic ? cardY + 18 : cardY + cardHeight / 2 + 4;
+      headerGroup
         .append("text")
         .attr("x", d_zone_group_data.cx)
-        .attr("y", d_zone_group_data.cy + labelOffset)
+        .attr("y", titleY)
         .text(d_zone_group_data.id)
-        .attr("fill", palette.label)
-        .attr("font-size", "18px")
+        .attr("fill", isDarkTheme ? "#f8fafc" : "#0f172a")
+        .attr("font-size", "13.5px")
+        .attr("font-family", "system-ui, -apple-system, sans-serif")
+        .attr("font-weight", "700")
+        .attr("letter-spacing", "0.02em")
         .attr("text-anchor", "middle")
-        .attr("font-weight", "bold")
         .style("pointer-events", "none")
         .style("user-select", "none");
+
+      // Live Traffic Row (Subtitle) - always below the title inside the capsule
+      if (hasTraffic) {
+        const trafficY = cardY + 34;
+        const textNode = headerGroup
+          .append("text")
+          .attr("x", d_zone_group_data.cx)
+          .attr("y", trafficY)
+          .attr("text-anchor", "middle")
+          .attr("font-size", "11px")
+          .attr("font-family", "system-ui, -apple-system, sans-serif")
+          .attr("font-weight", "600")
+          .style("pointer-events", "none")
+          .style("user-select", "none");
+
+        // Inbound traffic (emerald)
+        textNode
+          .append("tspan")
+          .attr("fill", isDarkTheme ? "#34d399" : "#059669")
+          .text(`↓ ${zoneTraffic.traffic.in}`);
+
+        // Subtle bullet separator
+        textNode
+          .append("tspan")
+          .attr("fill", isDarkTheme ? "#64748b" : "#94a3b8")
+          .attr("font-weight", "400")
+          .text("   •   ");
+
+        // Outbound traffic (amber)
+        textNode
+          .append("tspan")
+          .attr("fill", isDarkTheme ? "#fbbf24" : "#d97706")
+          .text(`↑ ${zoneTraffic.traffic.out}`);
+      }
     });
 
   const filteredLinks = links;

@@ -9,6 +9,7 @@ import CoreSiteControls from "./CoreSiteControls";
 export default function CoreSiteView({
   theme,
   zoneId,
+  coreSiteId,
   containerRef,
   dimensions,
   nodes,
@@ -79,6 +80,7 @@ export default function CoreSiteView({
           theme={theme}
           displayZoneId={displayZoneId}
           zoneId={zoneId}
+          coreSiteId={coreSiteId}
           showExtendedNodes={showExtendedNodes}
           onToggleExtendedNodes={onToggleExtendedNodes}
           devicesInZoneCount={devicesInZoneCount}

@@ -4,6 +4,8 @@ import { createSelector } from "@reduxjs/toolkit";
 import { fetchInitialData } from "../../redux/slices/authSlice";
 import { startConnecting } from "../../redux/slices/realtimeSlice";
 import { fetchAllAlerts } from "../../redux/slices/alertsSlice"; // <-- NEW: Import alert thunk
+import { fetchAllCoreSitesTraffic } from "../../redux/slices/coreSiteTrafficSlice";
+import { selectAllPikudim } from "../../redux/slices/corePikudimSlice";
 import { Loader2, AlertTriangle } from "lucide-react";
 
 // Memoized selector to prevent unnecessary re-renders
@@ -30,6 +32,7 @@ const selectCoreDataStatus = createSelector(
 export function AppInitializer({ children }) {
   const dispatch = useDispatch();
   const dataStatus = useSelector(selectCoreDataStatus);
+  const allCoreSites = useSelector(selectAllPikudim);
 
   // Derived state to determine the overall status
   const isIdle = Object.values(dataStatus).every((s) => s === "idle");
@@ -50,7 +53,7 @@ export function AppInitializer({ children }) {
     }
   }, [isIdle, isSuccessful, dispatch]);
 
-  // --- NEW: Effect for immediate and periodic alert polling ---
+  // --- Effect for immediate and periodic alert and core site traffic polling ---
   useEffect(() => {
     let intervalId;
 
@@ -59,10 +62,21 @@ export function AppInitializer({ children }) {
       // Fetch alerts immediately on initial load
       dispatch(fetchAllAlerts());
 
-      // Set up the interval to dispatch the fetch action every 30 seconds.
+      // Fetch traffic for all core sites immediately on load
+      const siteIds = allCoreSites && allCoreSites.length > 0
+        ? allCoreSites.map((s) => s.id)
+        : Array.from({ length: 11 }, (_, i) => i + 1);
+
+      dispatch(fetchAllCoreSitesTraffic(siteIds));
+
+      // Set up the interval to dispatch polling every 15 seconds
       intervalId = setInterval(() => {
         dispatch(fetchAllAlerts());
-      }, 30000); // 30,000 milliseconds = 30 seconds
+        const currentIds = allCoreSites && allCoreSites.length > 0
+          ? allCoreSites.map((s) => s.id)
+          : Array.from({ length: 11 }, (_, i) => i + 1);
+        dispatch(fetchAllCoreSitesTraffic(currentIds));
+      }, 15000); // 15,000 milliseconds = 15 seconds
     }
 
     return () => {
@@ -70,7 +84,7 @@ export function AppInitializer({ children }) {
         clearInterval(intervalId);
       }
     };
-  }, [isSuccessful, dispatch]); // This effect depends on the success state and dispatch function
+  }, [isSuccessful, allCoreSites, dispatch]);
 
   const handleRetry = () => {
     dispatch(fetchInitialData());

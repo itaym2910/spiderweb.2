@@ -22,6 +22,7 @@ export function useCoreSiteData(chartType) {
   const [animateExtendedLayoutUp, setAnimateExtendedLayoutUp] = useState(false);
   const [previousSelectedNodeId, setPreviousSelectedNodeId] = useState(null);
   const [popupDetail, setPopupDetail] = useState(null);
+  const [coreSiteId, setCoreSiteId] = useState(null);
 
   // New local states for API data
   const [localDevices, setLocalDevices] = useState([]);
@@ -39,6 +40,7 @@ export function useCoreSiteData(chartType) {
         const site = coreSites.find(s => s.name === zoneId || s.core_site_name === zoneId);
 
         if (site) {
+          setCoreSiteId(site.id);
           const getShortName = (name) => {
             if (!name) return name;
 
@@ -319,6 +321,7 @@ export function useCoreSiteData(chartType) {
     showExtendedNodes,
     handleToggleExtendedNodes,
     devicesInZoneCount: localDevices.length,
+    coreSiteId,
     sitesForFocusedNode,
     onSiteClick: handleSiteClick,
     onLinkClick: handleLinkClick,

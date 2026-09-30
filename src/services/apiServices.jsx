@@ -131,6 +131,8 @@ export const api = {
     handleApiCall(apiClient.get(`/get_site_bw/${siteName}`)).catch(() => ({ bw: "10G" })),
   getInterfacesUp: (siteName) =>
     handleApiCall(apiClient.get(`/get_interfaces_up/${siteName}`)).catch(() => []),
+  getCoreSiteTraffic: (coresiteId) =>
+    handleApiCall(apiClient.get(`/get-core-site-traffic/${coresiteId}/`)),
 
   // --- POST (Create/Add) Endpoints ---
   addCorePikudim: (pikudData) =>
