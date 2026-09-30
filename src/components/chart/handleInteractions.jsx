@@ -255,8 +255,6 @@ export function applyMarkedState({
   const defaultLinkColor = palette?.link || (isDark ? "#94a3b8" : "#6b7280");
   const defaultNodeColor = palette?.node || "#29c6e0";
   const defaultNodeStroke = palette?.stroke || (isDark ? "#60a5fa" : "#1d4ed8");
-  const defaultBadgeBg = palette?.badgeBg || (isDark ? "#0f172a" : "#ffffff");
-  const defaultBadgeStroke = palette?.badgeStroke || (isDark ? "#38bdf8" : "#2563eb");
 
   const hasFilter = Boolean(hoveredFilter);
   const hasMarked =
@@ -278,24 +276,9 @@ export function applyMarkedState({
       .attr("fill", defaultNodeColor)
       .attr("stroke", defaultNodeStroke)
       .attr("stroke-width", 2)
-      .attr("r", 60)
       .style("pointer-events", "auto")
       .style("cursor", "pointer")
       .style("filter", null);
-
-    svg.selectAll("g.node-badge").each(function () {
-      const badgeG = d3.select(this);
-      badgeG.select("circle.node-badge-circle")
-        .attr("r", 13)
-        .attr("fill", defaultBadgeBg)
-        .attr("stroke", defaultBadgeStroke)
-        .attr("stroke-width", 1.5)
-        .style("opacity", 0.85)
-        .style("filter", null);
-      badgeG.select("path.node-badge-icon")
-        .attr("stroke", defaultBadgeStroke)
-        .attr("stroke-width", 1.8);
-    });
 
     svg
       .selectAll("path.duplicate-link")
@@ -408,22 +391,6 @@ export function applyMarkedState({
       }
     });
 
-    svg.selectAll("g.node-badge").each(function (d) {
-      if (!d) return;
-      const isEndpoint = activeEndpoints.has(d.id);
-      const badgeG = d3.select(this);
-      badgeG.select("circle.node-badge-circle")
-        .attr("r", 13)
-        .attr("fill", defaultBadgeBg)
-        .attr("stroke", defaultBadgeStroke)
-        .attr("stroke-width", 1.5)
-        .style("opacity", isEndpoint ? 0.9 : 0.25)
-        .style("filter", null);
-      badgeG.select("path.node-badge-icon")
-        .attr("stroke", defaultBadgeStroke)
-        .attr("stroke-width", 1.8);
-    });
-
     svg.selectAll("text.label").each(function (d) {
       if (!d) return;
       const isEndpoint = activeEndpoints.has(d.id);
@@ -534,22 +501,6 @@ export function applyMarkedState({
         .style("cursor", "pointer")
         .style("filter", null);
     }
-  });
-
-  svg.selectAll("g.node-badge").each(function (d) {
-    if (!d) return;
-    const isEndpoint = activeEndpoints.has(d.id);
-    const badgeG = d3.select(this);
-    badgeG.select("circle.node-badge-circle")
-      .attr("r", 13)
-      .attr("fill", defaultBadgeBg)
-      .attr("stroke", defaultBadgeStroke)
-      .attr("stroke-width", 1.5)
-      .style("opacity", isEndpoint ? 0.95 : 0.25)
-      .style("filter", null);
-    badgeG.select("path.node-badge-icon")
-      .attr("stroke", defaultBadgeStroke)
-      .attr("stroke-width", 1.8);
   });
 
   // 5. Labels
@@ -809,7 +760,6 @@ export function handleNodeMouseOver(
   const nodeId = d_node.id;
   const markedIds = getMarkedLinkIds ? getMarkedLinkIds() : null;
   const hasMarked = markedIds && markedIds.size > 0;
-  const isDark = Boolean(palette?.isDark || palette?.bg === "#1f2937");
 
   const svgNode = linkSelection?.node()?.ownerSVGElement;
   const svg = svgNode ? d3.select(svgNode) : d3.select("svg");
@@ -822,7 +772,7 @@ export function handleNodeMouseOver(
   }
 
   // If marked links are active and this node is NOT an endpoint of any marked link,
-  // still highlight the hovered node and badge (giving visual affordance),
+  // still highlight the hovered node,
   // without changing the marked links display.
   if (hasMarked && !hasActiveMarked) {
     svg.selectAll("circle.node").each(function (n) {
@@ -832,26 +782,8 @@ export function handleNodeMouseOver(
           .attr("fill", palette.nodeHoverDirect || "#fde047")
           .attr("stroke", palette.nodeHoverLinkStroke || "#facc15")
           .attr("stroke-width", 4.5)
-          .attr("r", 66)
           .style("opacity", 1)
-          .style("filter", isDark ? "drop-shadow(0 0 10px rgba(56, 189, 248, 0.6))" : "drop-shadow(0 0 10px rgba(37, 99, 235, 0.4))");
-      }
-    });
-
-    svg.selectAll("g.node-badge").each(function (n) {
-      if (!n) return;
-      if (n.id === nodeId) {
-        const badgeG = d3.select(this);
-        badgeG.select("circle.node-badge-circle")
-          .attr("r", 15)
-          .attr("fill", palette.badgeHoverBg || (isDark ? "#38bdf8" : "#2563eb"))
-          .attr("stroke", palette.badgeHoverStroke || (isDark ? "#7dd3fc" : "#1d4ed8"))
-          .attr("stroke-width", 2)
-          .style("opacity", 1)
-          .style("filter", "drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35))");
-        badgeG.select("path.node-badge-icon")
-          .attr("stroke", isDark ? "#0f172a" : "#ffffff")
-          .attr("stroke-width", 2);
+          .style("filter", "drop-shadow(0 1px 2px rgba(0, 0, 0, 0.05))");
       }
     });
     return;
@@ -928,15 +860,13 @@ export function handleNodeMouseOver(
         .attr("fill", palette.nodeHoverDirect || "#fde047")
         .attr("stroke", palette.nodeHoverLinkStroke || "#facc15")
         .attr("stroke-width", 4.5)
-        .attr("r", 66)
         .style("opacity", 1)
-        .style("filter", isDark ? "drop-shadow(0 0 10px rgba(56, 189, 248, 0.6))" : "drop-shadow(0 0 10px rgba(37, 99, 235, 0.4))");
+        .style("filter", "drop-shadow(0 1px 2px rgba(0, 0, 0, 0.05))");
     } else if (neighborNodeIds.has(n.id)) {
       d3.select(this)
         .attr("fill", palette.nodeHoverLink || "#fde047")
         .attr("stroke", palette.nodeHoverLinkStroke || "#facc15")
         .attr("stroke-width", 3.5)
-        .attr("r", 60)
         .style("opacity", 1)
         .style("filter", "drop-shadow(0 1px 2px rgba(0, 0, 0, 0.05))");
     } else {
@@ -944,39 +874,8 @@ export function handleNodeMouseOver(
         .attr("fill", palette.node)
         .attr("stroke", palette.stroke)
         .attr("stroke-width", 2)
-        .attr("r", 60)
         .style("opacity", hasMarked ? 0.15 : 0.25)
         .style("filter", null);
-    }
-  });
-
-  // Highlight badge for hovered node
-  svg.selectAll("g.node-badge").each(function (n) {
-    if (!n) return;
-    const isHovered = n.id === nodeId;
-    const badgeG = d3.select(this);
-    if (isHovered) {
-      badgeG.select("circle.node-badge-circle")
-        .attr("r", 15)
-        .attr("fill", palette.badgeHoverBg || (isDark ? "#38bdf8" : "#2563eb"))
-        .attr("stroke", palette.badgeHoverStroke || (isDark ? "#7dd3fc" : "#1d4ed8"))
-        .attr("stroke-width", 2)
-        .style("opacity", 1)
-        .style("filter", "drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35))");
-      badgeG.select("path.node-badge-icon")
-        .attr("stroke", isDark ? "#0f172a" : "#ffffff")
-        .attr("stroke-width", 2);
-    } else {
-      badgeG.select("circle.node-badge-circle")
-        .attr("r", 13)
-        .attr("fill", palette.badgeBg || (isDark ? "#0f172a" : "#ffffff"))
-        .attr("stroke", palette.badgeStroke || (isDark ? "#38bdf8" : "#2563eb"))
-        .attr("stroke-width", 1.5)
-        .style("opacity", hasMarked ? 0.15 : 0.85)
-        .style("filter", null);
-      badgeG.select("path.node-badge-icon")
-        .attr("stroke", palette.badgeStroke || (isDark ? "#38bdf8" : "#2563eb"))
-        .attr("stroke-width", 1.8);
     }
   });
 
@@ -1003,7 +902,6 @@ export function handleNodeMouseOut(
   const markedIds = getMarkedLinkIds ? getMarkedLinkIds() : null;
   const svgNode = linkSelection?.node()?.ownerSVGElement;
   const svg = svgNode ? d3.select(svgNode) : d3.select("svg");
-  const isDark = Boolean(palette?.isDark || palette?.bg === "#1f2937");
 
   if (markedIds && markedIds.size > 0) {
     applyMarkedState({ svg, markedLinkIds: markedIds, palette });
@@ -1029,23 +927,8 @@ export function handleNodeMouseOut(
     .attr("fill", palette.node)
     .attr("stroke", palette.stroke)
     .attr("stroke-width", 2)
-    .attr("r", 60)
     .style("opacity", 0.9)
     .style("filter", null);
-
-  svg.selectAll("g.node-badge").each(function () {
-    const badgeG = d3.select(this);
-    badgeG.select("circle.node-badge-circle")
-      .attr("r", 13)
-      .attr("fill", palette.badgeBg || (isDark ? "#0f172a" : "#ffffff"))
-      .attr("stroke", palette.badgeStroke || (isDark ? "#38bdf8" : "#2563eb"))
-      .attr("stroke-width", 1.5)
-      .style("opacity", 0.85)
-      .style("filter", null);
-    badgeG.select("path.node-badge-icon")
-      .attr("stroke", palette.badgeStroke || (isDark ? "#38bdf8" : "#2563eb"))
-      .attr("stroke-width", 1.8);
-  });
 
   svg
     .selectAll("text.label")
@@ -1348,7 +1231,6 @@ export function setupInteractions({
   linkHover,
   filteredLinks,
   node,
-  nodeBadge,
   tooltip,
   tooltipLayer,
   palette,
@@ -1494,21 +1376,7 @@ export function setupInteractions({
     updateNodeTooltipPos(event);
   };
 
-  const handleNodeLeave = function (event, d_node) {
-    if (
-      event &&
-      event.relatedTarget &&
-      (event.relatedTarget.classList?.contains("node") ||
-        event.relatedTarget.closest?.(".node-badge"))
-    ) {
-      const relTarget = event.relatedTarget;
-      const relatedDatum =
-        d3.select(relTarget).datum() ||
-        d3.select(relTarget.closest?.(".node-badge")).datum();
-      if (relatedDatum && relatedDatum.id === d_node.id) {
-        return;
-      }
-    }
+  const handleNodeLeave = function (_event, d_node) {
     hideNodeTooltip();
     handleNodeMouseOut(d_node, link, palette, getMarkedLinkIds);
   };
@@ -1516,14 +1384,6 @@ export function setupInteractions({
   // Node hover interactions
   if (node && node.size()) {
     node
-      .on("mouseover", handleNodeEnter)
-      .on("mousemove", handleNodeMove)
-      .on("mouseout", handleNodeLeave);
-  }
-
-  // Node badge hover interactions
-  if (nodeBadge && nodeBadge.size()) {
-    nodeBadge
       .on("mouseover", handleNodeEnter)
       .on("mousemove", handleNodeMove)
       .on("mouseout", handleNodeLeave);
