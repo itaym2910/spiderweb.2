@@ -92,14 +92,11 @@ const NetworkVisualizerWrapper = ({ theme }) => {
   // Build graph data from the core-topology endpoint
   const graphData = useMemo(() => {
     // Filter devices for this chart's network
+    // L Chart: show all devices whose network_name contains "ns"
     const devicesForChart = allTopologyDevices.filter((d) => {
       if (!d.name) return false;
       const netName = (d.network_name || "").toLowerCase();
-      const isAnanOrP = netName.includes("anan") || netName.includes("p-network");
-      if (isAnanOrP) return false;
-      const hasSharedName = ["H1", "H2", "H4", "H5", "H7", "H8"].some((str) => d.name.includes(str));
-      const isLNetwork = netName.includes("ns") || netName.includes("l-network");
-      return hasSharedName || isLNetwork || (!netName && !d.name.includes("P"));
+      return netName.includes("ns");
     });
 
     if (devicesForChart.length === 0) {

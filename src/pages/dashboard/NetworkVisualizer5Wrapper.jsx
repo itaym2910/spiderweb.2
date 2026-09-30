@@ -92,14 +92,14 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
   // Build graph data from the core-topology endpoint
   const graphData = useMemo(() => {
     // Filter devices for this chart's network
+    // P Chart: show devices with "anan_lekaman"/"anan-lekaman"/"p-network" network name,
+    // plus the shared H-prefix devices (which have "ns" network name)
     const devicesForChart = allTopologyDevices.filter((d) => {
       if (!d.name) return false;
       const netName = (d.network_name || "").toLowerCase();
-      const isLNet = (netName.includes("ns") || netName.includes("l-network")) && !netName.includes("anan");
-      if (isLNet) return false;
-      const hasPSharedName = ["P1", "P2", "P4", "P5", "P7", "P8"].some((str) => d.name.includes(str));
       const isPNetwork = netName.includes("anan-lekaman") || netName.includes("anan_lekaman") || netName.includes("p-network");
-      return isPNetwork || hasPSharedName;
+      const isSharedDevice = ["H1", "H2", "H4", "H5", "H7", "H8"].some((str) => d.name.includes(str));
+      return isPNetwork || isSharedDevice;
     });
 
     if (devicesForChart.length === 0) {

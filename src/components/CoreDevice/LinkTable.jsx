@@ -2,11 +2,9 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import LinkDetailPopup from "../shared/LinkDetailPopup";
-import { formatPingRateWithPackets, calculatePingSummary } from "../shared/pingHelpers";
 import {
   ArrowLeft,
   Server,
-  Activity,
   ArrowUpCircle,
   ArrowDownCircle,
   AlertTriangle,
@@ -64,13 +62,13 @@ const StatusBadge = ({ status, size = "sm" }) => {
 
   const c = config[status] || config["N/A"];
   const sizeClasses =
-    size === "sm" ? "px-1.5 py-0.5 text-[8px] font-semibold" : "px-2 py-0.5 text-[9px] font-semibold";
+    size === "sm" ? "px-2.5 py-1 text-xs font-semibold gap-1.5" : "px-3 py-1.5 text-sm font-semibold gap-2";
 
   return (
     <span
-      className={`inline-flex items-center gap-0.5 rounded-full ${c.bg} ${c.text} ${sizeClasses}`}
+      className={`inline-flex items-center rounded-full ${c.bg} ${c.text} ${sizeClasses}`}
     >
-      <span className={`w-1 h-1 rounded-full ${c.dot}`}></span>
+      <span className={`w-2 h-2 rounded-full ${c.dot}`}></span>
       {c.label}
     </span>
   );
@@ -124,14 +122,14 @@ const StatCard = ({ icon: Icon, label, value, color, subValue }) => {
           <Icon className="w-3.5 h-3.5" />
         </div>
         <div className="min-w-0">
-          <p className="text-[9px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
             {label}
           </p>
           <p className={`text-lg font-bold ${c.value} leading-tight`}>
             {value}
           </p>
           {subValue && (
-            <p className="text-[9px] text-gray-400 dark:text-gray-500">
+            <p className="text-xs text-gray-400 dark:text-gray-500">
               {subValue}
             </p>
           )}
@@ -252,12 +250,6 @@ const LinkTable = ({
     };
   }, [interfaces, linksData]);
 
-  // Ping Telemetry Summary for this device's links
-  const pingSummary = useMemo(
-    () => calculatePingSummary(linksData),
-    [linksData]
-  );
-
   const isDark = theme === "dark";
 
   const handleDeviceButtonClick = (device) => {
@@ -301,7 +293,7 @@ const LinkTable = ({
       </div>
 
       {/* ─── Summary Stats ─── */}
-      <div className="flex-shrink-0 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+      <div className="flex-shrink-0 grid grid-cols-2 sm:grid-cols-4 gap-2">
         <StatCard
           icon={Link2}
           label="Total Links"
@@ -325,18 +317,6 @@ const LinkTable = ({
           label="Links Issues"
           value={stats.linksIssue}
           color="amber"
-        />
-        <StatCard
-          icon={Activity}
-          label="Ping Total"
-          value={pingSummary.monitoredCount > 0 ? `${pingSummary.formattedRate} (${pingSummary.formattedPackets})` : "N/A"}
-          color={
-            pingSummary.statusCategory === "optimal"
-              ? "green"
-              : pingSummary.statusCategory === "degraded"
-              ? "amber"
-              : "red"
-          }
         />
       </div>
 
@@ -369,7 +349,7 @@ const LinkTable = ({
             {/* Link Filters */}
             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mb-1 pb-1 border-b border-gray-100 dark:border-gray-700/50 flex-shrink-0">
               <div className="flex items-center gap-0.5">
-                <span className="text-[9px] font-medium text-gray-500 dark:text-gray-400">
+                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 mr-1">
                   Type:
                 </span>
                 <FilterPill
@@ -401,7 +381,7 @@ const LinkTable = ({
               </div>
               <div className="h-2.5 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block"></div>
               <div className="flex items-center gap-0.5">
-                <span className="text-[9px] font-medium text-gray-500 dark:text-gray-400">
+                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 mr-1">
                   Status:
                 </span>
                 <FilterPill
@@ -437,19 +417,16 @@ const LinkTable = ({
                 <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-700/50">
                   <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700 shadow-sm">
                     <tr>
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      <th className="px-5 py-3 text-left text-sm font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      <th className="px-5 py-3 text-left text-sm font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                         Name
                       </th>
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      <th className="px-5 py-3 text-left text-sm font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                         Destination IP
                       </th>
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Ping
-                      </th>
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      <th className="px-5 py-3 text-left text-sm font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                         Description
                       </th>
                     </tr>
@@ -468,59 +445,22 @@ const LinkTable = ({
                           className="hover:bg-purple-50/60 dark:hover:bg-purple-500/10 cursor-pointer transition-colors duration-150"
                           title="Click for full details popup"
                         >
-                          <td className="px-4 py-2.5 whitespace-nowrap">
+                          <td className="px-5 py-3 whitespace-nowrap">
                             <StatusBadge status={link.status} />
                           </td>
-                          <td className="px-4 py-2.5 whitespace-nowrap">
-                            <span className="text-xs font-semibold text-purple-600 dark:text-purple-400 flex items-center gap-1">
+                          <td className="px-5 py-3 whitespace-nowrap">
+                            <span className="text-sm font-semibold text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
                               {link.name}
-                              <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              <ExternalLink className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                             </span>
                           </td>
-                          <td className="px-4 py-2.5 whitespace-nowrap">
-                            <span className="text-xs font-mono text-gray-600 dark:text-gray-400">
+                          <td className="px-5 py-3 whitespace-nowrap">
+                            <span className="text-sm font-mono font-medium text-gray-700 dark:text-gray-300">
                               {link.destinationIp || link.remote_link_ip || link.remote_device_ip || link.remote_ip || "N/A"}
                             </span>
                           </td>
-                          <td className="px-4 py-2.5 whitespace-nowrap">
-                            {(() => {
-                              const pingInfo = formatPingRateWithPackets(link);
-                              if (!pingInfo) {
-                                return <span className="text-xs text-gray-400 dark:text-gray-500">—</span>;
-                              }
-                              const numRate = pingInfo.rate;
-                              const packetsLost = pingInfo.packetsLost ?? (numRate < 100 ? 1 : 0);
-                              const hasLoss = packetsLost > 0 || numRate < 100;
-                              const isDown = numRate === 0;
-                              const lastPing = link.last_ping_at ?? link.additionalDetails?.last_ping_at ?? link.rawLink?.last_ping_at;
-                              return (
-                                <span
-                                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                                    isDown
-                                      ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
-                                      : hasLoss
-                                      ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                                      : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                                  }`}
-                                  title={lastPing ? `${pingInfo.full}${hasLoss ? ` • ${packetsLost} packet(s) lost!` : ""} • Last ping: ${lastPing}` : `${pingInfo.full}${hasLoss ? ` • ${packetsLost} packet(s) lost!` : ""}`}
-                                >
-                                  {hasLoss && !isDown ? (
-                                    <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
-                                  ) : (
-                                    <Activity className="w-3 h-3 shrink-0" />
-                                  )}
-                                  <span>{pingInfo.short}</span>
-                                  {hasLoss && !isDown && (
-                                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
-                                      ({packetsLost} lost)
-                                    </span>
-                                  )}
-                                </span>
-                              );
-                            })()}
-                          </td>
-                          <td className="px-4 py-2.5 whitespace-nowrap">
-                            <span className="text-xs text-gray-600 dark:text-gray-400">
+                          <td className="px-5 py-3 whitespace-nowrap">
+                            <span className="text-sm text-gray-700 dark:text-gray-300">
                               {link.local_interface_description || link.description || "—"}
                             </span>
                           </td>
@@ -533,7 +473,7 @@ const LinkTable = ({
             ) : (
               <div className="text-center py-6 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">
                 <Link2 className="w-8 h-8 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
                   {linksData.length === 0
                     ? "No link data available for this device."
                     : "No links match the current filters."}
