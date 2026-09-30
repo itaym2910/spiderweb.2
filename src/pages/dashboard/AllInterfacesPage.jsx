@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useCallback, useRef } from "react";
+import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useInterfaceData } from "../useInterfaceData";
 import { Button } from "../../components/ui/button";
-import { Search, X, RotateCcw } from "lucide-react";
+import { Search, X, RotateCcw, ChevronDown, Check } from "lucide-react";
 import { useSelector, useDispatch } from "react-redux";
 import { fetchTenGigLinks, selectTenGigLinksHasMore, selectAllTenGigLinks, selectTenGigLinksPaginationStatus } from "../../redux/slices/tenGigLinksSlice";
 
@@ -39,6 +39,56 @@ export default function AllInterfacesPage({ theme }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [deviceFilter, setDeviceFilter] = useState("all");
+  const [deviceSearchTerm, setDeviceSearchTerm] = useState("");
+  const [isDeviceDropdownOpen, setIsDeviceDropdownOpen] = useState(false);
+
+  const deviceDropdownRef = useRef(null);
+  const deviceSearchInputRef = useRef(null);
+
+  // Close device dropdown on click outside or escape key
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (deviceDropdownRef.current && !deviceDropdownRef.current.contains(event.target)) {
+        setIsDeviceDropdownOpen(false);
+      }
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape" && isDeviceDropdownOpen) {
+        setIsDeviceDropdownOpen(false);
+      }
+    };
+
+    if (isDeviceDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
+      if (deviceSearchInputRef.current) {
+        setTimeout(() => deviceSearchInputRef.current?.focus(), 50);
+      }
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isDeviceDropdownOpen]);
+
+  const selectedDeviceLabel = useMemo(() => {
+    if (deviceFilter === "all") return "All Devices";
+    const found = deviceFilterOptions.find((opt) => String(opt.id) === String(deviceFilter));
+    return found ? found.label : "All Devices";
+  }, [deviceFilter, deviceFilterOptions]);
+
+  const filteredDevices = useMemo(() => {
+    const list = deviceFilterOptions.filter((opt) => opt.id !== "all");
+    if (!deviceSearchTerm.trim()) return list;
+
+    const words = deviceSearchTerm.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    return list.filter((opt) => {
+      const labelLower = opt.label.toLowerCase();
+      return words.every((word) => labelLower.includes(word));
+    });
+  }, [deviceFilterOptions, deviceSearchTerm]);
 
   // Format today's date in local YYYY-MM-DD
   const today = useMemo(() => {
@@ -109,6 +159,8 @@ export default function AllInterfacesPage({ theme }) {
     setSearchTerm("");
     setStatusFilter("all");
     setDeviceFilter("all");
+    setDeviceSearchTerm("");
+    setIsDeviceDropdownOpen(false);
     setStartDate("");
     setEndDate("");
   }, []);
@@ -288,26 +340,157 @@ export default function AllInterfacesPage({ theme }) {
             </div>
           </div>
 
-          {/* Device Filter */}
-          <div>
+          {/* Device Filter (Searchable Combobox) */}
+          <div className="relative" ref={deviceDropdownRef}>
             <label
-              htmlFor="device-filter"
+              id="device-filter-label"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
             >
               Filter by Device
             </label>
-            <select
-              id="device-filter"
-              value={deviceFilter}
-              onChange={(e) => setDeviceFilter(e.target.value)}
-              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            <button
+              id="device-filter-trigger"
+              type="button"
+              aria-haspopup="listbox"
+              aria-expanded={isDeviceDropdownOpen}
+              aria-labelledby="device-filter-label device-filter-trigger"
+              onClick={() => setIsDeviceDropdownOpen((prev) => !prev)}
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 flex items-center justify-between text-left focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition-colors cursor-pointer"
             >
-              {deviceFilterOptions.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.id === "all" ? "All Devices" : opt.label}
-                </option>
-              ))}
-            </select>
+              <span className="truncate">{selectedDeviceLabel}</span>
+              <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                {deviceFilter !== "all" && (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeviceFilter("all");
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.stopPropagation();
+                        setDeviceFilter("all");
+                      }
+                    }}
+                    className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded cursor-pointer"
+                    title="Clear device filter"
+                    aria-label="Clear device filter"
+                  >
+                    <X className="h-4 w-4" />
+                  </span>
+                )}
+                <ChevronDown
+                  className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${
+                    isDeviceDropdownOpen ? "rotate-180 text-blue-500" : ""
+                  }`}
+                />
+              </div>
+            </button>
+
+            {/* Dropdown Panel */}
+            {isDeviceDropdownOpen && (
+              <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
+                {/* Search input inside dropdown */}
+                <div className="p-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                    <input
+                      ref={deviceSearchInputRef}
+                      type="text"
+                      placeholder="Search devices..."
+                      value={deviceSearchTerm}
+                      onChange={(e) => setDeviceSearchTerm(e.target.value)}
+                      className="w-full pl-8 pr-7 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    {deviceSearchTerm && (
+                      <button
+                        type="button"
+                        onClick={() => setDeviceSearchTerm("")}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                        aria-label="Clear device search"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Device List */}
+                <div
+                  role="listbox"
+                  className="max-h-60 overflow-y-auto p-1 divide-y divide-gray-100 dark:divide-gray-700/40 text-xs"
+                >
+                  {/* All Devices option */}
+                  {(!deviceSearchTerm || "all devices".includes(deviceSearchTerm.toLowerCase())) && (
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={deviceFilter === "all"}
+                      onClick={() => {
+                        setDeviceFilter("all");
+                        setIsDeviceDropdownOpen(false);
+                        setDeviceSearchTerm("");
+                      }}
+                      className={`w-full px-3 py-2 text-left rounded-md flex items-center justify-between transition-colors ${
+                        deviceFilter === "all"
+                          ? "bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 font-semibold"
+                          : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      <span>All Devices</span>
+                      {deviceFilter === "all" && (
+                        <Check className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                      )}
+                    </button>
+                  )}
+
+                  {/* Filtered devices */}
+                  {filteredDevices.map((opt) => {
+                    const isSelected = String(deviceFilter) === String(opt.id);
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        onClick={() => {
+                          setDeviceFilter(String(opt.id));
+                          setIsDeviceDropdownOpen(false);
+                          setDeviceSearchTerm("");
+                        }}
+                        className={`w-full px-3 py-2 text-left rounded-md flex items-center justify-between transition-colors ${
+                          isSelected
+                            ? "bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 font-semibold"
+                            : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        <span className="truncate">{opt.label}</span>
+                        {isSelected && (
+                          <Check className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0 ml-2" />
+                        )}
+                      </button>
+                    );
+                  })}
+
+                  {/* Empty state when no device matches search */}
+                  {filteredDevices.length === 0 &&
+                    deviceSearchTerm &&
+                    !"all devices".includes(deviceSearchTerm.toLowerCase()) && (
+                      <div className="py-4 px-3 text-center text-gray-500 dark:text-gray-400">
+                        <p className="text-xs">No devices matching "{deviceSearchTerm}"</p>
+                        <button
+                          type="button"
+                          onClick={() => setDeviceSearchTerm("")}
+                          className="mt-1 text-xs text-blue-500 hover:underline"
+                        >
+                          Clear search
+                        </button>
+                      </div>
+                    )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Status Filter */}
