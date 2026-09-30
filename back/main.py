@@ -116,15 +116,23 @@ router_coredevice = APIRouter()
 @router_coredevice.get("/api/core-topology-events")
 @router_coredevice.get("/api/link-status-events")
 async def get_core_topology_events(
+    request: Request,
     days: Optional[int] = None,
     since: Optional[str] = None,
     event_type: Optional[str] = None,
     local_device_id: Optional[int] = None,
     remote_device_id: Optional[int] = None,
+    offset: Optional[int] = 0,
+    include_summary: Optional[bool] = False,
     current_user: dict = Depends(user_role_checker)
 ):
     """Returns link status change events filtered by time window and criteria."""
     now = datetime.utcnow()
+
+    # Support event-type alias with hyphen
+    effective_event_type = request.query_params.get("event-type") or request.query_params.get("event_type") or event_type
+    inc_summary = include_summary or request.query_params.get("include_summary", "").lower() == "true"
+    off = offset if offset is not None else int(request.query_params.get("offset", 0))
 
     # Determine time window cutoff
     filter_days = days
@@ -153,7 +161,7 @@ async def get_core_topology_events(
         if ev_dt < cutoff:
             continue
 
-        if event_type and ev.get("event_type") != event_type:
+        if effective_event_type and ev.get("event_type") != effective_event_type:
             continue
 
         if local_device_id is not None and ev.get("local_device_id") != local_device_id:
@@ -164,12 +172,23 @@ async def get_core_topology_events(
 
         filtered.append(ev)
 
-    return {
-        "events": filtered,
+    events_slice = filtered[off:] if off > 0 else filtered
+
+    resp = {
+        "events": events_slice,
         "count": len(filtered),
         "days": filter_days,
         "since": since or f"{filter_days}d",
     }
+    if inc_summary:
+        resp["summary"] = {
+            "count": len(filtered),
+            "total": len(filtered),
+            "event_type": effective_event_type,
+            "days": filter_days,
+        }
+
+    return resp
 
 def _isoformat(dt):
     if dt is None:

@@ -303,6 +303,10 @@ export default function NetworkLinksSideDrawer({
   const [eventsLoading, setEventsLoading] = useState(false);
   const [expandedEventLinks, setExpandedEventLinks] = useState(new Set());
   
+  // State for 72h OSPF Drops count (calculated via endpoint)
+  const [ospfDrops72hCount, setOspfDrops72hCount] = useState(0);
+  const [ospfDropsLoading, setOspfDropsLoading] = useState(false);
+
   // Advanced filters for the "All" tab events
   const [apiEventType, setApiEventType] = useState("");
   const [apiLocalDevice, setApiLocalDevice] = useState("");
@@ -321,21 +325,74 @@ export default function NetworkLinksSideDrawer({
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [allDevices]);
 
+  // Calculate the number of OSPF drops in the last 72 hours by calling the endpoint with requested presets:
+  // /api/core-topology-events?days=3&event-type=ospf_drop&offset=0&include_summary=true
+  const fetchOspfDropsCount = useCallback(async () => {
+    try {
+      setOspfDropsLoading(true);
+      const data = await api.getCoreTopologyEvents({
+        days: 3,
+        "event-type": "ospf_drop",
+        offset: 0,
+        include_summary: true,
+      });
+      const count =
+        data?.summary?.count ??
+        data?.summary?.total ??
+        data?.count ??
+        (Array.isArray(data?.events) ? data.events.length : 0);
+      setOspfDrops72hCount(count);
+    } catch (err) {
+      console.error("Failed to calculate 72h OSPF drops count:", err);
+    } finally {
+      setOspfDropsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchOspfDropsCount();
+    const interval = setInterval(fetchOspfDropsCount, 30000);
+    return () => clearInterval(interval);
+  }, [fetchOspfDropsCount]);
+
   // Fetch events when the "All" tab is active and time filter changes
   const fetchEvents = useCallback(async (since, eventType, localId, remoteId, silent = false) => {
     if (!silent) setEventsLoading(true);
-    let days = 1;
-    if (since === "7d") days = 7;
-    if (since === "30d") days = 30;
 
-    const params = { days };
-    if (eventType) params.event_type = eventType;
+    let params;
+    if (since === "72h_ospf") {
+      params = {
+        days: 3,
+        "event-type": "ospf_drop",
+        offset: 0,
+        include_summary: true,
+      };
+      if (eventType && eventType !== "ospf_drop") {
+        params["event-type"] = eventType;
+      }
+    } else {
+      let days = 1;
+      if (since === "7d") days = 7;
+      if (since === "30d") days = 30;
+
+      params = { days };
+      if (eventType) params.event_type = eventType;
+    }
+
     if (localId) params.local_device_id = parseInt(localId, 10);
     if (remoteId) params.remote_device_id = parseInt(remoteId, 10);
 
     try {
       const data = await api.getCoreTopologyEvents(params);
       setStatusEvents(data.events || []);
+      if (since === "72h_ospf") {
+        const count =
+          data?.summary?.count ??
+          data?.summary?.total ??
+          data?.count ??
+          (Array.isArray(data?.events) ? data.events.length : 0);
+        setOspfDrops72hCount(count);
+      }
     } catch {
       setStatusEvents([]);
     } finally {
@@ -485,20 +542,25 @@ export default function NetworkLinksSideDrawer({
 
       // Time filter
       if (timeFilter && activeFilter !== "ping") {
-        const targetDate = new Date(link.statusDate);
-        if (!isNaN(targetDate.getTime())) {
-          const diffHours = (Date.now() - targetDate.getTime()) / (1000 * 60 * 60);
-          
-          if (isStabilityMode) {
-            // >= X time filter
-            if (timeFilter === "24h" && diffHours < 24) return false;
-            if (timeFilter === "7d" && diffHours < 24 * 7) return false;
-            if (timeFilter === "30d" && diffHours < 24 * 30) return false;
-          } else {
-            // < X time filter
-            if (timeFilter === "24h" && diffHours > 24) return false;
-            if (timeFilter === "7d" && diffHours > 24 * 7) return false;
-            if (timeFilter === "30d" && diffHours > 24 * 30) return false;
+        if (timeFilter === "72h_ospf") {
+          const hasOspfDrop = (link.ospf_drops_last_24h ?? 0) > 0 || link.rawLink?.ospf_drops_last_24h > 0 || (link.ospf_state && link.ospf_state.toLowerCase() !== "full");
+          if (!hasOspfDrop) return false;
+        } else {
+          const targetDate = new Date(link.statusDate);
+          if (!isNaN(targetDate.getTime())) {
+            const diffHours = (Date.now() - targetDate.getTime()) / (1000 * 60 * 60);
+            
+            if (isStabilityMode) {
+              // >= X time filter
+              if (timeFilter === "24h" && diffHours < 24) return false;
+              if (timeFilter === "7d" && diffHours < 24 * 7) return false;
+              if (timeFilter === "30d" && diffHours < 24 * 30) return false;
+            } else {
+              // < X time filter
+              if (timeFilter === "24h" && diffHours > 24) return false;
+              if (timeFilter === "7d" && diffHours > 24 * 7) return false;
+              if (timeFilter === "30d" && diffHours > 24 * 30) return false;
+            }
           }
         }
       }
@@ -572,6 +634,9 @@ export default function NetworkLinksSideDrawer({
 
       // Time filter
       if (timeF) {
+        if (timeF === "72h_ospf") {
+          return (link.ospf_drops_last_24h ?? 0) > 0 || link.rawLink?.ospf_drops_last_24h > 0 || (link.ospf_state && link.ospf_state.toLowerCase() !== "full");
+        }
         const targetDate = new Date(link.statusDate);
         if (!isNaN(targetDate.getTime())) {
           const diffHours =
@@ -1097,9 +1162,11 @@ export default function NetworkLinksSideDrawer({
                   { id: "24h", labelAll: "< 24h", labelStability: "≥ 24h" },
                   { id: "7d", labelAll: "< 1 Week", labelStability: "≥ 1 Week" },
                   { id: "30d", labelAll: "< 1 Month", labelStability: "≥ 1 Month" },
+                  { id: "72h_ospf", labelAll: "OSPF Drops (72h)", labelStability: "OSPF Drops (72h)" },
                 ].map((opt) => {
                   const isSelected = timeFilter === opt.id;
-                  const count = timeCounts[opt.id] ?? 0;
+                  const isOspf = opt.id === "72h_ospf";
+                  const count = isOspf ? ospfDrops72hCount : (timeCounts[opt.id] ?? 0);
                   const isStabilityMode = activeFilter !== "all";
                   const displayLabel = isStabilityMode ? opt.labelStability : opt.labelAll;
                   
@@ -1108,6 +1175,9 @@ export default function NetworkLinksSideDrawer({
                       key={opt.id}
                       type="button"
                       onClick={() => {
+                        if (isOspf && activeFilter !== "all") {
+                          setActiveFilter("all");
+                        }
                         if (timeFilter === opt.id) {
                           handleTimeFilterClick(null); // toggle off
                         } else {
@@ -1116,17 +1186,30 @@ export default function NetworkLinksSideDrawer({
                       }}
                       className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-all whitespace-nowrap flex items-center gap-1 ${
                         isSelected
-                          ? "bg-blue-600 text-white shadow-sm font-semibold"
+                          ? isOspf
+                            ? "bg-amber-600 text-white shadow-sm font-semibold ring-1 ring-amber-400/50"
+                            : "bg-blue-600 text-white shadow-sm font-semibold"
+                          : isOspf
+                          ? isDark
+                            ? "bg-amber-950/40 text-amber-400 hover:text-amber-200 hover:bg-amber-900/50 border border-amber-800/40"
+                            : "bg-amber-50 text-amber-700 hover:text-amber-900 hover:bg-amber-100 border border-amber-200"
                           : isDark
                           ? "bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700"
                           : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
                       }`}
                     >
+                      {isOspf && <Activity className="w-3 h-3 text-amber-500 shrink-0" />}
                       <span>{displayLabel}</span>
                       <span
                         className={`text-[10px] px-1 rounded-full ${
                           isSelected
-                            ? "bg-blue-700 text-white"
+                            ? isOspf
+                              ? "bg-amber-700 text-white"
+                              : "bg-blue-700 text-white"
+                            : isOspf
+                            ? isDark
+                              ? "bg-amber-900/60 text-amber-300 font-bold"
+                              : "bg-amber-200/80 text-amber-800 font-bold"
                             : isDark
                             ? "bg-gray-700 text-gray-300"
                             : "bg-gray-200 text-gray-600"
