@@ -177,7 +177,7 @@ const NetworkVisualizer5 = ({
 
     svg.call(zoomBehavior);
 
-    const { link, linkHover, node, nodeBadge, label, filteredLinks } = renderCoreDevices(
+    const { link, linkHover, node, label, filteredLinks } = renderCoreDevices(
       zoomLayer,
       nodes,
       links,
@@ -205,9 +205,6 @@ const NetworkVisualizer5 = ({
 
     node.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
     label.attr("x", (d) => d.x).attr("y", (d) => d.y);
-    if (nodeBadge) {
-      nodeBadge.attr("transform", (d) => `translate(${d.x + 42}, ${d.y - 42})`);
-    }
     link
       .attr("x1", (d) => linkPositionFromEdges(d).x1)
       .attr("y1", (d) => linkPositionFromEdges(d).y1)
@@ -281,7 +278,6 @@ const NetworkVisualizer5 = ({
       linkHover,
       filteredLinks,
       node,
-      nodeBadge,
       tooltip,
       tooltipLayer,
       palette,
