@@ -503,26 +503,41 @@ export default function NetworkLinksSideDrawer({
         }
       }
 
-      // Search filter
+      // Search filter - search by word and not by entire term
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const src = String(link.sourceName || "").toLowerCase();
-        const tgt = String(link.targetName || "").toLowerCase();
-        const id = String(link.id || "").toLowerCase();
-        const srcZone = String(link.sourceZone || "").toLowerCase();
-        const tgtZone = String(link.targetZone || "").toLowerCase();
-        const desc = String(link.description || link.Description || "").toLowerCase();
-        const ip = String(link.ip || "").toLowerCase();
+        const queryWords = searchQuery.toLowerCase().trim().split(/\s+/).filter(Boolean);
+        const searchableFields = [
+          link.sourceName,
+          link.targetName,
+          typeof link.source === "string" ? link.source : (link.source?.name || link.source?.id),
+          typeof link.target === "string" ? link.target : (link.target?.name || link.target?.id),
+          link.name,
+          link.interface,
+          link.local_interface,
+          link.remote_interface,
+          link.id,
+          link.sourceZone,
+          link.targetZone,
+          link.description,
+          link.Description,
+          link.local_interface_description,
+          link.ip,
+          link.local_ip,
+          link.local_link_ip,
+          link.remote_ip,
+          link.remote_link_ip,
+          link.remote_device_ip,
+          link.destinationIp,
+          link.media_type,
+          link.MediaType,
+          link.bandwidth,
+          link.Bandwidth,
+          ...(Array.isArray(link.allIds) ? link.allIds : []),
+        ];
+        const searchableText = searchableFields.filter(Boolean).join(" ").toLowerCase();
 
-        return (
-          src.includes(q) ||
-          tgt.includes(q) ||
-          id.includes(q) ||
-          srcZone.includes(q) ||
-          tgtZone.includes(q) ||
-          desc.includes(q) ||
-          ip.includes(q)
-        );
+        const matchesAllWords = queryWords.every((word) => searchableText.includes(word));
+        if (!matchesAllWords) return false;
       }
 
       return true;
@@ -1234,12 +1249,20 @@ export default function NetworkLinksSideDrawer({
               (() => {
                 const filteredEvents = statusEvents.filter((event) => {
                   if (!searchQuery.trim()) return true;
-                  const q = searchQuery.toLowerCase().trim();
-                  return (
-                    (event.local_device_name || "").toLowerCase().includes(q) ||
-                    (event.remote_device_name || "").toLowerCase().includes(q) ||
-                    (event.event_type || "").toLowerCase().includes(q)
-                  );
+                  const queryWords = searchQuery.toLowerCase().trim().split(/\s+/).filter(Boolean);
+                  const searchableEventText = [
+                    event.local_device_name,
+                    event.remote_device_name,
+                    event.local_interface,
+                    event.remote_interface,
+                    event.event_type,
+                    String(event.link_id || ""),
+                  ]
+                    .filter(Boolean)
+                    .join(" ")
+                    .toLowerCase();
+
+                  return queryWords.every((word) => searchableEventText.includes(word));
                 });
 
                 const eventsByLink = filteredEvents.reduce((acc, event) => {
