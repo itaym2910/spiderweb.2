@@ -73,7 +73,15 @@ svg path.duplicate-link {
 }
 
 svg circle.node {
-  transition: fill 0.15s ease-out, stroke 0.15s ease-out, stroke-width 0.15s ease-out, opacity 0.15s ease-out;
+  transition: fill 0.15s ease-out, stroke 0.15s ease-out, stroke-width 0.15s ease-out, opacity 0.15s ease-out, r 0.15s ease-out;
+}
+
+svg circle.node-badge-circle {
+  transition: r 0.15s ease-out, fill 0.15s ease-out, stroke 0.15s ease-out, opacity 0.15s ease-out;
+}
+
+svg path.node-badge-icon {
+  transition: stroke 0.15s ease-out;
 }
 
 svg text.label {

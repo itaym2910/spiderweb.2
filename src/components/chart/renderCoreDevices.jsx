@@ -123,6 +123,10 @@ export function renderCoreDevices(
       }
     });
 
+  node
+    .append("title")
+    .text((d) => `Click to open ${d.shortName || d.id} links & interfaces`);
+
   const label = zoomLayer
     .append("g")
     .selectAll("text.label")
@@ -139,5 +143,49 @@ export function renderCoreDevices(
     .style("user-select", "none")
     .style("cursor", "default");
 
-  return { link, linkHover, node, label, filteredLinks };
+  const isDark = Boolean(palette?.isDark || palette?.bg === "#1f2937");
+  const defaultBadgeBg = palette.badgeBg || (isDark ? "#0f172a" : "#ffffff");
+  const defaultBadgeStroke = palette.badgeStroke || (isDark ? "#38bdf8" : "#2563eb");
+
+  const nodeBadge = zoomLayer
+    .append("g")
+    .attr("class", "node-badges-group")
+    .selectAll("g.node-badge")
+    .data(nodes)
+    .join("g")
+    .attr("class", "node-badge")
+    .attr("transform", (d) => `translate(${d.x + 42}, ${d.y - 42})`)
+    .style("cursor", "pointer")
+    .on("click", function (event, d_node) {
+      event.stopPropagation();
+      if (onNodeClick) {
+        onNodeClick(d_node);
+      }
+    });
+
+  nodeBadge
+    .append("circle")
+    .attr("class", "node-badge-circle")
+    .attr("r", 13)
+    .attr("fill", defaultBadgeBg)
+    .attr("stroke", defaultBadgeStroke)
+    .attr("stroke-width", 1.5)
+    .style("opacity", 0.85);
+
+  nodeBadge
+    .append("path")
+    .attr("class", "node-badge-icon")
+    .attr("d", "M -3 3 L 3 -3 M -1 -3 L 3 -3 L 3 1")
+    .attr("stroke", defaultBadgeStroke)
+    .attr("stroke-width", 1.8)
+    .attr("stroke-linecap", "round")
+    .attr("stroke-linejoin", "round")
+    .attr("fill", "none")
+    .style("pointer-events", "none");
+
+  nodeBadge
+    .append("title")
+    .text((d) => `Click to open ${d.shortName || d.id} links & interfaces`);
+
+  return { link, linkHover, node, nodeBadge, label, filteredLinks };
 }

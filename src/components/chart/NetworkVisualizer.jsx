@@ -32,12 +32,17 @@ const NetworkVisualizer = ({
   const palette = useMemo(() => {
     const isDark = theme === "dark";
     return {
+      isDark,
       bg: isDark ? "#1f2937" : "#ffffff",
       link: isDark ? "#94a3b8" : "#6b7280",
       node: isDark ? "#29c6e0" : "#29c6e0",
       nodeHoverDirect: isDark ? "rgba(234, 179, 8, 0.9)" : "#fde047", // same as link
       stroke: isDark ? "#60a5fa" : "#1d4ed8",
       label: isDark ? "#ffffff" : "#1f2937",
+      badgeBg: isDark ? "#0f172a" : "#ffffff",
+      badgeStroke: isDark ? "#38bdf8" : "#2563eb",
+      badgeHoverBg: isDark ? "#38bdf8" : "#2563eb",
+      badgeHoverStroke: isDark ? "#7dd3fc" : "#1d4ed8",
       zone: {
         fill: isDark ? "#38bdf8" : "#7dd3fc",
         opacity: isDark ? 0.12 : 0.25,
@@ -117,8 +122,8 @@ const NetworkVisualizer = ({
     // If topology is unchanged, do a fast data update without tearing down the DOM
     if (prevTopologyRef.current === currentTopology && !svg.select(".main-zoom-layer").empty()) {
       const zoomLayer = svg.select(".main-zoom-layer");
-      const linkSelection = zoomLayer.selectAll("line.visible-link").data(links, (d) => d.id);
-      const linkHoverSelection = zoomLayer.selectAll("line.link-hover").data(links, (d) => d.id);
+      zoomLayer.selectAll("line.visible-link").data(links, (d) => d.id);
+      zoomLayer.selectAll("line.link-hover").data(links, (d) => d.id);
 
       applyMarkedState({
         svg,
@@ -172,7 +177,7 @@ const NetworkVisualizer = ({
 
     svg.call(zoomBehavior);
 
-    const { link, linkHover, node, label, filteredLinks } = renderCoreDevices(
+    const { link, linkHover, node, nodeBadge, label, filteredLinks } = renderCoreDevices(
       zoomLayer,
       nodes,
       links,
@@ -200,6 +205,9 @@ const NetworkVisualizer = ({
 
     node.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
     label.attr("x", (d) => d.x).attr("y", (d) => d.y);
+    if (nodeBadge) {
+      nodeBadge.attr("transform", (d) => `translate(${d.x + 42}, ${d.y - 42})`);
+    }
     link
       .attr("x1", (d) => linkPositionFromEdges(d).x1)
       .attr("y1", (d) => linkPositionFromEdges(d).y1)
@@ -273,7 +281,9 @@ const NetworkVisualizer = ({
       linkHover,
       filteredLinks,
       node,
+      nodeBadge,
       tooltip,
+      tooltipLayer,
       palette,
       zoomLayer,
       onLinkClick,
@@ -288,7 +298,7 @@ const NetworkVisualizer = ({
       palette,
       theme,
     });
-  }, [onZoneClick, data, palette, onLinkClick, onNodeClick, showDetailedLinks, isDrawerOpen]);
+  }, [onZoneClick, data, palette, onLinkClick, onNodeClick, showDetailedLinks, isDrawerOpen, hoveredFilter, hoveredLinkId, theme]);
 
   // Effect to highlight marked and hovered links on the chart
   useEffect(() => {
