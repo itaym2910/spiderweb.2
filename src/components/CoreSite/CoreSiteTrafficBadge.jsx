@@ -58,10 +58,10 @@ export default function CoreSiteTrafficBadge({
 
   // Size styling
   const sizeClasses = {
-    sm: "px-2 py-0.5 text-[11px] gap-2 rounded-md",
-    md: "px-3 py-1 text-xs gap-3 rounded-lg",
-    lg: "px-4 py-1.5 text-sm gap-4 rounded-xl",
-  }[size] || "px-3 py-1 text-xs gap-3 rounded-lg";
+    sm: "px-2.5 py-1 text-[11px] gap-2 rounded-full",
+    md: "px-3.5 py-1.5 text-xs gap-3 rounded-full",
+    lg: "px-4 py-2 text-sm gap-3.5 rounded-full",
+  }[size] || "px-3.5 py-1.5 text-xs gap-3 rounded-full";
 
   const iconSizes = {
     sm: "w-3 h-3",
@@ -71,42 +71,42 @@ export default function CoreSiteTrafficBadge({
 
   return (
     <div
-      className={`inline-flex items-center font-mono font-medium shadow-sm transition-all duration-200 border ${
+      className={`inline-flex items-center font-sans font-semibold tracking-tight shadow-md transition-all duration-200 border ${
         isDark
-          ? "bg-slate-900/85 border-slate-700/60 text-slate-200 backdrop-blur-sm"
-          : "bg-white/95 border-sky-200 text-sky-950 shadow-sky-100"
+          ? "bg-gray-800/90 border-gray-700/80 text-gray-100 backdrop-blur-md shadow-black/20"
+          : "bg-white/95 border-gray-200 text-gray-800 backdrop-blur-md shadow-gray-200/50"
       } ${sizeClasses} ${className}`}
-      title={`Live Site Traffic - In: ${trafficIn} | Out: ${trafficOut}`}
+      title={`Live Site Traffic - Inbound: ${trafficIn} | Outbound: ${trafficOut}`}
     >
       {showActivity && (
-        <span className="flex items-center gap-1 text-emerald-500 mr-0.5">
+        <span className="flex items-center text-emerald-400 mr-0.5">
           <Activity className={`${iconSizes} animate-pulse`} />
         </span>
       )}
 
       {/* Inbound Traffic */}
       <span
-        className={`flex items-center gap-1 ${
-          isDark ? "text-emerald-400" : "text-emerald-600 font-semibold"
+        className={`flex items-center gap-1.5 ${
+          isDark ? "text-emerald-400" : "text-emerald-600"
         }`}
       >
-        <ArrowDownToLine className={`${iconSizes} flex-shrink-0`} />
-        <span className="tracking-tight">{trafficIn}</span>
+        <ArrowDownToLine className={`${iconSizes} flex-shrink-0 stroke-[2.2]`} />
+        <span>{trafficIn}</span>
       </span>
 
-      {/* Divider */}
+      {/* Subtle Dot or Divider */}
       <span
-        className={`h-3 w-px ${isDark ? "bg-slate-700" : "bg-sky-200"}`}
+        className={`h-3 w-px ${isDark ? "bg-gray-700" : "bg-gray-200"}`}
       />
 
       {/* Outbound Traffic */}
       <span
-        className={`flex items-center gap-1 ${
-          isDark ? "text-amber-400" : "text-amber-600 font-semibold"
+        className={`flex items-center gap-1.5 ${
+          isDark ? "text-amber-400" : "text-amber-600"
         }`}
       >
-        <ArrowUpFromLine className={`${iconSizes} flex-shrink-0`} />
-        <span className="tracking-tight">{trafficOut}</span>
+        <ArrowUpFromLine className={`${iconSizes} flex-shrink-0 stroke-[2.2]`} />
+        <span>{trafficOut}</span>
       </span>
     </div>
   );
