@@ -137,16 +137,19 @@ export default function AllInterfacesPage({ theme }) {
       // 1. Status Filter
       if (statusFilter !== "all" && iface.status !== statusFilter) return false;
 
-      // 2. Keyword Search (null-safe)
+      // 2. Keyword Search (match by word)
       if (term) {
-        const interfaceMatch =
-          iface.interfaceName?.toLowerCase().includes(term) ?? false;
-        const descMatch =
-          iface.description?.toLowerCase().includes(term) ?? false;
-        const deviceMatch =
-          iface.deviceName?.toLowerCase().includes(term) ?? false;
+        const queryWords = term.split(/\s+/).filter(Boolean);
+        const searchableText = [
+          iface.interfaceName,
+          iface.description,
+          iface.deviceName,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
 
-        return interfaceMatch || descMatch || deviceMatch;
+        return queryWords.every((word) => searchableText.includes(word));
       }
 
       return true;
