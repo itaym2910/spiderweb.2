@@ -58,7 +58,7 @@ def generate_dummy_data():
         for i in range(num_devices):
             ending = allowed_endings[i] if i < len(allowed_endings) else random.choice(allowed_endings)
             dev_name = f"rtr-{site_slug}-{prefix}{ending}"
-            dev_ip = fake.ipv4()
+            dev_ip = f"10.{cs['id']}.{ending}.1"
             device = {
                 "id": device_id_counter,
                 "name": dev_name,
@@ -493,6 +493,14 @@ def generate_dummy_data():
     users = [
         {"id": 1, "username": "admin", "role": "admin", "favorite_links": [1, 3, 5, 8, 12, 18, 25]},
         {"id": 2, "username": "userg", "role": "user", "favorite_links": [2, 4, 7, 10, 16, 22]},
+        {"id": 3, "username": "noc_operator", "role": "user", "favorite_links": [1, 2, 6, 9]},
+        {"id": 4, "username": "net_engineer", "role": "user", "favorite_links": [3, 4, 11, 15]},
+        {"id": 5, "username": "security_lead", "role": "admin", "favorite_links": [5, 12, 18]},
+        {"id": 6, "username": "dana_cohen", "role": "user", "favorite_links": [2, 8, 14]},
+        {"id": 7, "username": "itay_m", "role": "admin", "favorite_links": [1, 4, 7, 10]},
+        {"id": 8, "username": "ron_levy", "role": "user", "favorite_links": [6, 13, 20]},
+        {"id": 9, "username": "devops_guy", "role": "user", "favorite_links": [3, 9, 17]},
+        {"id": 10, "username": "sys_analyst", "role": "user", "favorite_links": [2, 5, 11]},
     ]
     
     # --- Alerts ---

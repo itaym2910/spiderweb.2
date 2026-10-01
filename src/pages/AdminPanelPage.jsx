@@ -1222,7 +1222,7 @@ export function AdminPanelPage() {
                               {device.hostname || device.name}
                             </td>
                             <td className="py-4 px-4">
-                              <span className="font-mono text-xs text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-750 px-2 py-1 rounded border border-gray-200 dark:border-gray-700">
+                              <span className="font-mono text-xs text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-700">
                                 {device.ip || device.ip_address || "N/A"}
                               </span>
                             </td>

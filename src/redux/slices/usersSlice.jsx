@@ -5,8 +5,14 @@ import { api } from "../../services/apiServices";
 const DEFAULT_FALLBACK_USERS = [
   { id: 1, username: "admin", role: "admin" },
   { id: 2, username: "userg", role: "user" },
-  { id: 3, username: "operator_1", role: "user" },
+  { id: 3, username: "noc_operator", role: "user" },
   { id: 4, username: "net_engineer", role: "user" },
+  { id: 5, username: "security_lead", role: "admin" },
+  { id: 6, username: "dana_cohen", role: "user" },
+  { id: 7, username: "itay_m", role: "admin" },
+  { id: 8, username: "ron_levy", role: "user" },
+  { id: 9, username: "devops_guy", role: "user" },
+  { id: 10, username: "sys_analyst", role: "user" },
 ];
 
 // --- ASYNC THUNKS ---
