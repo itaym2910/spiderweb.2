@@ -83,6 +83,16 @@ const NetworkVisualizerWrapper = ({ theme }) => {
   const [markedLinkIds, setMarkedLinkIds] = useState(new Set());
   const [hoveredLinkId, setHoveredLinkId] = useState(null);
   const [hoveredFilter, setHoveredFilter] = useState(null);
+  const [activeFilter, setActiveFilter] = useState(null);
+  const [pingSubFilter, setPingSubFilter] = useState("all");
+
+  const handleOpenChange = useCallback((open) => {
+    setIsDrawerOpen(open);
+    if (!open) {
+      setActiveFilter(null);
+      setMarkedLinkIds(new Set());
+    }
+  }, []);
 
   const handleToggleMarkLink = (linkId) => {
     setMarkedLinkIds((prev) => {
@@ -429,7 +439,11 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           theme={theme}
           chartName="L-Network"
           isOpen={isDrawerOpen}
-          onOpenChange={setIsDrawerOpen}
+          onOpenChange={handleOpenChange}
+          activeFilter={activeFilter}
+          onActiveFilterChange={setActiveFilter}
+          pingSubFilter={pingSubFilter}
+          onPingSubFilterChange={setPingSubFilter}
           markedLinkIds={markedLinkIds}
           onToggleMarkLink={handleToggleMarkLink}
           onMarkAll={handleMarkAll}
@@ -443,6 +457,8 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           theme={theme}
           showDetailedLinks={true}
           isDrawerOpen={isDrawerOpen}
+          activeFilter={isDrawerOpen ? activeFilter : null}
+          pingSubFilter={pingSubFilter}
           markedLinkIds={markedLinkIds}
           hoveredLinkId={hoveredLinkId}
           hoveredFilter={hoveredFilter}

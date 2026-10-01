@@ -275,6 +275,10 @@ export default function NetworkLinksSideDrawer({
   chartName = "Network",
   isOpen: controlledIsOpen,
   onOpenChange,
+  activeFilter: controlledActiveFilter,
+  onActiveFilterChange,
+  pingSubFilter: controlledPingSubFilter,
+  onPingSubFilterChange,
   markedLinkIds = new Set(),
   onToggleMarkLink,
   onMarkAll,
@@ -291,9 +295,31 @@ export default function NetworkLinksSideDrawer({
     onOpenChange?.(nextVal);
   };
 
-  const [activeFilter, setActiveFilter] = useState("up"); // 'up' | 'down' | 'issue' | 'ping' | 'all'
+  const [internalActiveFilter, setInternalActiveFilter] = useState("up"); // 'up' | 'down' | 'issue' | 'ping' | 'all'
+  const activeFilter =
+    controlledActiveFilter !== undefined && controlledActiveFilter !== null
+      ? controlledActiveFilter
+      : internalActiveFilter;
+
+  const setActiveFilter = (val) => {
+    const nextVal = typeof val === "function" ? val(activeFilter) : val;
+    setInternalActiveFilter(nextVal);
+    onActiveFilterChange?.(nextVal);
+  };
+
+  const [internalPingSubFilter, setInternalPingSubFilter] = useState("all"); // 'all' | 'issues' | 'healthy'
+  const pingSubFilter =
+    controlledPingSubFilter !== undefined
+      ? controlledPingSubFilter
+      : internalPingSubFilter;
+
+  const setPingSubFilter = (val) => {
+    const nextVal = typeof val === "function" ? val(pingSubFilter) : val;
+    setInternalPingSubFilter(nextVal);
+    onPingSubFilterChange?.(nextVal);
+  };
+
   const [timeFilter, setTimeFilter] = useState(null); // null | '24h' | '7d' | '30d'
-  const [pingSubFilter, setPingSubFilter] = useState("all"); // 'all' | 'issues' | 'healthy'
   const [isPingModalOpen, setIsPingModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   // Local state to trigger re-computation of durations every 10 seconds
@@ -558,17 +584,25 @@ export default function NetworkLinksSideDrawer({
   }, [enrichedLinks, activeFilter, timeFilter, searchQuery, pingSubFilter]);
 
   // Helper to get links matching status and time window for marking on chart
-  const getMatchingLinks = (statusF, timeF) => {
-    const isStabilityMode = statusF !== "all";
+  const getMatchingLinks = (statusF, timeF, pingSubF = pingSubFilter) => {
+    const isStabilityMode = statusF !== "all" && statusF !== "ping";
 
     return enrichedLinks.filter((link) => {
       // Status filter
       if (statusF === "up" && link.normalizedStatus !== "up") return false;
       if (statusF === "down" && link.normalizedStatus !== "down") return false;
       if (statusF === "issue" && link.normalizedStatus !== "issue") return false;
+      if (statusF === "ping") {
+        const pInfo = formatPingRateWithPackets(link);
+        if (!pInfo) return false;
+        const numRate = pInfo.rate;
+        const hasLoss = (pInfo.packetsLost ?? 0) > 0 || numRate < 100;
+        if (pingSubF === "issues" && !hasLoss) return false;
+        if (pingSubF === "healthy" && hasLoss) return false;
+      }
 
       // Time filter
-      if (timeF) {
+      if (timeF && statusF !== "ping") {
         if (timeF === "72h_ospf") {
           return (link.ospf_drops_last_24h ?? 0) > 0 || link.rawLink?.ospf_drops_last_24h > 0 || (link.ospf_state && link.ospf_state.toLowerCase() !== "full");
         }
@@ -594,11 +628,17 @@ export default function NetworkLinksSideDrawer({
     });
   };
 
-  // Handle clicking the Up or Down floating button
+  // Handle closing drawer and clearing filters
+  const handleCloseDrawer = () => {
+    setIsOpen(false);
+    onActiveFilterChange?.(null);
+    onClearMarks?.();
+  };
+
+  // Handle clicking floating buttons (Up, Down, Issue, Ping)
   const handleButtonClick = (filterType) => {
     if (isOpen && activeFilter === filterType) {
-      setIsOpen(false);
-      onClearMarks?.();
+      handleCloseDrawer();
     } else {
       setActiveFilter(filterType);
       setIsOpen(true);
@@ -611,7 +651,7 @@ export default function NetworkLinksSideDrawer({
     }
   };
 
-  // Handle status tab clicks (Up, Down, All)
+  // Handle status tab clicks (Up, Down, Issue, Ping, All)
   const handleStatusTabClick = (filterType) => {
     setActiveFilter(filterType);
     let nextTimeFilter = timeFilter;
@@ -625,6 +665,13 @@ export default function NetworkLinksSideDrawer({
       const matching = getMatchingLinks(filterType, nextTimeFilter);
       onMarkAll?.(matching.map((l) => l.id));
     }
+  };
+
+  // Handle ping sub-filters (All, Packet Loss, 100% Healthy)
+  const handlePingSubFilterClick = (subFilter) => {
+    setPingSubFilter(subFilter);
+    const matching = getMatchingLinks("ping", timeFilter, subFilter);
+    onMarkAll?.(matching.map((l) => l.id));
   };
 
   // Handle time window filter clicks (<24h, <7d, <1 Month, All)
@@ -759,10 +806,10 @@ export default function NetworkLinksSideDrawer({
         {/* PING TOTAL Button */}
         <button
           type="button"
-          onClick={() => setIsPingModalOpen(true)}
+          onClick={() => handleButtonClick("ping")}
           onMouseEnter={() => onHoverFilter?.("ping")}
           onMouseLeave={() => onHoverFilter?.(null)}
-          title={`Total Ping: ${pingSummary.formattedRate} (${pingSummary.formattedPackets} packets received${pingSummary.totalPacketsLost > 0 ? `, ${pingSummary.totalPacketsLost} lost!` : ""}). Click for full summary.`}
+          title={`Total Ping: ${pingSummary.formattedRate} (${pingSummary.formattedPackets} packets received${pingSummary.totalPacketsLost > 0 ? `, ${pingSummary.totalPacketsLost} lost!` : ""}). Click to view ping telemetry.`}
           className={`group flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold shadow-lg transition-all duration-200 border ${
             isOpen && activeFilter === "ping"
               ? "bg-blue-600 text-white border-blue-500 ring-2 ring-blue-400/50 shadow-blue-500/20"
@@ -842,7 +889,7 @@ export default function NetworkLinksSideDrawer({
       {/* Backdrop overlay for smaller screens or click away */}
       {isOpen && (
         <div
-          onClick={() => setIsOpen(false)}
+          onClick={handleCloseDrawer}
           className="absolute inset-0 bg-black/20 backdrop-blur-[1px] z-25 transition-opacity"
         />
       )}
@@ -870,6 +917,8 @@ export default function NetworkLinksSideDrawer({
                   ? "bg-emerald-500/15 text-emerald-500"
                   : activeFilter === "down"
                   ? "bg-rose-500/15 text-rose-500"
+                  : activeFilter === "issue"
+                  ? "bg-amber-500/15 text-amber-500"
                   : "bg-blue-500/15 text-blue-500"
               }`}
             >
@@ -883,6 +932,8 @@ export default function NetworkLinksSideDrawer({
                   ? "Down Links"
                   : activeFilter === "issue"
                   ? "Issue Links"
+                  : activeFilter === "ping"
+                  ? "Ping Telemetry"
                   : "All Network Links"}
               </h2>
               <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -895,7 +946,7 @@ export default function NetworkLinksSideDrawer({
 
           <button
             type="button"
-            onClick={() => setIsOpen(false)}
+            onClick={handleCloseDrawer}
             title="Close panel"
             className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-200/60 dark:hover:bg-gray-800 transition-colors"
           >
@@ -1049,7 +1100,7 @@ export default function NetworkLinksSideDrawer({
                 <div className="flex items-center gap-1 overflow-x-auto pb-0.5 flex-1 scrollbar-none">
                   <button
                     type="button"
-                    onClick={() => setPingSubFilter("all")}
+                    onClick={() => handlePingSubFilterClick("all")}
                     className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
                       pingSubFilter === "all"
                         ? "bg-blue-600 text-white shadow-xs"
@@ -1063,7 +1114,7 @@ export default function NetworkLinksSideDrawer({
 
                   <button
                     type="button"
-                    onClick={() => setPingSubFilter("issues")}
+                    onClick={() => handlePingSubFilterClick("issues")}
                     className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
                       pingSubFilter === "issues"
                         ? "bg-amber-600 text-white shadow-xs"
@@ -1077,7 +1128,7 @@ export default function NetworkLinksSideDrawer({
 
                   <button
                     type="button"
-                    onClick={() => setPingSubFilter("healthy")}
+                    onClick={() => handlePingSubFilterClick("healthy")}
                     className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
                       pingSubFilter === "healthy"
                         ? "bg-emerald-600 text-white shadow-xs"
@@ -1842,6 +1893,8 @@ export default function NetworkLinksSideDrawer({
           setIsPingModalOpen(false);
           setIsOpen(true);
           setActiveFilter("ping");
+          const matching = getMatchingLinks("ping", timeFilter);
+          onMarkAll?.(matching.map((l) => l.id));
         }}
         theme={theme}
       />

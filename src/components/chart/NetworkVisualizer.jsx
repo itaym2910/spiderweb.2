@@ -20,6 +20,8 @@ const NetworkVisualizer = ({
   markedLinkIds = new Set(),
   hoveredLinkId = null,
   hoveredFilter = null,
+  activeFilter = null,
+  pingSubFilter = "all",
   trafficByZone = {},
   onZoneClick,
   onLinkClick,
@@ -29,6 +31,9 @@ const NetworkVisualizer = ({
   const zoomBehaviorRef = useRef(null);
   const initialTransformRef = useRef(null);
   const markedLinkIdsRef = useRef(markedLinkIds);
+  const activeFilterRef = useRef(activeFilter);
+  const pingSubFilterRef = useRef(pingSubFilter);
+  const themeRef = useRef(theme);
   const prevTopologyRef = useRef("");
 
   // Navigation & viewport state
@@ -49,6 +54,18 @@ const NetworkVisualizer = ({
   useEffect(() => {
     markedLinkIdsRef.current = markedLinkIds;
   }, [markedLinkIds]);
+
+  useEffect(() => {
+    activeFilterRef.current = activeFilter;
+  }, [activeFilter]);
+
+  useEffect(() => {
+    pingSubFilterRef.current = pingSubFilter;
+  }, [pingSubFilter]);
+
+  useEffect(() => {
+    themeRef.current = theme;
+  }, [theme]);
 
   const palette = useMemo(() => {
     const isDark = theme === "dark";
@@ -155,6 +172,8 @@ const NetworkVisualizer = ({
         markedLinkIds: markedLinkIdsRef.current,
         hoveredLinkId,
         hoveredFilter,
+        activeFilter,
+        pingSubFilter,
         palette,
         theme,
       });
@@ -214,7 +233,7 @@ const NetworkVisualizer = ({
     });
 
     // Enhanced D3 Zoom Behavior with bounded physics
-    const panMargin = 600;
+    const panMargin = 120;
     const zoomBehavior = d3
       .zoom()
       .scaleExtent([0.35, 3.5])
@@ -250,6 +269,9 @@ const NetworkVisualizer = ({
             onLinkClick,
             linkSelection: link,
             getMarkedLinkIds: () => markedLinkIdsRef.current,
+            getActiveFilter: () => activeFilterRef.current,
+            getPingSubFilter: () => pingSubFilterRef.current,
+            getTheme: () => themeRef.current,
           });
         } else if (!shouldShowDetailed && parallelLinksAreVisible) {
           parallelLinksAreVisible = false;
@@ -395,6 +417,9 @@ const NetworkVisualizer = ({
       zoomLayer,
       onLinkClick,
       getMarkedLinkIds: () => markedLinkIdsRef.current,
+      getActiveFilter: () => activeFilterRef.current,
+      getPingSubFilter: () => pingSubFilterRef.current,
+      getTheme: () => themeRef.current,
     });
 
     applyMarkedState({
@@ -402,6 +427,8 @@ const NetworkVisualizer = ({
       markedLinkIds: markedLinkIdsRef.current,
       hoveredLinkId,
       hoveredFilter,
+      activeFilter,
+      pingSubFilter,
       palette,
       theme,
     });
@@ -415,6 +442,8 @@ const NetworkVisualizer = ({
     isDrawerOpen,
     hoveredFilter,
     hoveredLinkId,
+    activeFilter,
+    pingSubFilter,
     theme,
     trafficByZone,
   ]);
@@ -430,10 +459,12 @@ const NetworkVisualizer = ({
       markedLinkIds,
       hoveredLinkId,
       hoveredFilter,
+      activeFilter,
+      pingSubFilter,
       palette,
       theme,
     });
-  }, [markedLinkIds, hoveredLinkId, hoveredFilter, palette, theme]);
+  }, [markedLinkIds, hoveredLinkId, hoveredFilter, activeFilter, pingSubFilter, palette, theme]);
 
   // Navigation handlers
   const handleZoomIn = useCallback(() => {
@@ -491,7 +522,21 @@ const NetworkVisualizer = ({
   const handlePanTo = useCallback((newTx, newTy, isSmooth = false) => {
     if (!svgRef.current || !zoomBehaviorRef.current) return;
     const cur = d3.zoomTransform(svgRef.current);
-    const targetTransform = d3.zoomIdentity.translate(newTx, newTy).scale(cur.k);
+    let targetTransform = d3.zoomIdentity.translate(newTx, newTy).scale(cur.k);
+
+    if (zoomBehaviorRef.current.constrain) {
+      const constrainFn = zoomBehaviorRef.current.constrain();
+      const extent = [
+        [0, 0],
+        [
+          svgRef.current.clientWidth || window.innerWidth,
+          svgRef.current.clientHeight || window.innerHeight,
+        ],
+      ];
+      const translateExtent = zoomBehaviorRef.current.translateExtent();
+      targetTransform = constrainFn(targetTransform, extent, translateExtent);
+    }
+
     if (isSmooth) {
       d3.select(svgRef.current)
         .transition()
@@ -516,14 +561,22 @@ const NetworkVisualizer = ({
       const targetTx = visibleWidth / 2 - zone.cx * targetK;
       const targetTy = height / 2 - zone.cy * targetK;
 
+      let targetTransform = d3.zoomIdentity.translate(targetTx, targetTy).scale(targetK);
+      if (zoomBehaviorRef.current.constrain) {
+        const constrainFn = zoomBehaviorRef.current.constrain();
+        const extent = [
+          [0, 0],
+          [width, height],
+        ];
+        const translateExtent = zoomBehaviorRef.current.translateExtent();
+        targetTransform = constrainFn(targetTransform, extent, translateExtent);
+      }
+
       d3.select(svgRef.current)
         .transition()
         .duration(500)
         .ease(d3.easeCubicOut)
-        .call(
-          zoomBehaviorRef.current.transform,
-          d3.zoomIdentity.translate(targetTx, targetTy).scale(targetK)
-        );
+        .call(zoomBehaviorRef.current.transform, targetTransform);
     },
     [isDrawerOpen]
   );
@@ -553,12 +606,25 @@ const NetworkVisualizer = ({
         if (e.key === "ArrowRight") dx = -step;
         if (e.key === "ArrowUp") dy = step;
         if (e.key === "ArrowDown") dy = -step;
+        let targetTransform = d3.zoomIdentity.translate(cur.x + dx, cur.y + dy).scale(cur.k);
+        if (zoomBehaviorRef.current.constrain) {
+          const constrainFn = zoomBehaviorRef.current.constrain();
+          const extent = [
+            [0, 0],
+            [
+              svgRef.current.clientWidth || window.innerWidth,
+              svgRef.current.clientHeight || window.innerHeight,
+            ],
+          ];
+          const translateExtent = zoomBehaviorRef.current.translateExtent();
+          targetTransform = constrainFn(targetTransform, extent, translateExtent);
+        }
         d3.select(svgRef.current)
           .transition()
           .duration(100)
           .call(
             zoomBehaviorRef.current.transform,
-            d3.zoomIdentity.translate(cur.x + dx, cur.y + dy).scale(cur.k)
+            targetTransform
           );
       }
     };

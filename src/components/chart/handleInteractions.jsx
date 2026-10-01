@@ -246,6 +246,8 @@ export function applyMarkedState({
   markedLinkIds,
   hoveredLinkId,
   hoveredFilter,
+  activeFilter,
+  pingSubFilter = "all",
   palette,
   theme,
 }) {
@@ -256,7 +258,9 @@ export function applyMarkedState({
   const defaultNodeColor = palette?.node || "#29c6e0";
   const defaultNodeStroke = palette?.stroke || (isDark ? "#60a5fa" : "#1d4ed8");
 
-  const hasFilter = Boolean(hoveredFilter);
+  // Hovered filter previews take priority over active drawer filter
+  const effectiveFilter = hoveredFilter || activeFilter;
+  const hasFilter = Boolean(effectiveFilter);
   const hasMarked =
     (markedLinkIds && markedLinkIds.size > 0) ||
     Boolean(hoveredLinkId) ||
@@ -303,11 +307,12 @@ export function applyMarkedState({
   }
 
   // =================================================================
-  // 1. SPECIAL PING MODE (hovering Ping Total)
+  // 1. SPECIAL PING MODE (hovering Ping Total or active Ping filter)
   // Shows a color on every link relative to packets that fell (green -> red)
   // =================================================================
-  if (hoveredFilter === "ping") {
+  if (effectiveFilter === "ping") {
     const activeEndpoints = new Set();
+    const effectivePingSubFilter = hoveredFilter === "ping" ? "all" : (pingSubFilter || "all");
 
     const applyPingStyle = (selection) => {
       selection.each(function (d) {
@@ -318,35 +323,54 @@ export function applyMarkedState({
         const el = d3.select(this);
 
         if (pingInfo) {
-          activeEndpoints.add(sourceId);
-          activeEndpoints.add(targetId);
-
           const dropped = pingInfo.dropped ?? (pingInfo.metrics?.packetsLost ?? 0);
           const hasLoss = dropped > 0 || pingInfo.lossRate > 0;
 
-          el.raise()
-            .attr("stroke", pingInfo.color)
-            .attr("stroke-opacity", 1)
-            .attr("stroke-width", hasLoss ? 5.5 : 4.0);
+          let matchesSubFilter = true;
+          if (effectivePingSubFilter === "issues") {
+            matchesSubFilter = hasLoss;
+          } else if (effectivePingSubFilter === "healthy") {
+            matchesSubFilter = !hasLoss;
+          }
 
-          let titleEl = el.select("title");
-          if (titleEl.empty()) {
-            titleEl = el.append("title");
-          }
-          const sName = typeof d.source === "object" ? d.source.name || d.source.id : d.source;
-          const tName = typeof d.target === "object" ? d.target.name || d.target.id : d.target;
-          let lossText;
-          if (!hasLoss) {
-            lossText = "0% packet loss (Healthy)";
+          if (matchesSubFilter) {
+            activeEndpoints.add(sourceId);
+            activeEndpoints.add(targetId);
+
+            const isHovered = hoveredLinkId && (
+              d.id === hoveredLinkId ||
+              Boolean(d.allIds && d.allIds.includes(hoveredLinkId))
+            );
+
+            el.raise()
+              .attr("stroke", pingInfo.color)
+              .attr("stroke-opacity", 1)
+              .attr("stroke-width", isHovered ? (hasLoss ? 7.0 : 5.5) : (hasLoss ? 5.5 : 4.0));
+
+            let titleEl = el.select("title");
+            if (titleEl.empty()) {
+              titleEl = el.append("title");
+            }
+            const sName = typeof d.source === "object" ? d.source.name || d.source.id : d.source;
+            const tName = typeof d.target === "object" ? d.target.name || d.target.id : d.target;
+            let lossText;
+            if (!hasLoss) {
+              lossText = "0% packet loss (Healthy)";
+            } else {
+              const lossPctText = pingInfo.lossRate < 0.1 ? "<0.1%" : `${pingInfo.lossRate.toFixed(1)}%`;
+              lossText = `⚠️ ${dropped} packet${dropped > 1 ? "s" : ""} lost (${lossPctText} loss)`;
+            }
+            const packetText = pingInfo.metrics?.shortRatio ? ` (${pingInfo.metrics.shortRatio} received)` : "";
+            titleEl.text(`${sName} ⟷ ${tName}: ${lossText}${packetText}`);
           } else {
-            const lossPctText = pingInfo.lossRate < 0.1 ? "<0.1%" : `${pingInfo.lossRate.toFixed(1)}%`;
-            lossText = `⚠️ ${dropped} packet${dropped > 1 ? "s" : ""} lost (${lossPctText} loss)`;
+            el.attr("stroke", defaultLinkColor)
+              .attr("stroke-opacity", 0.12)
+              .attr("stroke-width", 1.5);
+            el.select("title").remove();
           }
-          const packetText = pingInfo.metrics?.shortRatio ? ` (${pingInfo.metrics.shortRatio} received)` : "";
-          titleEl.text(`${sName} ⟷ ${tName}: ${lossText}${packetText}`);
         } else {
           el.attr("stroke", defaultLinkColor)
-            .attr("stroke-opacity", 0.15)
+            .attr("stroke-opacity", 0.12)
             .attr("stroke-width", 1.5);
           el.select("title").remove();
         }
@@ -416,10 +440,17 @@ export function applyMarkedState({
       const status = normalizeLinkStatus(d);
       return status === hoveredFilter;
     }
-    return (
-      markedIdsSet.has(d.id) ||
-      Boolean(d.allIds && d.allIds.some((id) => markedIdsSet.has(id)))
-    );
+    if (markedIdsSet.size > 0 || hoveredLinkId) {
+      return (
+        markedIdsSet.has(d.id) ||
+        Boolean(d.allIds && d.allIds.some((id) => markedIdsSet.has(id)))
+      );
+    }
+    if (activeFilter && activeFilter !== "all") {
+      const status = normalizeLinkStatus(d);
+      return status === activeFilter;
+    }
+    return false;
   };
 
   const applyStatusStyle = (selection) => {
@@ -536,6 +567,9 @@ export function drawAllParallelLinks({
   palette,
   onLinkClick,
   getMarkedLinkIds,
+  getActiveFilter,
+  getPingSubFilter,
+  getTheme,
 }) {
   if (!zoomLayer) return;
 
@@ -718,8 +752,18 @@ export function drawAllParallelLinks({
           tooltip.attr("opacity", 0);
           zoomLayer.selectAll(".edge-label-temp").remove();
           const markedIds = getMarkedLinkIds ? getMarkedLinkIds() : null;
-          if (markedIds && markedIds.size > 0) {
-            applyMarkedState({ svg, markedLinkIds: markedIds, palette });
+          const activeFilter = getActiveFilter ? getActiveFilter() : null;
+          const pingSubFilter = getPingSubFilter ? getPingSubFilter() : "all";
+          const currentTheme = getTheme ? getTheme() : (palette?.isDark ? "dark" : "light");
+          if ((markedIds && markedIds.size > 0) || activeFilter) {
+            applyMarkedState({
+              svg,
+              markedLinkIds: markedIds,
+              activeFilter,
+              pingSubFilter,
+              palette,
+              theme: currentTheme,
+            });
             return;
           }
 
@@ -898,14 +942,27 @@ export function handleNodeMouseOut(
   d_node,
   linkSelection,
   palette,
-  getMarkedLinkIds
+  getMarkedLinkIds,
+  getActiveFilter,
+  getPingSubFilter,
+  getTheme
 ) {
   const markedIds = getMarkedLinkIds ? getMarkedLinkIds() : null;
+  const activeFilter = getActiveFilter ? getActiveFilter() : null;
+  const pingSubFilter = getPingSubFilter ? getPingSubFilter() : "all";
+  const currentTheme = getTheme ? getTheme() : (palette?.isDark ? "dark" : "light");
   const svgNode = linkSelection?.node()?.ownerSVGElement;
   const svg = svgNode ? d3.select(svgNode) : d3.select("svg");
 
-  if (markedIds && markedIds.size > 0) {
-    applyMarkedState({ svg, markedLinkIds: markedIds, palette });
+  if ((markedIds && markedIds.size > 0) || activeFilter) {
+    applyMarkedState({
+      svg,
+      markedLinkIds: markedIds,
+      activeFilter,
+      pingSubFilter,
+      palette,
+      theme: currentTheme,
+    });
     return;
   }
 
@@ -1176,7 +1233,16 @@ function handleMouseOver(
 // ===================================================================
 // Straight Link Mouse Out Handler
 // ===================================================================
-function handleMouseOut(linkSelection, tooltip, palette, getMarkedLinkIds, event) {
+function handleMouseOut(
+  linkSelection,
+  tooltip,
+  palette,
+  getMarkedLinkIds,
+  event,
+  getActiveFilter,
+  getPingSubFilter,
+  getTheme
+) {
   // If moving to a temporary duplicate link, do NOT tear down!
   if (
     event &&
@@ -1189,6 +1255,9 @@ function handleMouseOut(linkSelection, tooltip, palette, getMarkedLinkIds, event
 
   tooltip.attr("opacity", 0);
   const markedIds = getMarkedLinkIds ? getMarkedLinkIds() : null;
+  const activeFilter = getActiveFilter ? getActiveFilter() : null;
+  const pingSubFilter = getPingSubFilter ? getPingSubFilter() : "all";
+  const currentTheme = getTheme ? getTheme() : (palette?.isDark ? "dark" : "light");
   const svgNode = linkSelection?.node()?.ownerSVGElement;
   const svg = svgNode ? d3.select(svgNode) : d3.select("svg");
 
@@ -1198,8 +1267,15 @@ function handleMouseOut(linkSelection, tooltip, palette, getMarkedLinkIds, event
   // Restore the straight link hover area
   svg.selectAll("line.link-hover").attr("stroke-width", 20);
 
-  if (markedIds && markedIds.size > 0) {
-    applyMarkedState({ svg, markedLinkIds: markedIds, palette });
+  if ((markedIds && markedIds.size > 0) || activeFilter) {
+    applyMarkedState({
+      svg,
+      markedLinkIds: markedIds,
+      activeFilter,
+      pingSubFilter,
+      palette,
+      theme: currentTheme,
+    });
     return;
   }
 
@@ -1239,6 +1315,9 @@ export function setupInteractions({
   zoomLayer,
   onLinkClick,
   getMarkedLinkIds,
+  getActiveFilter,
+  getPingSubFilter,
+  getTheme,
 }) {
   if (!zoomLayer || !zoomLayer.node() || !linkHover || !linkHover.size()) {
     return;
@@ -1380,7 +1459,15 @@ export function setupInteractions({
 
   const handleNodeLeave = function (_event, d_node) {
     hideNodeTooltip();
-    handleNodeMouseOut(d_node, link, palette, getMarkedLinkIds);
+    handleNodeMouseOut(
+      d_node,
+      link,
+      palette,
+      getMarkedLinkIds,
+      getActiveFilter,
+      getPingSubFilter,
+      getTheme
+    );
   };
 
   // Node hover interactions
@@ -1416,7 +1503,16 @@ export function setupInteractions({
       tooltip.attr("x", px + 12).attr("y", py - 12);
     })
     .on("mouseout", function (event) {
-      handleMouseOut(link, tooltip, palette, getMarkedLinkIds, event);
+      handleMouseOut(
+        link,
+        tooltip,
+        palette,
+        getMarkedLinkIds,
+        event,
+        getActiveFilter,
+        getPingSubFilter,
+        getTheme
+      );
     })
     .on("click", function (event, d_clicked) {
       if (onLinkClick) {
@@ -1428,7 +1524,15 @@ export function setupInteractions({
 
   // Global SVG pointerleave safety check to prevent any stuck hover state
   svg.on("pointerleave.clearHover", function () {
-    handleNodeMouseOut(null, link, palette, getMarkedLinkIds);
+    handleNodeMouseOut(
+      null,
+      link,
+      palette,
+      getMarkedLinkIds,
+      getActiveFilter,
+      getPingSubFilter,
+      getTheme
+    );
     hideNodeTooltip();
   });
 }
