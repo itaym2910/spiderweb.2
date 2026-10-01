@@ -133,6 +133,7 @@ export const api = {
     handleApiCall(apiClient.get(`/get_interfaces_up/${siteName}`)).catch(() => []),
   getCoreSiteTraffic: (coresiteId) =>
     handleApiCall(apiClient.get(`/get-core-site-traffic/${coresiteId}/`)),
+  getUsers: () => handleApiCall(apiClient.get("/users/")),
 
   // --- POST (Create/Add) Endpoints ---
   addCorePikudim: (pikudData) =>
@@ -149,6 +150,9 @@ export const api = {
     handleApiCall(apiClient.post("/get_wan_connection", networkData)).catch(() => ({ status: "connected" })),
 
   // --- PUT (Update/Action) Endpoints ---
+  makeUserAdmin: (userId) =>
+    handleApiCall(apiClient.put(`/users/${userId}/make-admin`)),
+
   refreshInterfacesPerDevice: (deviceId) =>
     handleApiCall(apiClient.put(`/refresh_interfaces_per_device/${deviceId}`)).catch(() => ({ status: "ok" })),
 
