@@ -212,6 +212,30 @@ def generate_dummy_data():
         local_iface = allocate_interface_for_device(dev1, bw_choice)
         remote_iface = allocate_interface_for_device(dev2, bw_choice)
 
+        status_changed_iso = (datetime.utcnow() - timedelta(hours=random.choice([random.uniform(0.1, 23), random.uniform(25, 160), random.uniform(170, 700)]))).isoformat()
+
+        if phys_stat == "Up":
+            rec_last_up = status_changed_iso
+            rec_last_down = None
+            # Real-world network scenario: ~88% of up links are OSPF Full,
+            # ~6% dropped from Full (issue, last_ospf_full_at != None),
+            # ~6% never established OSPF Full (up, last_ospf_full_at == None).
+            ospf_choice = random.choices(["Full", "Dropped", "NeverFull"], weights=[0.88, 0.06, 0.06])[0]
+            if ospf_choice == "Full":
+                ospf_st = "Full"
+                rec_last_ospf_full = status_changed_iso
+            elif ospf_choice == "Dropped":
+                ospf_st = "2-Way"
+                rec_last_ospf_full = (datetime.utcnow() - timedelta(hours=random.uniform(24, 200))).isoformat()
+            else:
+                ospf_st = "2-Way"
+                rec_last_ospf_full = None
+        else:
+            ospf_st = "Down"
+            rec_last_up = None
+            rec_last_down = status_changed_iso
+            rec_last_ospf_full = None
+
         record = {
             "id": link_id_counter,
             "coredevice_id": dev1["id"],
@@ -238,7 +262,7 @@ def generate_dummy_data():
             "ping_total": packets_tot,
             "ping_ratio": ping_ratio,
             "last_ping_at": (datetime.utcnow() - timedelta(minutes=random.randint(1, 15))).isoformat(),
-            "ospf_state": "Full" if (phys_stat == "Up" and ping_rate >= 80.0) else ("2-Way" if phys_stat == "Up" else "Down"),
+            "ospf_state": ospf_st,
             "media_type": media_type,
             "input_rate": in_rate,
             "output_rate": out_rate,
@@ -251,7 +275,10 @@ def generate_dummy_data():
             "remote_interface": remote_iface,
             "created_at": (datetime.utcnow() - timedelta(days=random.uniform(1, 45))).isoformat(),
             "updated_at": (datetime.utcnow() - timedelta(hours=random.choice([random.uniform(0.1, 23), random.uniform(25, 160), random.uniform(170, 700)]))).isoformat(),
-            "status_changed_at": (datetime.utcnow() - timedelta(hours=random.choice([random.uniform(0.1, 23), random.uniform(25, 160), random.uniform(170, 700)]))).isoformat(),
+            "status_changed_at": status_changed_iso,
+            "last_up_at": rec_last_up,
+            "last_down_at": rec_last_down,
+            "last_ospf_full_at": rec_last_ospf_full,
             "crawler_cycle_id": 1,
         }
         link_id_counter += 1
@@ -642,12 +669,17 @@ def generate_dummy_data():
         if evs:
             latest = evs[0]
             link["status_changed_at"] = latest["created_at"]
+            link["physical_status"] = latest["new_oper_status"]
+            link["protocol_status"] = latest["new_oper_status"]
+            link["ospf_state"] = latest["new_ospf_state"]
             if latest["new_oper_status"] == "Down":
                 link["last_down_at"] = latest["created_at"]
             elif latest["new_oper_status"] == "Up":
                 link["last_up_at"] = latest["created_at"]
             if latest["new_ospf_state"] == "Full":
                 link["last_ospf_full_at"] = latest["created_at"]
+            elif latest["old_ospf_state"] == "Full" and not link.get("last_ospf_full_at"):
+                link["last_ospf_full_at"] = (datetime.fromisoformat(latest["created_at"]) - timedelta(hours=random.uniform(1, 10))).isoformat()
 
     # --- Core Site Traffic (Inbound and Outbound) ---
     core_site_traffic = {}

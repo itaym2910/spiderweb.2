@@ -58,69 +58,92 @@ export function linkPositionFromEdges(d, r = 60) {
   };
 }
 
-export function normalizeLinkStatus(link) {
-  if (!link) return "up";
+export function hasValidDate(val) {
+  if (val === null || val === undefined) return false;
+  const s = String(val).trim().toLowerCase();
+  return s !== "" && s !== "null" && s !== "undefined" && s !== "none";
+}
+
+/**
+ * Determines a link's status ("up" | "issue" | "down") and its corresponding timestamp
+ * according to the following rules:
+ * - down:  oper status !== up && last down at date !== null (timestamp = last down at)
+ * - issue: oper status = up && ospf state !== full && last ospf full date !== null (timestamp = last ospf full date)
+ * - up:    oper status = up && last up at date !== null (timestamp = last up at)
+ * Note: If oper status = up && ospf state !== full but last ospf full date === null, it has UP status (not issue).
+ */
+export function getLinkStatusAndDate(link) {
+  if (!link) return { status: "up", statusDate: null };
 
   const raw = link.rawLink || link;
 
-  // New logic based on /api/core-topology
-  if (raw.oper_status !== undefined) {
-    const operStatus = String(raw.oper_status).toLowerCase().trim();
-    if (operStatus !== "up") {
-      return "down";
-    }
+  // Extract dates
+  const lastUpAt = hasValidDate(raw.last_up_at)
+    ? raw.last_up_at
+    : (hasValidDate(link.last_up_at) ? link.last_up_at : null);
 
-    const ospfState = String(raw.ospf_state || "").toLowerCase().trim();
-    const isOspfFull = raw.is_ospf_full !== undefined ? Boolean(raw.is_ospf_full) : ospfState === "full";
-    if (!isOspfFull && (raw.last_ospf_full_at !== "null" && raw.last_ospf_full_at != null || raw.is_ospf_full === false)) {
-      return "issue";
-    }
+  const lastDownAt = hasValidDate(raw.last_down_at)
+    ? raw.last_down_at
+    : (hasValidDate(link.last_down_at) ? link.last_down_at : null);
 
-    return "up";
-  }
+  const lastOspfFullAt = hasValidDate(raw.last_ospf_full_at)
+    ? raw.last_ospf_full_at
+    : (hasValidDate(link.last_ospf_full_at) ? link.last_ospf_full_at : null);
 
-  // Fallback for backwards compatibility if oper_status is not present
-  if (link.normalizedStatus) {
-    const norm = String(link.normalizedStatus).toLowerCase().trim();
-    if (norm === "down" || norm === "issue" || norm === "up") return norm;
-  }
-
-  const s = String(link.status || "").toLowerCase().trim();
-  const p = String(
-    link.physical_status || link.physicalStatus || ""
+  const operStatus = String(
+    raw.oper_status !== undefined
+      ? raw.oper_status
+      : (link.oper_status !== undefined
+          ? link.oper_status
+          : (raw.physical_status || link.physical_status || raw.status || link.status || ""))
   ).toLowerCase().trim();
-  const proto = String(
-    link.protocol_status || link.protocolStatus || ""
+
+  const ospfState = String(
+    raw.ospf_state !== undefined
+      ? raw.ospf_state
+      : (link.ospf_state !== undefined
+          ? link.ospf_state
+          : (raw.ospf || link.ospf || raw.ospfStatus || link.ospfStatus || ""))
   ).toLowerCase().trim();
-  const cat = String(link.category || "").toLowerCase().trim();
 
-  // If any status field indicates down, it is strictly down
-  if (
-    s === "down" ||
-    p === "down" ||
-    proto === "down" ||
-    cat === "down" ||
-    s.includes("down") ||
-    p.includes("down") ||
-    proto.includes("down") ||
-    cat.includes("down")
-  ) {
-    return "down";
+  const isOspfFull = raw.is_ospf_full !== undefined
+    ? Boolean(raw.is_ospf_full)
+    : (link.is_ospf_full !== undefined ? Boolean(link.is_ospf_full) : ospfState === "full");
+
+  // Rule 1: down -> oper status !== up && last down at date !== null
+  // (timestamp will be the date in the last down at date field)
+  if (operStatus !== "up" && lastDownAt !== null) {
+    return { status: "down", statusDate: lastDownAt };
   }
 
-  // If any status field indicates an issue or warning
-  if (
-    s === "issue" ||
-    p === "issue" ||
-    cat === "issue" ||
-    s === "warning" ||
-    p === "warning" ||
-    cat === "warning" ||
-    s.includes("issue") ||
-    s.includes("warning")
-  ) {
-    return "issue";
+  // Rule 2: issue -> oper status = up && ospf state !== full && last ospf full date !== null
+  // (timestamp will be the date in the last ospf full date field)
+  if (operStatus === "up" && !isOspfFull && lastOspfFullAt !== null) {
+    return { status: "issue", statusDate: lastOspfFullAt };
   }
 
-  return "up";
+  // Rule 3: up -> oper status = up && last up at date !== null
+  // (timestamp will be the date in the last up at date field)
+  // If oper status = up && ospf state !== full but last ospf full date === null, it has UP status
+  if (operStatus === "up" && lastUpAt !== null) {
+    return { status: "up", statusDate: lastUpAt };
+  }
+
+  // Fallbacks if one of the specific date fields is missing:
+  if (operStatus !== "up") {
+    return {
+      status: "down",
+      statusDate: lastDownAt || raw.last_state_change_at || link.last_state_change_at || raw.updated_at || link.updated_at || null,
+    };
+  }
+
+  // operStatus === "up":
+  return {
+    status: "up",
+    statusDate: lastUpAt || raw.last_state_change_at || link.last_state_change_at || raw.created_at || link.created_at || null,
+  };
+}
+
+export function normalizeLinkStatus(link) {
+  return getLinkStatusAndDate(link).status;
 }

@@ -5,6 +5,7 @@ import NetworkVisualizer5 from "../../components/chart/NetworkVisualizer5";
 import LinkDetailPopup from "../../components/shared/LinkDetailPopup";
 import NetworkLinksSideDrawer from "../../components/chart/NetworkLinksSideDrawer";
 import ToggleDetailButton from "../../components/chart/ToggleDetailButton";
+import { getLinkStatusAndDate } from "../../components/chart/drawHelpers";
 import { fetchInitialData } from "../../redux/slices/authSlice";
 import { toggleFavoriteLink } from "../../redux/slices/favoritesSlice";
 import {
@@ -217,16 +218,7 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
         const remoteZone = (remoteDevice ? remoteDevice.coresite_name : null) || link.remote_coresite_name || "Unknown";
 
         // Normalize oper_status and ospf_state to up/down/issue
-        const operStatus = (link.oper_status || "").toLowerCase();
-        const ospfState = (link.ospf_state || "").toLowerCase();
-        const isOspfFull = link.is_ospf_full !== undefined ? Boolean(link.is_ospf_full) : ospfState === "full";
-        let normalized = "up";
-
-        if (operStatus !== "up") {
-          normalized = "down";
-        } else if (!isOspfFull && (link.last_ospf_full_at !== "null" && link.last_ospf_full_at != null || link.is_ospf_full === false)) {
-          normalized = "issue";
-        }
+        const { status: normalized, statusDate: linkStatusDate } = getLinkStatusAndDate(link);
 
         const isBothDevicesVisible = Boolean(
           visibleDeviceNames.has(device.name) &&
@@ -263,10 +255,20 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
             existing.category = "down";
             existing.status = "down";
             existing.normalizedStatus = "down";
+            if (linkStatusDate) {
+              existing.statusDate = linkStatusDate;
+              existing.statusChangedAt = linkStatusDate;
+              existing.last_state_change_at = linkStatusDate;
+            }
           } else if (normalized === "issue" && existing.category !== "down") {
             existing.category = "issue";
             existing.status = "issue";
             existing.normalizedStatus = "issue";
+            if (linkStatusDate) {
+              existing.statusDate = linkStatusDate;
+              existing.statusChangedAt = linkStatusDate;
+              existing.last_state_change_at = linkStatusDate;
+            }
           }
 
           // If either side determines visibility, ensure it is marked visible
@@ -327,8 +329,9 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           category: normalized,
           status: normalized,
           normalizedStatus: normalized,
-          statusChangedAt: link.last_state_change_at,
-          last_state_change_at: link.last_state_change_at,
+          statusDate: linkStatusDate,
+          statusChangedAt: linkStatusDate || link.last_state_change_at,
+          last_state_change_at: linkStatusDate || link.last_state_change_at,
           linkType: "core",
           bandwidth: link.bandwidth_mbps
             ? (typeof link.bandwidth_mbps === "number"
