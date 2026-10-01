@@ -1485,210 +1485,212 @@ export default function NetworkLinksSideDrawer({
                 const visibleFilteredLinks = filteredLinks.filter(l => l.isVisibleOnMap);
                 const notVisibleFilteredLinks = filteredLinks.filter(l => !l.isVisibleOnMap);
                 
+                const renderStandardLinkCard = (link) => {
+                  const isLinkUp = link.normalizedStatus === "up";
+                  const isLinkIssue = link.normalizedStatus === "issue";
+                  const isLinkMarked = markedLinkIds && markedLinkIds.has(link.id);
+
+                  return (
+                    <div
+                      key={link.id || `${link.sourceName}-${link.targetName}`}
+                      onMouseEnter={() => onHoverLink?.(link.id)}
+                      onMouseLeave={() => onHoverLink?.(null)}
+                      onClick={() => {
+                        if (onLinkClick) {
+                          onLinkClick({
+                            ...link,
+                            sourceNode: link.sourceName,
+                            targetNode: link.targetName,
+                          });
+                        }
+                      }}
+                      className={`group relative p-3 rounded-xl border transition-all duration-200 cursor-pointer ${
+                        isLinkMarked
+                          ? isDark
+                            ? "bg-amber-950/20 border-amber-500/70 shadow-md shadow-amber-500/5 ring-1 ring-amber-500/50"
+                            : "bg-amber-50/70 border-amber-300 shadow-md shadow-amber-200/50 ring-1 ring-amber-400/50"
+                          : isDark
+                          ? "bg-gray-800/60 hover:bg-gray-800 border-gray-700/60 hover:border-gray-600"
+                          : "bg-white hover:bg-gray-50/80 border-gray-200/80 hover:border-gray-300 shadow-sm"
+                      }`}
+                    >
+                      {/* Card Top: Status & Duration & Mark Button */}
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        {/* Status badge */}
+                        <div className="flex items-center gap-1.5">
+                          <span className="relative flex h-2 w-2">
+                            <span
+                              className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                                isLinkUp
+                                  ? "bg-emerald-400"
+                                  : isLinkIssue
+                                  ? "bg-amber-400"
+                                  : "bg-rose-400"
+                              }`}
+                            />
+                            <span
+                              className={`relative inline-flex rounded-full h-2 w-2 ${
+                                isLinkUp
+                                  ? "bg-emerald-500"
+                                  : isLinkIssue
+                                  ? "bg-amber-500"
+                                  : "bg-rose-500"
+                              }`}
+                            />
+                          </span>
+                          <span
+                            className={`text-xs font-bold uppercase tracking-wider ${
+                              isLinkUp
+                                ? "text-emerald-600 dark:text-emerald-400"
+                                : isLinkIssue
+                                ? "text-amber-600 dark:text-amber-400"
+                                : "text-rose-600 dark:text-rose-400"
+                            }`}
+                          >
+                            {isLinkUp ? "UP" : isLinkIssue ? "ISSUE" : "DOWN"}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {/* Duration */}
+                          <div
+                            title={
+                              link.exactTimeStr
+                                ? `Status change: ${link.exactTimeStr}`
+                                : undefined
+                            }
+                            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                              isLinkUp
+                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
+                                : isLinkIssue
+                                ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20"
+                                : "bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20"
+                            }`}
+                          >
+                            <Clock className="w-3 h-3 flex-shrink-0" />
+                            <span>
+                              {isLinkUp ? "Up" : isLinkIssue ? "Issue" : "Down"} for{" "}
+                              <strong className="font-semibold">{link.durationStr}</strong>
+                            </span>
+                          </div>
+
+                          {/* Mark on chart button */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onToggleMarkLink) onToggleMarkLink(link.id);
+                            }}
+                            title={isLinkMarked ? "Unmark from chart" : "Mark link on chart"}
+                            className={`p-1 rounded-md transition-colors ${
+                              isLinkMarked
+                                ? "bg-amber-500 text-white shadow-sm"
+                                : "text-gray-400 hover:text-amber-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            }`}
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Card Middle: Source ⟷ Target */}
+                      <div className="flex items-center justify-between text-xs font-semibold py-1">
+                        <div className="flex flex-col min-w-0 pr-2">
+                          <span className="truncate text-gray-800 dark:text-gray-100 font-mono">
+                            {link.sourceName}
+                          </span>
+                          {link.sourceZone && (
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                              {link.sourceZone}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="text-gray-400 dark:text-gray-500 px-1 font-mono text-[10px]">
+                          ⟷
+                        </div>
+
+                        <div className="flex flex-col min-w-0 pl-2 text-right">
+                          <span className="truncate text-gray-800 dark:text-gray-100 font-mono">
+                            {link.targetName}
+                          </span>
+                          {link.targetZone && (
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                              {link.targetZone}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Card Bottom: Meta info & Inspect button */}
+                      <div
+                        className={`mt-2 pt-2 border-t flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 ${
+                          isDark ? "border-gray-700/50" : "border-gray-100"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span>{link.Bandwidth || link.bandwidth || "10 Gbps"}</span>
+                          <span>•</span>
+                          <span>{link.MediaType || link.media_type || "Fiber"}</span>
+                          {link.ip && (
+                            <>
+                              <span>•</span>
+                              <span className="font-mono">{link.ip}</span>
+                            </>
+                          )}
+                          {(() => {
+                            const pInfo = formatPingRateWithPackets(link);
+                            if (!pInfo) return null;
+                            const numRate = pInfo.rate;
+                            const packetsLost = pInfo.packetsLost ?? (numRate < 100 ? 1 : 0);
+                            const hasLoss = packetsLost > 0 || numRate < 100;
+                            const isDown = numRate === 0;
+                            const lastPing = link.last_ping_at || link.rawLink?.last_ping_at;
+                            return (
+                              <>
+                                <span>•</span>
+                                <span
+                                  className={`inline-flex items-center gap-1 font-semibold ${
+                                    isDown
+                                      ? "text-rose-600 dark:text-rose-400"
+                                      : hasLoss
+                                      ? "text-amber-600 dark:text-amber-400"
+                                      : "text-emerald-600 dark:text-emerald-400"
+                                  }`}
+                                  title={lastPing ? `Last ping: ${lastPing} • ${pInfo.full}${hasLoss ? ` • ${packetsLost} packet(s) lost!` : ""}` : `${pInfo.full}${hasLoss ? ` • ${packetsLost} packet(s) lost!` : ""}`}
+                                >
+                                  {hasLoss && !isDown ? (
+                                    <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+                                  ) : (
+                                    <Activity className="w-3 h-3 shrink-0" />
+                                  )}
+                                  <span>Ping: {pInfo.short}</span>
+                                  {hasLoss && !isDown && (
+                                    <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                      {packetsLost} lost
+                                    </span>
+                                  )}
+                                </span>
+                              </>
+                            );
+                          })()}
+                        </div>
+
+                        <div className="flex items-center gap-1 text-blue-500 dark:text-blue-400 font-medium group-hover:underline">
+                          <span>Inspect</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                };
+
                 return (
                   <>
                     {visibleFilteredLinks.length > 0 && (
                       <div className="mb-4">
                         <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-1">Visible on Map</h4>
-                        {visibleFilteredLinks.map((link) => {
-                const isLinkUp = link.normalizedStatus === "up";
-                const isLinkIssue = link.normalizedStatus === "issue";
-                const isLinkMarked = markedLinkIds && markedLinkIds.has(link.id);
-
-                return (
-                  <div
-                    key={link.id || `${link.sourceName}-${link.targetName}`}
-                    onMouseEnter={() => onHoverLink?.(link.id)}
-                    onMouseLeave={() => onHoverLink?.(null)}
-                    onClick={() => {
-                      if (onLinkClick) {
-                        onLinkClick({
-                          ...link,
-                          sourceNode: link.sourceName,
-                          targetNode: link.targetName,
-                        });
-                      }
-                    }}
-                    className={`group relative p-3 rounded-xl border transition-all duration-200 cursor-pointer ${
-                      isLinkMarked
-                        ? isDark
-                          ? "bg-amber-950/20 border-amber-500/70 shadow-md shadow-amber-500/5 ring-1 ring-amber-500/50"
-                          : "bg-amber-50/70 border-amber-300 shadow-md shadow-amber-200/50 ring-1 ring-amber-400/50"
-                        : isDark
-                        ? "bg-gray-800/60 hover:bg-gray-800 border-gray-700/60 hover:border-gray-600"
-                        : "bg-white hover:bg-gray-50/80 border-gray-200/80 hover:border-gray-300 shadow-sm"
-                    }`}
-                  >
-                    {/* Card Top: Status & Duration & Mark Button */}
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      {/* Status badge */}
-                      <div className="flex items-center gap-1.5">
-                        <span className="relative flex h-2 w-2">
-                          <span
-                            className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                              isLinkUp
-                                ? "bg-emerald-400"
-                                : isLinkIssue
-                                ? "bg-amber-400"
-                                : "bg-rose-400"
-                            }`}
-                          />
-                          <span
-                            className={`relative inline-flex rounded-full h-2 w-2 ${
-                              isLinkUp
-                                ? "bg-emerald-500"
-                                : isLinkIssue
-                                ? "bg-amber-500"
-                                : "bg-rose-500"
-                            }`}
-                          />
-                        </span>
-                        <span
-                          className={`text-xs font-bold uppercase tracking-wider ${
-                            isLinkUp
-                              ? "text-emerald-600 dark:text-emerald-400"
-                              : isLinkIssue
-                              ? "text-amber-600 dark:text-amber-400"
-                              : "text-rose-600 dark:text-rose-400"
-                          }`}
-                        >
-                          {isLinkUp ? "UP" : isLinkIssue ? "ISSUE" : "DOWN"}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {/* Duration */}
-                        <div
-                          title={
-                            link.exactTimeStr
-                              ? `Status change: ${link.exactTimeStr}`
-                              : undefined
-                          }
-                          className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                            isLinkUp
-                              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
-                              : isLinkIssue
-                              ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20"
-                              : "bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20"
-                          }`}
-                        >
-                          <Clock className="w-3 h-3 flex-shrink-0" />
-                          <span>
-                            {isLinkUp ? "Up" : isLinkIssue ? "Issue" : "Down"} for{" "}
-                            <strong className="font-semibold">{link.durationStr}</strong>
-                          </span>
-                        </div>
-
-                        {/* Mark on chart button */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (onToggleMarkLink) onToggleMarkLink(link.id);
-                          }}
-                          title={isLinkMarked ? "Unmark from chart" : "Mark link on chart"}
-                          className={`p-1 rounded-md transition-colors ${
-                            isLinkMarked
-                              ? "bg-amber-500 text-white shadow-sm"
-                              : "text-gray-400 hover:text-amber-500 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          }`}
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Card Middle: Source ⟷ Target */}
-                    <div className="flex items-center justify-between text-xs font-semibold py-1">
-                      <div className="flex flex-col min-w-0 pr-2">
-                        <span className="truncate text-gray-800 dark:text-gray-100 font-mono">
-                          {link.sourceName}
-                        </span>
-                        {link.sourceZone && (
-                          <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                            {link.sourceZone}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="text-gray-400 dark:text-gray-500 px-1 font-mono text-[10px]">
-                        ⟷
-                      </div>
-
-                      <div className="flex flex-col min-w-0 pl-2 text-right">
-                        <span className="truncate text-gray-800 dark:text-gray-100 font-mono">
-                          {link.targetName}
-                        </span>
-                        {link.targetZone && (
-                          <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                            {link.targetZone}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Card Bottom: Meta info & Inspect button */}
-                    <div
-                      className={`mt-2 pt-2 border-t flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 ${
-                        isDark ? "border-gray-700/50" : "border-gray-100"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span>{link.Bandwidth || link.bandwidth || "10 Gbps"}</span>
-                        <span>•</span>
-                        <span>{link.MediaType || link.media_type || "Fiber"}</span>
-                        {link.ip && (
-                          <>
-                            <span>•</span>
-                            <span className="font-mono">{link.ip}</span>
-                          </>
-                        )}
-                        {(() => {
-                          const pInfo = formatPingRateWithPackets(link);
-                          if (!pInfo) return null;
-                          const numRate = pInfo.rate;
-                          const packetsLost = pInfo.packetsLost ?? (numRate < 100 ? 1 : 0);
-                          const hasLoss = packetsLost > 0 || numRate < 100;
-                          const isDown = numRate === 0;
-                          const lastPing = link.last_ping_at || link.rawLink?.last_ping_at;
-                          return (
-                            <>
-                              <span>•</span>
-                              <span
-                                className={`inline-flex items-center gap-1 font-semibold ${
-                                  isDown
-                                    ? "text-rose-600 dark:text-rose-400"
-                                    : hasLoss
-                                    ? "text-amber-600 dark:text-amber-400"
-                                    : "text-emerald-600 dark:text-emerald-400"
-                                }`}
-                                title={lastPing ? `Last ping: ${lastPing} • ${pInfo.full}${hasLoss ? ` • ${packetsLost} packet(s) lost!` : ""}` : `${pInfo.full}${hasLoss ? ` • ${packetsLost} packet(s) lost!` : ""}`}
-                              >
-                                {hasLoss && !isDown ? (
-                                  <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
-                                ) : (
-                                  <Activity className="w-3 h-3 shrink-0" />
-                                )}
-                                <span>Ping: {pInfo.short}</span>
-                                {hasLoss && !isDown && (
-                                  <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
-                                    {packetsLost} lost
-                                  </span>
-                                )}
-                              </span>
-                            </>
-                          );
-                        })()}
-                      </div>
-
-                      <div className="flex items-center gap-1 text-blue-500 dark:text-blue-400 font-medium group-hover:underline">
-                        <span>Inspect</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </div>
-                    </div>
-                  </div>
-                );
-                        })}
+                        {visibleFilteredLinks.map(renderStandardLinkCard)}
                       </div>
                     )}
                     
@@ -1699,169 +1701,7 @@ export default function NetworkLinksSideDrawer({
                     {notVisibleFilteredLinks.length > 0 && (
                       <div>
                         <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-1">Not Shown on Map</h4>
-                        {notVisibleFilteredLinks.map((link) => {
-                const isLinkUp = link.normalizedStatus === "up";
-                const isLinkIssue = link.normalizedStatus === "issue";
-                const isLinkMarked = markedLinkIds && markedLinkIds.has(link.id);
-
-                return (
-                  <div
-                    key={link.id || `${link.sourceName}-${link.targetName}`}
-                    onMouseEnter={() => onHoverLink?.(link.id)}
-                    onMouseLeave={() => onHoverLink?.(null)}
-                    onClick={() => {
-                      if (onLinkClick) {
-                        onLinkClick({
-                          ...link,
-                          sourceNode: link.sourceName,
-                          targetNode: link.targetName,
-                        });
-                      }
-                    }}
-                    className={`group relative p-3 rounded-xl border transition-all duration-200 cursor-pointer ${
-                      isLinkMarked
-                        ? isDark
-                          ? "bg-amber-950/20 border-amber-500/70 shadow-md shadow-amber-500/5 ring-1 ring-amber-500/50"
-                          : "bg-amber-50/70 border-amber-300 shadow-md shadow-amber-200/50 ring-1 ring-amber-400/50"
-                        : isDark
-                        ? "bg-gray-800/60 hover:bg-gray-800 border-gray-700/60 hover:border-gray-600"
-                        : "bg-white hover:bg-gray-50/80 border-gray-200/80 hover:border-gray-300 shadow-sm"
-                    }`}
-                  >
-                    {/* Card Top: Status & Duration & Mark Button */}
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      {/* Status badge */}
-                      <div className="flex items-center gap-1.5">
-                        <span className="relative flex h-2 w-2">
-                          <span
-                            className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                              isLinkUp
-                                ? "bg-emerald-400"
-                                : isLinkIssue
-                                ? "bg-amber-400"
-                                : "bg-rose-400"
-                            }`}
-                          />
-                          <span
-                            className={`relative inline-flex rounded-full h-2 w-2 ${
-                              isLinkUp
-                                ? "bg-emerald-500"
-                                : isLinkIssue
-                                ? "bg-amber-500"
-                                : "bg-rose-500"
-                            }`}
-                          />
-                        </span>
-                        <span
-                          className={`text-xs font-bold uppercase tracking-wider ${
-                            isLinkUp
-                              ? "text-emerald-600 dark:text-emerald-400"
-                              : isLinkIssue
-                              ? "text-amber-600 dark:text-amber-400"
-                              : "text-rose-600 dark:text-rose-400"
-                          }`}
-                        >
-                          {isLinkUp ? "UP" : isLinkIssue ? "ISSUE" : "DOWN"}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {/* Duration */}
-                        <div
-                          title={
-                            link.exactTimeStr
-                              ? `Status change: ${link.exactTimeStr}`
-                              : undefined
-                          }
-                          className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                            isLinkUp
-                              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
-                              : isLinkIssue
-                              ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20"
-                              : "bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20"
-                          }`}
-                        >
-                          <Clock className="w-3 h-3 flex-shrink-0" />
-                          <span>
-                            {isLinkUp ? "Up" : isLinkIssue ? "Issue" : "Down"} for{" "}
-                            <strong className="font-semibold">{link.durationStr}</strong>
-                          </span>
-                        </div>
-
-                        {/* Mark on chart button */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (onToggleMarkLink) onToggleMarkLink(link.id);
-                          }}
-                          title={isLinkMarked ? "Unmark from chart" : "Mark link on chart"}
-                          className={`p-1 rounded-md transition-colors ${
-                            isLinkMarked
-                              ? "bg-amber-500 text-white shadow-sm"
-                              : "text-gray-400 hover:text-amber-500 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          }`}
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Card Middle: Source ⟷ Target */}
-                    <div className="flex items-center justify-between text-xs font-semibold py-1">
-                      <div className="flex flex-col min-w-0 pr-2">
-                        <span className="truncate text-gray-800 dark:text-gray-100 font-mono">
-                          {link.sourceName}
-                        </span>
-                        {link.sourceZone && (
-                          <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                            {link.sourceZone}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="text-gray-400 dark:text-gray-500 px-1 font-mono text-[10px]">
-                        ⟷
-                      </div>
-
-                      <div className="flex flex-col min-w-0 pl-2 text-right">
-                        <span className="truncate text-gray-800 dark:text-gray-100 font-mono">
-                          {link.targetName}
-                        </span>
-                        {link.targetZone && (
-                          <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                            {link.targetZone}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Card Bottom: Meta info & Inspect button */}
-                    <div
-                      className={`mt-2 pt-2 border-t flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 ${
-                        isDark ? "border-gray-700/50" : "border-gray-100"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span>{link.Bandwidth || link.bandwidth || "10 Gbps"}</span>
-                        <span>•</span>
-                        <span>{link.MediaType || link.media_type || "Fiber"}</span>
-                        {link.ip && (
-                          <>
-                            <span>•</span>
-                            <span className="font-mono">{link.ip}</span>
-                          </>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-1 text-blue-500 dark:text-blue-400 font-medium group-hover:underline">
-                        <span>Inspect</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </div>
-                    </div>
-                  </div>
-                );
-                        })}
+                        {notVisibleFilteredLinks.map(renderStandardLinkCard)}
                       </div>
                     )}
                   </>
