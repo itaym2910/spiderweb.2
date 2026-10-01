@@ -303,10 +303,6 @@ export default function NetworkLinksSideDrawer({
   const [eventsLoading, setEventsLoading] = useState(false);
   const [expandedEventLinks, setExpandedEventLinks] = useState(new Set());
   
-  // State for 72h OSPF Drops count (calculated via endpoint)
-  const [ospfDrops72hCount, setOspfDrops72hCount] = useState(0);
-  const [ospfDropsLoading, setOspfDropsLoading] = useState(false);
-
   // Advanced filters for the "All" tab events
   const [apiEventType, setApiEventType] = useState("");
   const [apiLocalDevice, setApiLocalDevice] = useState("");
@@ -324,36 +320,6 @@ export default function NetworkLinksSideDrawer({
       .map(([id, label]) => ({ id, label }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [allDevices]);
-
-  // Calculate the number of OSPF drops in the last 72 hours by calling the endpoint with requested presets:
-  // /api/core-topology-events?days=3&event-type=ospf_drop&offset=0&include_summary=true
-  const fetchOspfDropsCount = useCallback(async () => {
-    try {
-      setOspfDropsLoading(true);
-      const data = await api.getCoreTopologyEvents({
-        days: 3,
-        "event-type": "ospf_drop",
-        offset: 0,
-        include_summary: true,
-      });
-      const count =
-        data?.summary?.count ??
-        data?.summary?.total ??
-        data?.count ??
-        (Array.isArray(data?.events) ? data.events.length : 0);
-      setOspfDrops72hCount(count);
-    } catch (err) {
-      console.error("Failed to calculate 72h OSPF drops count:", err);
-    } finally {
-      setOspfDropsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchOspfDropsCount();
-    const interval = setInterval(fetchOspfDropsCount, 30000);
-    return () => clearInterval(interval);
-  }, [fetchOspfDropsCount]);
 
   // Fetch events when the "All" tab is active and time filter changes
   const fetchEvents = useCallback(async (since, eventType, localId, remoteId, silent = false) => {
@@ -384,16 +350,18 @@ export default function NetworkLinksSideDrawer({
 
     try {
       const data = await api.getCoreTopologyEvents(params);
-      setStatusEvents(data.events || []);
-      if (since === "72h_ospf") {
-        const count =
-          data?.summary?.count ??
-          data?.summary?.total ??
-          data?.count ??
-          (Array.isArray(data?.events) ? data.events.length : 0);
-        setOspfDrops72hCount(count);
-      }
-    } catch {
+      const rawEvents = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.events)
+        ? data.events
+        : Array.isArray(data?.data?.events)
+        ? data.data.events
+        : Array.isArray(data?.data)
+        ? data.data
+        : [];
+      setStatusEvents(rawEvents);
+    } catch (err) {
+      console.error("Failed to fetch topology events:", err);
       setStatusEvents([]);
     } finally {
       if (!silent) setEventsLoading(false);
@@ -485,42 +453,6 @@ export default function NetworkLinksSideDrawer({
     () => calculatePingSummary(enrichedLinks),
     [enrichedLinks]
   );
-
-  // Time filter counts based on the active status tab
-  // For up/down/issue: count links stable for >= X time (status changed BEFORE cutoff)
-  // For all: count links changed within < X time (status changed AFTER cutoff)
-  const timeCounts = useMemo(() => {
-    const statusFiltered = enrichedLinks.filter((link) => {
-      if (activeFilter === "up") return link.normalizedStatus === "up";
-      if (activeFilter === "down") return link.normalizedStatus === "down";
-      if (activeFilter === "issue") return link.normalizedStatus === "issue";
-      return true;
-    });
-
-    const isStabilityMode = activeFilter !== "all";
-    const counts = { "24h": 0, "7d": 0, "30d": 0 };
-    const now = Date.now();
-
-    statusFiltered.forEach((link) => {
-      const d = new Date(link.statusDate);
-      if (!isNaN(d.getTime())) {
-        const diffHours = (now - d.getTime()) / (1000 * 60 * 60);
-        if (isStabilityMode) {
-          // Stable for >= X: status changed at least X ago
-          if (diffHours >= 24) counts["24h"]++;
-          if (diffHours >= 24 * 7) counts["7d"]++;
-          if (diffHours >= 24 * 30) counts["30d"]++;
-        } else {
-          // Changed within < X: status changed within the last X
-          if (diffHours <= 24) counts["24h"]++;
-          if (diffHours <= 24 * 7) counts["7d"]++;
-          if (diffHours <= 24 * 30) counts["30d"]++;
-        }
-      }
-    });
-
-    return counts;
-  }, [enrichedLinks, activeFilter]);
 
   // Filtered links for the active view, time window, and search
   const filteredLinks = useMemo(() => {
@@ -679,10 +611,15 @@ export default function NetworkLinksSideDrawer({
   // Handle status tab clicks (Up, Down, All)
   const handleStatusTabClick = (filterType) => {
     setActiveFilter(filterType);
+    let nextTimeFilter = timeFilter;
+    if (filterType !== "all" && timeFilter === "72h_ospf") {
+      nextTimeFilter = null;
+      setTimeFilter(null);
+    }
     if (filterType === "all") {
       onClearMarks?.();
     } else {
-      const matching = getMatchingLinks(filterType, timeFilter);
+      const matching = getMatchingLinks(filterType, nextTimeFilter);
       onMarkAll?.(matching.map((l) => l.id));
     }
   };
@@ -946,8 +883,9 @@ export default function NetworkLinksSideDrawer({
                   : "All Network Links"}
               </h2>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                {chartName} Chart • {filteredLinks.length} visible link
-                {filteredLinks.length === 1 ? "" : "s"}
+                {activeFilter === "all"
+                  ? `${chartName} Chart • Event Log`
+                  : `${chartName} Chart • ${filteredLinks.length} visible link${filteredLinks.length === 1 ? "" : "s"}`}
               </p>
             </div>
           </div>
@@ -1162,11 +1100,12 @@ export default function NetworkLinksSideDrawer({
                   { id: "24h", labelAll: "< 24h", labelStability: "≥ 24h" },
                   { id: "7d", labelAll: "< 1 Week", labelStability: "≥ 1 Week" },
                   { id: "30d", labelAll: "< 1 Month", labelStability: "≥ 1 Month" },
-                  { id: "72h_ospf", labelAll: "OSPF Drops (72h)", labelStability: "OSPF Drops (72h)" },
+                  ...(activeFilter === "all"
+                    ? [{ id: "72h_ospf", labelAll: "OSPF Drops (72h)", labelStability: "OSPF Drops (72h)" }]
+                    : []),
                 ].map((opt) => {
                   const isSelected = timeFilter === opt.id;
                   const isOspf = opt.id === "72h_ospf";
-                  const count = isOspf ? ospfDrops72hCount : (timeCounts[opt.id] ?? 0);
                   const isStabilityMode = activeFilter !== "all";
                   const displayLabel = isStabilityMode ? opt.labelStability : opt.labelAll;
                   
@@ -1175,16 +1114,13 @@ export default function NetworkLinksSideDrawer({
                       key={opt.id}
                       type="button"
                       onClick={() => {
-                        if (isOspf && activeFilter !== "all") {
-                          setActiveFilter("all");
-                        }
                         if (timeFilter === opt.id) {
                           handleTimeFilterClick(null); // toggle off
                         } else {
                           handleTimeFilterClick(opt.id);
                         }
                       }}
-                      className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-all whitespace-nowrap flex items-center gap-1 ${
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all whitespace-nowrap flex items-center justify-center ${
                         isSelected
                           ? isOspf
                             ? "bg-amber-600 text-white shadow-sm font-semibold ring-1 ring-amber-400/50"
@@ -1198,25 +1134,7 @@ export default function NetworkLinksSideDrawer({
                           : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
                       }`}
                     >
-                      {isOspf && <Activity className="w-3 h-3 text-amber-500 shrink-0" />}
                       <span>{displayLabel}</span>
-                      <span
-                        className={`text-[10px] px-1 rounded-full ${
-                          isSelected
-                            ? isOspf
-                              ? "bg-amber-700 text-white"
-                              : "bg-blue-700 text-white"
-                            : isOspf
-                            ? isDark
-                              ? "bg-amber-900/60 text-amber-300 font-bold"
-                              : "bg-amber-200/80 text-amber-800 font-bold"
-                            : isDark
-                            ? "bg-gray-700 text-gray-300"
-                            : "bg-gray-200 text-gray-600"
-                        }`}
-                      >
-                        {count}
-                      </span>
                     </button>
                   );
                 })}
@@ -1349,7 +1267,7 @@ export default function NetworkLinksSideDrawer({
                 });
 
                 const eventsByLink = filteredEvents.reduce((acc, event) => {
-                  const id = event.link_id;
+                  const id = event.link_id ?? `${event.local_device_name || ""}-${event.remote_device_name || ""}-${event.local_interface || ""}`;
                   if (!acc[id]) {
                     acc[id] = {
                       linkId: id,
