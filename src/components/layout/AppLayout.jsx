@@ -5,10 +5,7 @@ import { LogOut } from "lucide-react";
 
 // --- Redux Imports ---
 import { logout } from "../../redux/slices/authSlice";
-import {
-  disconnect,
-  selectRealtimeStatus,
-} from "../../redux/slices/realtimeSlice";
+import { disconnect } from "../../redux/slices/realtimeSlice";
 
 // --- Helper Components & Hooks ---
 import { useDashboardLogic } from "../../pages/useDashboardLogic";
@@ -56,47 +53,6 @@ export const ExitFullscreenIcon = ({ className = "w-5 h-5" }) => (
   </svg>
 );
 
-// --- Real-time Status Indicator ---
-const RealtimeStatusIndicator = () => {
-  const status = useSelector(selectRealtimeStatus);
-
-  const config = {
-    connected: {
-      color: "bg-green-500",
-      text: "Live",
-    },
-    connecting: {
-      color: "bg-yellow-500",
-      text: "Connecting",
-    },
-    disconnected: {
-      color: "bg-red-500",
-      text: "Offline",
-    },
-  }[status] || {
-    color: "bg-gray-500",
-    text: "Unknown",
-  };
-
-  return (
-    <div
-      className="flex items-center gap-2"
-      title={`Real-time updates: ${config.text}`}
-    >
-      <div className={`w-2.5 h-2.5 rounded-full ${config.color} relative`}>
-        {status === "connected" && (
-          <div
-            className={`absolute inset-0 w-full h-full rounded-full ${config.color} animate-ping`}
-          />
-        )}
-      </div>
-
-      <span className="text-xs font-medium text-gray-500 dark:text-gray-400 hidden sm:inline">
-        {config.text}
-      </span>
-    </div>
-  );
-};
 
 // --- Main AppLayout Component ---
 function AppLayout() {
@@ -277,8 +233,6 @@ function AppLayout() {
 
           {/* Right-side buttons */}
           <div className="flex items-center gap-4 ml-auto">
-            <RealtimeStatusIndicator />
-
             {renderFullscreenToggleButton()}
 
             <button

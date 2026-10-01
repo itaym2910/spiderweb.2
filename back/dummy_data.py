@@ -58,7 +58,7 @@ def generate_dummy_data():
         for i in range(num_devices):
             ending = allowed_endings[i] if i < len(allowed_endings) else random.choice(allowed_endings)
             dev_name = f"rtr-{site_slug}-{prefix}{ending}"
-            dev_ip = fake.ipv4()
+            dev_ip = f"10.{cs['id']}.{ending}.1"
             device = {
                 "id": device_id_counter,
                 "name": dev_name,
@@ -493,6 +493,14 @@ def generate_dummy_data():
     users = [
         {"id": 1, "username": "admin", "role": "admin", "favorite_links": [1, 3, 5, 8, 12, 18, 25]},
         {"id": 2, "username": "userg", "role": "user", "favorite_links": [2, 4, 7, 10, 16, 22]},
+        {"id": 3, "username": "noc_operator", "role": "user", "favorite_links": [1, 2, 6, 9]},
+        {"id": 4, "username": "net_engineer", "role": "user", "favorite_links": [3, 4, 11, 15]},
+        {"id": 5, "username": "security_lead", "role": "admin", "favorite_links": [5, 12, 18]},
+        {"id": 6, "username": "dana_cohen", "role": "user", "favorite_links": [2, 8, 14]},
+        {"id": 7, "username": "itay_m", "role": "admin", "favorite_links": [1, 4, 7, 10]},
+        {"id": 8, "username": "ron_levy", "role": "user", "favorite_links": [6, 13, 20]},
+        {"id": 9, "username": "devops_guy", "role": "user", "favorite_links": [3, 9, 17]},
+        {"id": 10, "username": "sys_analyst", "role": "user", "favorite_links": [2, 5, 11]},
     ]
     
     # --- Alerts ---
@@ -641,6 +649,19 @@ def generate_dummy_data():
             if latest["new_ospf_state"] == "Full":
                 link["last_ospf_full_at"] = latest["created_at"]
 
+    # --- Core Site Traffic (Inbound and Outbound) ---
+    core_site_traffic = {}
+    for cs in core_sites:
+        total_in = round(random.uniform(12.5, 450.0), 1)
+        total_out = round(random.uniform(10.0, 420.0), 1)
+        core_site_traffic[cs["id"]] = {
+            "id": cs["id"],
+            "traffic": {
+                "in": f"{total_in} Gbps",
+                "out": f"{total_out} Gbps",
+            },
+        }
+
     print(f"Dummy data generation complete. Generated {len(links)} network lines and {len(link_status_events)} events.")
     return {
         "net_types": net_types,
@@ -652,6 +673,7 @@ def generate_dummy_data():
         "alerts": alerts,
         "networks": networks,
         "link_status_events": link_status_events,
+        "core_site_traffic": core_site_traffic,
         "crawler_cycle": {"id": 1, "count": 125}
     }
 

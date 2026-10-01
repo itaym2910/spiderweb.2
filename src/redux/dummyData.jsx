@@ -43,9 +43,16 @@ export const generateMockAlerts = () => {
 
 // --- 1. ADD DUMMY USERS ARRAY ---
 const dummyUsers = [
-  { username: "admin", password: "password123", role: "admin" },
-  { username: "userg", password: "password123", role: "user" },
-  { username: "viewer", password: "password", role: "viewer" },
+  { id: 1, username: "admin", password: "password123", role: "admin" },
+  { id: 2, username: "userg", password: "password123", role: "user" },
+  { id: 3, username: "noc_operator", password: "password123", role: "user" },
+  { id: 4, username: "net_engineer", password: "password123", role: "user" },
+  { id: 5, username: "security_lead", password: "password123", role: "admin" },
+  { id: 6, username: "dana_cohen", password: "password123", role: "user" },
+  { id: 7, username: "itay_m", password: "password123", role: "admin" },
+  { id: 8, username: "ron_levy", password: "password123", role: "user" },
+  { id: 9, username: "devops_guy", password: "password123", role: "user" },
+  { id: 10, username: "sys_analyst", password: "password123", role: "user" },
 ];
 
 // --- Helper to create a number of items ---
@@ -65,7 +72,7 @@ const createCorePikudim = (typeId) => ({
 const createCoreDevice = (pikud, endingNumber) => ({
   id: faker.number.int({ min: 100, max: 999 }),
   hostname: `rtr-${faker.string.alphanumeric(4)}-${endingNumber}`,
-  ip_address: faker.internet.ip(),
+  ip_address: `10.${(pikud.id % 200) + 1}.${endingNumber}.1`,
   network_type_id: pikud.type_id,
   core_pikudim_site_id: pikud.id,
   timestamp: faker.date.recent().toISOString(),

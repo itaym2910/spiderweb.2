@@ -11,6 +11,7 @@ import { fetchTenGigLinks } from "./tenGigLinksSlice";
 import { fetchFavoriteLinks } from "./favoritesSlice";
 import { fetchNetTypes } from "./netTypesSlice";
 import { fetchCoreTopology } from "./coreTopologySlice";
+import { fetchUsers } from "./usersSlice";
 
 import { api } from "../../services/apiServices";
 
@@ -25,6 +26,7 @@ export const fetchInitialData = createAsyncThunk(
     dispatch(fetchFavoriteLinks());
     dispatch(fetchNetTypes());
     dispatch(fetchCoreTopology());
+    dispatch(fetchUsers());
   }
 );
 
@@ -64,6 +66,7 @@ const authSlice = createSlice({
   name: "auth",
   initialState: {
     token: Cookies.get("authToken") || null,
+    role: Cookies.get("userRrole") || null,
     status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
     error: null,
   },
@@ -71,9 +74,11 @@ const authSlice = createSlice({
     // Handles user-initiated logout
     logout: (state) => {
       state.token = null;
+      state.role = null;
       state.status = "idle";
       state.error = null;
       Cookies.remove("authToken");
+      Cookies.remove("userRrole");
       // Note: You might want to also dispatch actions to clear the other data slices here
       // if you want the data to be gone immediately on logout.
     },
@@ -101,6 +106,7 @@ const authSlice = createSlice({
 export const { logout } = authSlice.actions;
 
 export const selectAuthToken = (state) => state.auth.token;
+export const selectUserRole = (state) => state.auth.role;
 export const selectAuthStatus = (state) => state.auth.status;
 export const selectAuthError = (state) => state.auth.error;
 

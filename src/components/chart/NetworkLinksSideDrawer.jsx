@@ -91,14 +91,17 @@ function EventLinkCard({ group, isExpanded, onToggle, onInspect, isDark }) {
       <div
         role="button"
         tabIndex={0}
-        onClick={onToggle}
+        onClick={() => {
+          if (window.getSelection && window.getSelection().toString().trim().length > 0) return;
+          onToggle();
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
             onToggle();
           }
         }}
-        className="flex items-center justify-between cursor-pointer select-none"
+        className="flex items-center justify-between cursor-pointer"
       >
         <div className="flex flex-col min-w-0 pr-3">
           <div className="flex items-center gap-2 text-xs font-semibold text-gray-800 dark:text-gray-100">

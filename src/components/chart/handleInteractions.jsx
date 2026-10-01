@@ -609,6 +609,7 @@ export function drawAllParallelLinks({
         .attr("stroke", palette.link)
         .attr("stroke-opacity", 0.6)
         .attr("stroke-width", 2)
+        .attr("vector-effect", "non-scaling-stroke")
         .style("pointer-events", "none");
 
       zoomLayer
@@ -1019,6 +1020,7 @@ export function drawTempParallelLinks({
       .attr("fill", "none")
       .attr("stroke", getLinkColorByCategory(linkData, palette))
       .attr("stroke-width", 3)
+      .attr("vector-effect", "non-scaling-stroke")
       .style("pointer-events", "stroke")
       .style("cursor", "pointer")
       .on("mouseover", function (event, d_temp) {

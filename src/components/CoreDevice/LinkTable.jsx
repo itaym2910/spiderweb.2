@@ -18,6 +18,7 @@ import {
   X,
   ExternalLink,
 } from "lucide-react";
+import CoreSiteTrafficBadge from "../CoreSite/CoreSiteTrafficBadge";
 
 // ─── Status Badge Component ───
 const StatusBadge = ({ status, size = "sm" }) => {
@@ -290,6 +291,17 @@ const LinkTable = ({
             </h1>
           </div>
         </div>
+
+        {/* Live Site Traffic Badge */}
+        <div className="flex items-center gap-2">
+          <CoreSiteTrafficBadge
+            coreSiteId={currentDevice?.coresite_id || currentDevice?.core_pikudim_site_id}
+            siteName={coreSiteName}
+            theme={theme}
+            showActivity={true}
+            size="md"
+          />
+        </div>
       </div>
 
       {/* ─── Summary Stats ─── */}
@@ -439,9 +451,10 @@ const LinkTable = ({
                       return (
                         <tr
                           key={link.id}
-                          onClick={() =>
-                            setPopupItem({ data: link, type: "link" })
-                          }
+                          onClick={() => {
+                            if (window.getSelection && window.getSelection().toString().trim().length > 0) return;
+                            setPopupItem({ data: link, type: "link" });
+                          }}
                           className="hover:bg-purple-50/60 dark:hover:bg-purple-500/10 cursor-pointer transition-colors duration-150"
                           title="Click for full details popup"
                         >

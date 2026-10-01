@@ -1,6 +1,7 @@
 import time
 import os
 import json
+import random
 from datetime import datetime, timedelta
 from typing import List, Optional
 
@@ -394,6 +395,54 @@ async def delete_coresite_admin(coresite_id: int, current_user: dict = Depends(a
 
     db["core_sites"] = [cs for cs in db["core_sites"] if cs["id"] != coresite_id]
     return {"message": "Coresite deleted successfully"}
+
+@router_coresite.get("/get-core-site-traffic/{coresite_id}/")
+@router_coresite.get("/get-core-site-traffic/{coresite_id}")
+@router_coresite.get("/api/get-core-site-traffic/{coresite_id}/")
+@router_coresite.get("/api/get-core-site-traffic/{coresite_id}")
+async def get_core_site_traffic(coresite_id: str):
+    """
+    Returns the inbound and outbound traffic for a specific core site.
+    Supports query by numeric coresite ID or site name.
+    """
+    site_id = None
+    try:
+        site_id = int(coresite_id)
+    except ValueError:
+        site = next((cs for cs in db.get("core_sites", []) if cs["name"].lower() == coresite_id.lower() or cs.get("core_site_name", "").lower() == coresite_id.lower()), None)
+        if site:
+            site_id = site["id"]
+
+    if site_id is None:
+        raise HTTPException(status_code=404, detail="Core site not found")
+
+    traffic_entry = db.get("core_site_traffic", {}).get(site_id)
+    if not traffic_entry:
+        total_in = round(random.uniform(15.0, 400.0), 1)
+        total_out = round(random.uniform(12.0, 380.0), 1)
+        traffic_entry = {
+            "id": site_id,
+            "traffic": {
+                "in": f"{total_in} Gbps",
+                "out": f"{total_out} Gbps",
+            },
+        }
+        db.setdefault("core_site_traffic", {})[site_id] = traffic_entry
+    else:
+        # Subtle real-time fluctuation (+/- 0.1 to 1.5 Gbps) to simulate dynamic network telemetry on each poller refresh
+        try:
+            curr_in = float(str(traffic_entry["traffic"]["in"]).replace(" Gbps", "").replace("Gbps", "").strip())
+            curr_out = float(str(traffic_entry["traffic"]["out"]).replace(" Gbps", "").replace("Gbps", "").strip())
+            delta_in = round(random.uniform(-1.5, 1.5), 1)
+            delta_out = round(random.uniform(-1.5, 1.5), 1)
+            new_in = max(1.0, round(curr_in + delta_in, 1))
+            new_out = max(1.0, round(curr_out + delta_out, 1))
+            traffic_entry["traffic"]["in"] = f"{new_in} Gbps"
+            traffic_entry["traffic"]["out"] = f"{new_out} Gbps"
+        except Exception:
+            pass
+
+    return traffic_entry
 
 # ==============================================================================
 # NETWORK ROUTES (from network.py)

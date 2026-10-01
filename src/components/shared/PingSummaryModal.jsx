@@ -87,7 +87,9 @@ export default function PingSummaryModal({
 
       {/* Modal Dialog */}
       <div
-        className={`relative w-full max-w-2xl rounded-2xl shadow-2xl border transition-all duration-200 overflow-hidden flex flex-col max-h-[90vh] ${
+        role="dialog"
+        aria-modal="true"
+        className={`relative w-full max-w-2xl rounded-2xl shadow-2xl border transition-all duration-200 overflow-hidden flex flex-col max-h-[90vh] select-text ${
           isDark
             ? "bg-gray-900 border-gray-800 text-gray-100"
             : "bg-white border-gray-200 text-gray-900"
@@ -434,7 +436,10 @@ export default function PingSummaryModal({
                   return (
                     <div
                       key={link.id}
-                      onClick={() => onSelectLink && onSelectLink(link)}
+                      onClick={() => {
+                        if (window.getSelection && window.getSelection().toString().trim().length > 0) return;
+                        onSelectLink && onSelectLink(link);
+                      }}
                       className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer group ${
                         isDark
                           ? "bg-gray-800/40 hover:bg-gray-800 border-gray-700/60 hover:border-blue-500/50"

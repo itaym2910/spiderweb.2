@@ -12,6 +12,8 @@ import {
   selectTopologyStatus,
   fetchCoreTopology,
 } from "../../redux/slices/coreTopologySlice";
+import { selectAllTrafficById } from "../../redux/slices/coreSiteTrafficSlice";
+import { selectAllPikudim } from "../../redux/slices/corePikudimSlice";
 
 // Import feedback components
 import { LoadingSpinner } from "../../components/ui/feedback/LoadingSpinner";
@@ -58,6 +60,21 @@ const NetworkVisualizerWrapper = ({ theme }) => {
   // Get topology data from the unified coreTopology slice
   const allTopologyDevices = useSelector(selectTopologyDevices);
   const topologyStatus = useSelector(selectTopologyStatus);
+  const allTrafficById = useSelector(selectAllTrafficById);
+  const allPikudim = useSelector(selectAllPikudim);
+
+  const trafficByZone = useMemo(() => {
+    const map = {};
+    if (!allPikudim || !allTrafficById) return map;
+    allPikudim.forEach((p) => {
+      const traffic = allTrafficById[p.id] || allTrafficById[String(p.id)];
+      if (traffic) {
+        if (p.name) map[p.name] = traffic;
+        if (p.core_site_name) map[p.core_site_name] = traffic;
+      }
+    });
+    return map;
+  }, [allPikudim, allTrafficById]);
 
   // Local UI state
   const [popupLink, setPopupLink] = useState(null);
@@ -429,6 +446,7 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           markedLinkIds={markedLinkIds}
           hoveredLinkId={hoveredLinkId}
           hoveredFilter={hoveredFilter}
+          trafficByZone={trafficByZone}
           onZoneClick={handleZoneClick}
           onLinkClick={handleLinkClick}
           onNodeClick={handleNodeClick}

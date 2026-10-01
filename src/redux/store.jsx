@@ -11,6 +11,8 @@ import authReducer, { logout } from "./slices/authSlice";
 import realtimeReducer from "./slices/realtimeSlice";
 import alertsReducer from "./slices/alertsSlice";
 import coreTopologyReducer from "./slices/coreTopologySlice";
+import coreSiteTrafficReducer from "./slices/coreSiteTrafficSlice";
+import usersReducer from "./slices/usersSlice";
 import realtimeMiddleware from "./middleware/realtimeMiddleware";
 
 // 1. Combine all your slice reducers into a single "app" reducer
@@ -25,6 +27,8 @@ const appReducer = combineReducers({
   realtime: realtimeReducer,
   alerts: alertsReducer,
   coreTopology: coreTopologyReducer,
+  coreSiteTraffic: coreSiteTrafficReducer,
+  users: usersReducer,
 });
 
 // 2. Create a "root" reducer that delegates to the appReducer, but handles the logout case
