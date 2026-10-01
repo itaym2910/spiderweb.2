@@ -324,19 +324,44 @@ export default function NetworkLinksSideDrawer({
   // Fetch events when the "All" tab is active and time filter changes
   const fetchEvents = useCallback(async (since, eventType, localId, remoteId, silent = false) => {
     if (!silent) setEventsLoading(true);
-    let days = 1;
-    if (since === "7d") days = 7;
-    if (since === "30d") days = 30;
 
-    const params = { days };
-    if (eventType) params.event_type = eventType;
+    let params;
+    if (since === "72h_ospf") {
+      params = {
+        days: 3,
+        "event-type": "ospf_drop",
+        offset: 0,
+        include_summary: true,
+      };
+      if (eventType && eventType !== "ospf_drop") {
+        params["event-type"] = eventType;
+      }
+    } else {
+      let days = 1;
+      if (since === "7d") days = 7;
+      if (since === "30d") days = 30;
+
+      params = { days };
+      if (eventType) params.event_type = eventType;
+    }
+
     if (localId) params.local_device_id = parseInt(localId, 10);
     if (remoteId) params.remote_device_id = parseInt(remoteId, 10);
 
     try {
       const data = await api.getCoreTopologyEvents(params);
-      setStatusEvents(data.events || []);
-    } catch {
+      const rawEvents = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.events)
+        ? data.events
+        : Array.isArray(data?.data?.events)
+        ? data.data.events
+        : Array.isArray(data?.data)
+        ? data.data
+        : [];
+      setStatusEvents(rawEvents);
+    } catch (err) {
+      console.error("Failed to fetch topology events:", err);
       setStatusEvents([]);
     } finally {
       if (!silent) setEventsLoading(false);
@@ -429,42 +454,6 @@ export default function NetworkLinksSideDrawer({
     [enrichedLinks]
   );
 
-  // Time filter counts based on the active status tab
-  // For up/down/issue: count links stable for >= X time (status changed BEFORE cutoff)
-  // For all: count links changed within < X time (status changed AFTER cutoff)
-  const timeCounts = useMemo(() => {
-    const statusFiltered = enrichedLinks.filter((link) => {
-      if (activeFilter === "up") return link.normalizedStatus === "up";
-      if (activeFilter === "down") return link.normalizedStatus === "down";
-      if (activeFilter === "issue") return link.normalizedStatus === "issue";
-      return true;
-    });
-
-    const isStabilityMode = activeFilter !== "all";
-    const counts = { "24h": 0, "7d": 0, "30d": 0 };
-    const now = Date.now();
-
-    statusFiltered.forEach((link) => {
-      const d = new Date(link.statusDate);
-      if (!isNaN(d.getTime())) {
-        const diffHours = (now - d.getTime()) / (1000 * 60 * 60);
-        if (isStabilityMode) {
-          // Stable for >= X: status changed at least X ago
-          if (diffHours >= 24) counts["24h"]++;
-          if (diffHours >= 24 * 7) counts["7d"]++;
-          if (diffHours >= 24 * 30) counts["30d"]++;
-        } else {
-          // Changed within < X: status changed within the last X
-          if (diffHours <= 24) counts["24h"]++;
-          if (diffHours <= 24 * 7) counts["7d"]++;
-          if (diffHours <= 24 * 30) counts["30d"]++;
-        }
-      }
-    });
-
-    return counts;
-  }, [enrichedLinks, activeFilter]);
-
   // Filtered links for the active view, time window, and search
   const filteredLinks = useMemo(() => {
     const isStabilityMode = activeFilter !== "all" && activeFilter !== "ping";
@@ -485,20 +474,25 @@ export default function NetworkLinksSideDrawer({
 
       // Time filter
       if (timeFilter && activeFilter !== "ping") {
-        const targetDate = new Date(link.statusDate);
-        if (!isNaN(targetDate.getTime())) {
-          const diffHours = (Date.now() - targetDate.getTime()) / (1000 * 60 * 60);
-          
-          if (isStabilityMode) {
-            // >= X time filter
-            if (timeFilter === "24h" && diffHours < 24) return false;
-            if (timeFilter === "7d" && diffHours < 24 * 7) return false;
-            if (timeFilter === "30d" && diffHours < 24 * 30) return false;
-          } else {
-            // < X time filter
-            if (timeFilter === "24h" && diffHours > 24) return false;
-            if (timeFilter === "7d" && diffHours > 24 * 7) return false;
-            if (timeFilter === "30d" && diffHours > 24 * 30) return false;
+        if (timeFilter === "72h_ospf") {
+          const hasOspfDrop = (link.ospf_drops_last_24h ?? 0) > 0 || link.rawLink?.ospf_drops_last_24h > 0 || (link.ospf_state && link.ospf_state.toLowerCase() !== "full");
+          if (!hasOspfDrop) return false;
+        } else {
+          const targetDate = new Date(link.statusDate);
+          if (!isNaN(targetDate.getTime())) {
+            const diffHours = (Date.now() - targetDate.getTime()) / (1000 * 60 * 60);
+            
+            if (isStabilityMode) {
+              // >= X time filter
+              if (timeFilter === "24h" && diffHours < 24) return false;
+              if (timeFilter === "7d" && diffHours < 24 * 7) return false;
+              if (timeFilter === "30d" && diffHours < 24 * 30) return false;
+            } else {
+              // < X time filter
+              if (timeFilter === "24h" && diffHours > 24) return false;
+              if (timeFilter === "7d" && diffHours > 24 * 7) return false;
+              if (timeFilter === "30d" && diffHours > 24 * 30) return false;
+            }
           }
         }
       }
@@ -572,6 +566,9 @@ export default function NetworkLinksSideDrawer({
 
       // Time filter
       if (timeF) {
+        if (timeF === "72h_ospf") {
+          return (link.ospf_drops_last_24h ?? 0) > 0 || link.rawLink?.ospf_drops_last_24h > 0 || (link.ospf_state && link.ospf_state.toLowerCase() !== "full");
+        }
         const targetDate = new Date(link.statusDate);
         if (!isNaN(targetDate.getTime())) {
           const diffHours =
@@ -614,10 +611,15 @@ export default function NetworkLinksSideDrawer({
   // Handle status tab clicks (Up, Down, All)
   const handleStatusTabClick = (filterType) => {
     setActiveFilter(filterType);
+    let nextTimeFilter = timeFilter;
+    if (filterType !== "all" && timeFilter === "72h_ospf") {
+      nextTimeFilter = null;
+      setTimeFilter(null);
+    }
     if (filterType === "all") {
       onClearMarks?.();
     } else {
-      const matching = getMatchingLinks(filterType, timeFilter);
+      const matching = getMatchingLinks(filterType, nextTimeFilter);
       onMarkAll?.(matching.map((l) => l.id));
     }
   };
@@ -881,8 +883,9 @@ export default function NetworkLinksSideDrawer({
                   : "All Network Links"}
               </h2>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                {chartName} Chart • {filteredLinks.length} visible link
-                {filteredLinks.length === 1 ? "" : "s"}
+                {activeFilter === "all"
+                  ? `${chartName} Chart • Event Log`
+                  : `${chartName} Chart • ${filteredLinks.length} visible link${filteredLinks.length === 1 ? "" : "s"}`}
               </p>
             </div>
           </div>
@@ -1097,9 +1100,12 @@ export default function NetworkLinksSideDrawer({
                   { id: "24h", labelAll: "< 24h", labelStability: "≥ 24h" },
                   { id: "7d", labelAll: "< 1 Week", labelStability: "≥ 1 Week" },
                   { id: "30d", labelAll: "< 1 Month", labelStability: "≥ 1 Month" },
+                  ...(activeFilter === "all"
+                    ? [{ id: "72h_ospf", labelAll: "OSPF Drops (72h)", labelStability: "OSPF Drops (72h)" }]
+                    : []),
                 ].map((opt) => {
                   const isSelected = timeFilter === opt.id;
-                  const count = timeCounts[opt.id] ?? 0;
+                  const isOspf = opt.id === "72h_ospf";
                   const isStabilityMode = activeFilter !== "all";
                   const displayLabel = isStabilityMode ? opt.labelStability : opt.labelAll;
                   
@@ -1114,26 +1120,21 @@ export default function NetworkLinksSideDrawer({
                           handleTimeFilterClick(opt.id);
                         }
                       }}
-                      className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-all whitespace-nowrap flex items-center gap-1 ${
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all whitespace-nowrap flex items-center justify-center ${
                         isSelected
-                          ? "bg-blue-600 text-white shadow-sm font-semibold"
+                          ? isOspf
+                            ? "bg-amber-600 text-white shadow-sm font-semibold ring-1 ring-amber-400/50"
+                            : "bg-blue-600 text-white shadow-sm font-semibold"
+                          : isOspf
+                          ? isDark
+                            ? "bg-amber-950/40 text-amber-400 hover:text-amber-200 hover:bg-amber-900/50 border border-amber-800/40"
+                            : "bg-amber-50 text-amber-700 hover:text-amber-900 hover:bg-amber-100 border border-amber-200"
                           : isDark
                           ? "bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700"
                           : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
                       }`}
                     >
                       <span>{displayLabel}</span>
-                      <span
-                        className={`text-[10px] px-1 rounded-full ${
-                          isSelected
-                            ? "bg-blue-700 text-white"
-                            : isDark
-                            ? "bg-gray-700 text-gray-300"
-                            : "bg-gray-200 text-gray-600"
-                        }`}
-                      >
-                        {count}
-                      </span>
                     </button>
                   );
                 })}
@@ -1266,7 +1267,7 @@ export default function NetworkLinksSideDrawer({
                 });
 
                 const eventsByLink = filteredEvents.reduce((acc, event) => {
-                  const id = event.link_id;
+                  const id = event.link_id ?? `${event.local_device_name || ""}-${event.remote_device_name || ""}-${event.local_interface || ""}`;
                   if (!acc[id]) {
                     acc[id] = {
                       linkId: id,
