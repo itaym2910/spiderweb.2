@@ -42,12 +42,37 @@ export function renderCoreDevices(
               t.core_site_name === d_zone_group_data.id)
         );
 
-      const hasTraffic = Boolean(zoneTraffic && zoneTraffic.traffic);
+      const isValidTrafficRate = (val) => {
+        if (val === undefined || val === null) return false;
+        const str = String(val).trim();
+        return (
+          str !== "" &&
+          str !== "N/A" &&
+          str !== "--" &&
+          str !== "null" &&
+          str !== "undefined" &&
+          !str.includes("undefined") &&
+          !str.includes("null")
+        );
+      };
 
-      // Capsule sizing and positioning
-      const cardWidth = 184;
+      const hasTraffic = Boolean(
+        zoneTraffic &&
+        zoneTraffic.traffic &&
+        !zoneTraffic.error &&
+        isValidTrafficRate(zoneTraffic.traffic.in) &&
+        isValidTrafficRate(zoneTraffic.traffic.out)
+      );
+
+      // Sizing and positioning:
+      // When traffic is present, use standard 184px width for the 2-line layout.
+      // When traffic is unavailable, collapse gracefully to a sleek single-line pill sized to the site name.
+      const nameLength = (d_zone_group_data.id || "").length;
+      const cardWidth = hasTraffic
+        ? 184
+        : Math.max(124, Math.min(168, nameLength * 8.5 + 32));
       const cardHeight = hasTraffic ? 46 : 30;
-      const cardRadius = 12;
+      const cardRadius = hasTraffic ? 12 : 10;
       const cardX = d_zone_group_data.cx - cardWidth / 2;
       const cardY = isTopZone
         ? d_zone_group_data.cy - 150 - cardHeight - 8

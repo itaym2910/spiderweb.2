@@ -3,7 +3,6 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   Users,
   ShieldCheck,
-  ShieldAlert,
   Shield,
   User,
   Plus,
@@ -16,9 +15,9 @@ import {
   Check,
   AlertCircle,
   X,
-  Sliders,
-  ChevronDown,
   ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 
 // Redux Slices & Actions
@@ -158,6 +157,57 @@ function Toast({ toast, onClose }) {
   );
 }
 
+// Helper to compare IP addresses numerically
+const compareIp = (ipA = "", ipB = "") => {
+  const octetsA = String(ipA).split(".").map(Number);
+  const octetsB = String(ipB).split(".").map(Number);
+  for (let i = 0; i < 4; i++) {
+    const aVal = isNaN(octetsA[i]) ? 0 : octetsA[i];
+    const bVal = isNaN(octetsB[i]) ? 0 : octetsB[i];
+    if (aVal !== bVal) return aVal - bVal;
+  }
+  return 0;
+};
+
+// Reusable Sortable Column Header Component
+function SortableHeader({
+  label,
+  sortKey,
+  currentSort,
+  onSort,
+  align = "left",
+  className = "",
+}) {
+  const isSorted = currentSort?.key === sortKey;
+  const isAsc = isSorted && currentSort?.direction === "asc";
+  const isDesc = isSorted && currentSort?.direction === "desc";
+
+  return (
+    <th
+      onClick={() => onSort(sortKey)}
+      className={`py-3.5 px-4 cursor-pointer select-none group transition-colors hover:text-gray-900 dark:hover:text-white ${className}`}
+      title={`Click to sort by ${label}`}
+    >
+      <div
+        className={`inline-flex items-center gap-1.5 ${
+          align === "right" ? "justify-end w-full" : ""
+        }`}
+      >
+        <span>{label}</span>
+        <span className="text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-200">
+          {isAsc ? (
+            <ArrowUp className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+          ) : isDesc ? (
+            <ArrowDown className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+          ) : (
+            <ArrowUpDown className="w-3.5 h-3.5 opacity-0 group-hover:opacity-70 transition-opacity" />
+          )}
+        </span>
+      </div>
+    </th>
+  );
+}
+
 export function AdminPanelPage() {
   const dispatch = useDispatch();
 
@@ -168,7 +218,7 @@ export function AdminPanelPage() {
   const allDevices = useSelector(selectAllDevices);
   const allNetTypes = useSelector(selectAllNetTypes);
 
-  // Active Tab: 'users' | 'sites' | 'devices' | 'netTypes'
+  // Active Tab: 'users' | 'netTypes' | 'sites' | 'devices'
   const [activeTab, setActiveTab] = useState("users");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -201,6 +251,29 @@ export function AdminPanelPage() {
   const [userRoleFilter, setUserRoleFilter] = useState("all"); // 'all' | 'admin' | 'user'
   const [deviceSearchTerm, setDeviceSearchTerm] = useState("");
   const [siteSearchTerm, setSiteSearchTerm] = useState("");
+
+  // Sort states
+  const [userSort, setUserSort] = useState({ key: "id", direction: "asc" });
+  const [siteSort, setSiteSort] = useState({ key: "id", direction: "asc" });
+  const [deviceSort, setDeviceSort] = useState({ key: "id", direction: "asc" });
+  const [netTypeSort, setNetTypeSort] = useState({ key: "id", direction: "asc" });
+
+  const handleToggleSort = (setter) => (columnKey) => {
+    setter((prev) => {
+      if (prev.key === columnKey) {
+        return {
+          key: columnKey,
+          direction: prev.direction === "asc" ? "desc" : "asc",
+        };
+      }
+      return { key: columnKey, direction: "asc" };
+    });
+  };
+
+  const handleUserSort = handleToggleSort(setUserSort);
+  const handleSiteSort = handleToggleSort(setSiteSort);
+  const handleDeviceSort = handleToggleSort(setDeviceSort);
+  const handleNetTypeSort = handleToggleSort(setNetTypeSort);
 
   // Add Form visibility toggles
   const [showAddSite, setShowAddSite] = useState(false);
@@ -290,6 +363,127 @@ export function AdminPanelPage() {
       return host.includes(term) || ip.includes(term) || String(dev.id).includes(term);
     });
   }, [allDevices, deviceSearchTerm]);
+
+  // --- SORTED LISTS ---
+  const sortedUsers = useMemo(() => {
+    const list = [...filteredUsers];
+    const { key, direction } = userSort;
+    const mult = direction === "asc" ? 1 : -1;
+
+    list.sort((a, b) => {
+      if (key === "id") {
+        return (Number(a.id) - Number(b.id)) * mult;
+      }
+      if (key === "username") {
+        return (a.username || "").localeCompare(b.username || "", undefined, { numeric: true }) * mult;
+      }
+      if (key === "role") {
+        return (a.role || "").localeCompare(b.role || "") * mult;
+      }
+      if (key === "privilege") {
+        const pA = a.role === "admin" ? 1 : 0;
+        const pB = b.role === "admin" ? 1 : 0;
+        return (pA - pB) * mult;
+      }
+      return 0;
+    });
+
+    return list;
+  }, [filteredUsers, userSort]);
+
+  const sortedSites = useMemo(() => {
+    const list = [...filteredSites];
+    const { key, direction } = siteSort;
+    const mult = direction === "asc" ? 1 : -1;
+
+    list.sort((a, b) => {
+      if (key === "id") {
+        return (Number(a.id) - Number(b.id)) * mult;
+      }
+      if (key === "name") {
+        const nA = a.core_site_name || a.name || "";
+        const nB = b.core_site_name || b.name || "";
+        return nA.localeCompare(nB, undefined, { numeric: true }) * mult;
+      }
+      if (key === "type") {
+        return ((a.type_id || 0) - (b.type_id || 0)) * mult;
+      }
+      if (key === "devicesCount") {
+        const countA = allDevices.filter(
+          (d) => d.coresite_id === a.id || d.core_pikudim_site_id === a.id
+        ).length;
+        const countB = allDevices.filter(
+          (d) => d.coresite_id === b.id || d.core_pikudim_site_id === b.id
+        ).length;
+        return (countA - countB) * mult;
+      }
+      return 0;
+    });
+
+    return list;
+  }, [filteredSites, siteSort, allDevices]);
+
+  const sortedDevices = useMemo(() => {
+    const list = [...filteredDevices];
+    const { key, direction } = deviceSort;
+    const mult = direction === "asc" ? 1 : -1;
+
+    list.sort((a, b) => {
+      if (key === "id") {
+        return (Number(a.id) - Number(b.id)) * mult;
+      }
+      if (key === "hostname") {
+        const hA = a.hostname || a.name || "";
+        const hB = b.hostname || b.name || "";
+        return hA.localeCompare(hB, undefined, { numeric: true }) * mult;
+      }
+      if (key === "ip") {
+        const ipA = a.ip || a.ip_address || "";
+        const ipB = b.ip || b.ip_address || "";
+        return compareIp(ipA, ipB) * mult;
+      }
+      if (key === "site") {
+        const siteIdA = a.coresite_id || a.core_pikudim_site_id;
+        const siteIdB = b.coresite_id || b.core_pikudim_site_id;
+        const siteA = allCoreSites.find((s) => s.id === siteIdA);
+        const siteB = allCoreSites.find((s) => s.id === siteIdB);
+        const nameA = siteA ? siteA.core_site_name || siteA.name : "";
+        const nameB = siteB ? siteB.core_site_name || siteB.name : "";
+        return nameA.localeCompare(nameB, undefined, { numeric: true }) * mult;
+      }
+      if (key === "network") {
+        const netA = allNetTypes.find((n) => n.id === a.network_type_id)?.name || "";
+        const netB = allNetTypes.find((n) => n.id === b.network_type_id)?.name || "";
+        return netA.localeCompare(netB, undefined, { numeric: true }) * mult;
+      }
+      return 0;
+    });
+
+    return list;
+  }, [filteredDevices, deviceSort, allCoreSites, allNetTypes]);
+
+  const sortedNetTypes = useMemo(() => {
+    const list = [...allNetTypes];
+    const { key, direction } = netTypeSort;
+    const mult = direction === "asc" ? 1 : -1;
+
+    list.sort((a, b) => {
+      if (key === "id") {
+        return (Number(a.id) - Number(b.id)) * mult;
+      }
+      if (key === "name") {
+        return (a.name || "").localeCompare(b.name || "", undefined, { numeric: true }) * mult;
+      }
+      if (key === "devicesCount") {
+        const countA = allDevices.filter((d) => d.network_type_id === a.id).length;
+        const countB = allDevices.filter((d) => d.network_type_id === b.id).length;
+        return (countA - countB) * mult;
+      }
+      return 0;
+    });
+
+    return list;
+  }, [allNetTypes, netTypeSort, allDevices]);
 
   // Options for Dropdowns
   const coreSiteOptions = useMemo(
@@ -520,6 +714,30 @@ export function AdminPanelPage() {
             </p>
           </div>
 
+          {/* Network Types */}
+          <div
+            onClick={() => setActiveTab("netTypes")}
+            className="cursor-pointer group p-5 bg-white dark:bg-gray-800/90 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:border-amber-500/50 dark:hover:border-amber-500/50 transition-all"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Network Types
+              </span>
+              <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 group-hover:scale-105 transition-transform">
+                <Network className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-gray-900 dark:text-white">
+                {stats.totalNetTypes}
+              </span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">Profiles</span>
+            </div>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Network class partitions
+            </p>
+          </div>
+
           {/* Core Sites */}
           <div
             onClick={() => setActiveTab("sites")}
@@ -567,30 +785,6 @@ export function AdminPanelPage() {
               Routers & gateway units
             </p>
           </div>
-
-          {/* Network Types */}
-          <div
-            onClick={() => setActiveTab("netTypes")}
-            className="cursor-pointer group p-5 bg-white dark:bg-gray-800/90 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:border-amber-500/50 dark:hover:border-amber-500/50 transition-all"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Network Types
-              </span>
-              <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 group-hover:scale-105 transition-transform">
-                <Network className="w-5 h-5" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-gray-900 dark:text-white">
-                {stats.totalNetTypes}
-              </span>
-              <span className="text-xs text-gray-500 dark:text-gray-400">Profiles</span>
-            </div>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Network class partitions
-            </p>
-          </div>
         </div>
 
         {/* --- TABS NAVIGATION --- */}
@@ -614,6 +808,27 @@ export function AdminPanelPage() {
                 }`}
               >
                 {allUsers.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("netTypes")}
+              className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
+                activeTab === "netTypes"
+                  ? "border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400 font-semibold"
+                  : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              }`}
+            >
+              <Network className="w-4 h-4" />
+              <span>Network Types</span>
+              <span
+                className={`ml-1 text-xs px-2 py-0.5 rounded-full ${
+                  activeTab === "netTypes"
+                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
+                    : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                }`}
+              >
+                {allNetTypes.length}
               </span>
             </button>
 
@@ -656,27 +871,6 @@ export function AdminPanelPage() {
                 }`}
               >
                 {allDevices.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab("netTypes")}
-              className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
-                activeTab === "netTypes"
-                  ? "border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400 font-semibold"
-                  : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              }`}
-            >
-              <Network className="w-4 h-4" />
-              <span>Network Types</span>
-              <span
-                className={`ml-1 text-xs px-2 py-0.5 rounded-full ${
-                  activeTab === "netTypes"
-                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
-                    : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                }`}
-              >
-                {allNetTypes.length}
               </span>
             </button>
           </nav>
@@ -745,10 +939,31 @@ export function AdminPanelPage() {
                 <table className="w-full text-left text-sm">
                   <thead className="bg-gray-50 dark:bg-gray-900/60 border-b border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     <tr>
-                      <th className="py-3.5 px-4 sm:px-6">User</th>
-                      <th className="py-3.5 px-4">User ID</th>
-                      <th className="py-3.5 px-4">Current Role</th>
-                      <th className="py-3.5 px-4">Privilege Status</th>
+                      <SortableHeader
+                        label="User"
+                        sortKey="username"
+                        currentSort={userSort}
+                        onSort={handleUserSort}
+                        className="sm:px-6"
+                      />
+                      <SortableHeader
+                        label="User ID"
+                        sortKey="id"
+                        currentSort={userSort}
+                        onSort={handleUserSort}
+                      />
+                      <SortableHeader
+                        label="Current Role"
+                        sortKey="role"
+                        currentSort={userSort}
+                        onSort={handleUserSort}
+                      />
+                      <SortableHeader
+                        label="Privilege Status"
+                        sortKey="privilege"
+                        currentSort={userSort}
+                        onSort={handleUserSort}
+                      />
                       <th className="py-3.5 px-4 sm:px-6 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -760,7 +975,7 @@ export function AdminPanelPage() {
                           <p className="font-medium text-base">Loading users...</p>
                         </td>
                       </tr>
-                    ) : filteredUsers.length === 0 ? (
+                    ) : sortedUsers.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="py-12 text-center text-gray-500 dark:text-gray-400">
                           <Users className="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
@@ -773,7 +988,7 @@ export function AdminPanelPage() {
                         </td>
                       </tr>
                     ) : (
-                      filteredUsers.map((user) => {
+                      sortedUsers.map((user) => {
                         const isAdmin = user.role === "admin";
                         const initialLetter = (user.username || "U").charAt(0).toUpperCase();
 
@@ -873,7 +1088,160 @@ export function AdminPanelPage() {
         )}
 
         {/* ============================================================== */}
-        {/* TAB 2: CORE SITES                                             */}
+        {/* TAB 2: NETWORK TYPES                                          */}
+        {/* ============================================================== */}
+        {activeTab === "netTypes" && (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Network profiles define operational partitions for infrastructure topology.
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowAddNetType(!showAddNetType)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <Plus className="w-4 h-4" />
+                <span>{showAddNetType ? "Close Form" : "Add Net Type"}</span>
+              </button>
+            </div>
+
+            {/* Collapsible Add Net Type Card */}
+            {showAddNetType && (
+              <form
+                onSubmit={handleAddNetTypeSubmit}
+                className="p-6 bg-white dark:bg-gray-800 rounded-xl border border-blue-200 dark:border-blue-900/50 shadow-md space-y-4 animate-in fade-in duration-200"
+              >
+                <div className="flex items-center justify-between pb-3 border-b border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Network className="w-5 h-5 text-blue-600" />
+                    New Network Type
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddNetType(false)}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="max-w-md">
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
+                    Network Type Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Backbone WAN"
+                    value={netTypeData.name}
+                    onChange={(e) => setNetTypeData({ ...netTypeData, name: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddNetType(false)}
+                    className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isFormSubmitting}
+                    className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+                  >
+                    {isFormSubmitting && <RefreshCw className="w-4 h-4 animate-spin" />}
+                    <span>Save Net Type</span>
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Net Types Table */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-gray-50 dark:bg-gray-900/60 border-b border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <tr>
+                      <SortableHeader
+                        label="Type ID"
+                        sortKey="id"
+                        currentSort={netTypeSort}
+                        onSort={handleNetTypeSort}
+                        className="sm:px-6"
+                      />
+                      <SortableHeader
+                        label="Network Type Name"
+                        sortKey="name"
+                        currentSort={netTypeSort}
+                        onSort={handleNetTypeSort}
+                      />
+                      <SortableHeader
+                        label="Assigned Devices"
+                        sortKey="devicesCount"
+                        currentSort={netTypeSort}
+                        onSort={handleNetTypeSort}
+                      />
+                      <th className="py-3.5 px-4 sm:px-6 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {sortedNetTypes.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="py-12 text-center text-gray-500 dark:text-gray-400">
+                          <Network className="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
+                          <p className="font-medium">No network types found</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      sortedNetTypes.map((nt) => {
+                        const assignedDevicesCount = allDevices.filter(
+                          (d) => d.network_type_id === nt.id
+                        ).length;
+
+                        return (
+                          <tr
+                            key={nt.id}
+                            className="hover:bg-gray-50/80 dark:hover:bg-gray-700/40 transition-colors"
+                          >
+                            <td className="py-4 px-4 sm:px-6">
+                              <span className="font-mono text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium">
+                                #{nt.id}
+                              </span>
+                            </td>
+                            <td className="py-4 px-4 font-semibold text-gray-900 dark:text-gray-100">
+                              {nt.name}
+                            </td>
+                            <td className="py-4 px-4 text-gray-600 dark:text-gray-300">
+                              <span className="font-medium">{assignedDevicesCount}</span> device(s)
+                            </td>
+                            <td className="py-4 px-4 sm:px-6 text-right">
+                              <button
+                                type="button"
+                                onClick={() => promptDeleteEntity("netType", nt)}
+                                className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                                title="Delete Network Type"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* TAB 3: CORE SITES                                             */}
         {/* ============================================================== */}
         {activeTab === "sites" && (
           <div className="space-y-4">
@@ -975,15 +1343,36 @@ export function AdminPanelPage() {
                 <table className="w-full text-left text-sm">
                   <thead className="bg-gray-50 dark:bg-gray-900/60 border-b border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     <tr>
-                      <th className="py-3.5 px-4 sm:px-6">Site ID</th>
-                      <th className="py-3.5 px-4">Core Site Name</th>
-                      <th className="py-3.5 px-4">Topology Type</th>
-                      <th className="py-3.5 px-4">Devices Configured</th>
+                      <SortableHeader
+                        label="Site ID"
+                        sortKey="id"
+                        currentSort={siteSort}
+                        onSort={handleSiteSort}
+                        className="sm:px-6"
+                      />
+                      <SortableHeader
+                        label="Core Site Name"
+                        sortKey="name"
+                        currentSort={siteSort}
+                        onSort={handleSiteSort}
+                      />
+                      <SortableHeader
+                        label="Topology Type"
+                        sortKey="type"
+                        currentSort={siteSort}
+                        onSort={handleSiteSort}
+                      />
+                      <SortableHeader
+                        label="Devices Configured"
+                        sortKey="devicesCount"
+                        currentSort={siteSort}
+                        onSort={handleSiteSort}
+                      />
                       <th className="py-3.5 px-4 sm:px-6 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {filteredSites.length === 0 ? (
+                    {sortedSites.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="py-12 text-center text-gray-500 dark:text-gray-400">
                           <Building2 className="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
@@ -991,7 +1380,7 @@ export function AdminPanelPage() {
                         </td>
                       </tr>
                     ) : (
-                      filteredSites.map((site) => {
+                      sortedSites.map((site) => {
                         const siteDevicesCount = allDevices.filter(
                           (d) => d.coresite_id === site.id || d.core_pikudim_site_id === site.id
                         ).length;
@@ -1039,7 +1428,7 @@ export function AdminPanelPage() {
         )}
 
         {/* ============================================================== */}
-        {/* TAB 3: CORE DEVICES                                           */}
+        {/* TAB 4: CORE DEVICES                                           */}
         {/* ============================================================== */}
         {activeTab === "devices" && (
           <div className="space-y-4">
@@ -1183,16 +1572,42 @@ export function AdminPanelPage() {
                 <table className="w-full text-left text-sm">
                   <thead className="bg-gray-50 dark:bg-gray-900/60 border-b border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     <tr>
-                      <th className="py-3.5 px-4 sm:px-6">Device ID</th>
-                      <th className="py-3.5 px-4">Hostname</th>
-                      <th className="py-3.5 px-4">IP Address</th>
-                      <th className="py-3.5 px-4">Associated Site</th>
-                      <th className="py-3.5 px-4">Network Profile</th>
+                      <SortableHeader
+                        label="Device ID"
+                        sortKey="id"
+                        currentSort={deviceSort}
+                        onSort={handleDeviceSort}
+                        className="sm:px-6"
+                      />
+                      <SortableHeader
+                        label="Hostname"
+                        sortKey="hostname"
+                        currentSort={deviceSort}
+                        onSort={handleDeviceSort}
+                      />
+                      <SortableHeader
+                        label="IP Address"
+                        sortKey="ip"
+                        currentSort={deviceSort}
+                        onSort={handleDeviceSort}
+                      />
+                      <SortableHeader
+                        label="Associated Site"
+                        sortKey="site"
+                        currentSort={deviceSort}
+                        onSort={handleDeviceSort}
+                      />
+                      <SortableHeader
+                        label="Network Profile"
+                        sortKey="network"
+                        currentSort={deviceSort}
+                        onSort={handleDeviceSort}
+                      />
                       <th className="py-3.5 px-4 sm:px-6 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {filteredDevices.length === 0 ? (
+                    {sortedDevices.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="py-12 text-center text-gray-500 dark:text-gray-400">
                           <Server className="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
@@ -1200,7 +1615,7 @@ export function AdminPanelPage() {
                         </td>
                       </tr>
                     ) : (
-                      filteredDevices.map((device) => {
+                      sortedDevices.map((device) => {
                         const siteId = device.coresite_id || device.core_pikudim_site_id;
                         const site = allCoreSites.find((s) => s.id === siteId);
                         const siteName = site ? site.core_site_name || site.name : `Site #${siteId || "?"}`;
@@ -1243,143 +1658,6 @@ export function AdminPanelPage() {
                                 onClick={() => promptDeleteEntity("device", device)}
                                 className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
                                 title="Delete Device"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ============================================================== */}
-        {/* TAB 4: NETWORK TYPES                                          */}
-        {/* ============================================================== */}
-        {activeTab === "netTypes" && (
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                Network profiles define operational partitions for infrastructure topology.
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowAddNetType(!showAddNetType)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <Plus className="w-4 h-4" />
-                <span>{showAddNetType ? "Close Form" : "Add Net Type"}</span>
-              </button>
-            </div>
-
-            {/* Collapsible Add Net Type Card */}
-            {showAddNetType && (
-              <form
-                onSubmit={handleAddNetTypeSubmit}
-                className="p-6 bg-white dark:bg-gray-800 rounded-xl border border-blue-200 dark:border-blue-900/50 shadow-md space-y-4 animate-in fade-in duration-200"
-              >
-                <div className="flex items-center justify-between pb-3 border-b border-gray-200 dark:border-gray-700">
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <Network className="w-5 h-5 text-blue-600" />
-                    New Network Type
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddNetType(false)}
-                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <div className="max-w-md">
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
-                    Network Type Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Backbone WAN"
-                    value={netTypeData.name}
-                    onChange={(e) => setNetTypeData({ ...netTypeData, name: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div className="flex justify-end gap-3 pt-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddNetType(false)}
-                    className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isFormSubmitting}
-                    className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 inline-flex items-center gap-2"
-                  >
-                    {isFormSubmitting && <RefreshCw className="w-4 h-4 animate-spin" />}
-                    <span>Save Net Type</span>
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* Net Types Table */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-gray-50 dark:bg-gray-900/60 border-b border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    <tr>
-                      <th className="py-3.5 px-4 sm:px-6">Type ID</th>
-                      <th className="py-3.5 px-4">Network Type Name</th>
-                      <th className="py-3.5 px-4">Assigned Devices</th>
-                      <th className="py-3.5 px-4 sm:px-6 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {allNetTypes.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="py-12 text-center text-gray-500 dark:text-gray-400">
-                          <Network className="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
-                          <p className="font-medium">No network types found</p>
-                        </td>
-                      </tr>
-                    ) : (
-                      allNetTypes.map((nt) => {
-                        const assignedDevicesCount = allDevices.filter(
-                          (d) => d.network_type_id === nt.id
-                        ).length;
-
-                        return (
-                          <tr
-                            key={nt.id}
-                            className="hover:bg-gray-50/80 dark:hover:bg-gray-700/40 transition-colors"
-                          >
-                            <td className="py-4 px-4 sm:px-6">
-                              <span className="font-mono text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium">
-                                #{nt.id}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4 font-semibold text-gray-900 dark:text-gray-100">
-                              {nt.name}
-                            </td>
-                            <td className="py-4 px-4 text-gray-600 dark:text-gray-300">
-                              <span className="font-medium">{assignedDevicesCount}</span> device(s)
-                            </td>
-                            <td className="py-4 px-4 sm:px-6 text-right">
-                              <button
-                                type="button"
-                                onClick={() => promptDeleteEntity("netType", nt)}
-                                className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
-                                title="Delete Network Type"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>

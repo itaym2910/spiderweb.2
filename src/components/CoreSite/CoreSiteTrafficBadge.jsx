@@ -48,7 +48,27 @@ export default function CoreSiteTrafficBadge({
     return null;
   }, [coreSiteId, siteName, allTraffic, allCoreSites]);
 
-  if (!trafficData || !trafficData.traffic) {
+  const isValidTrafficRate = (val) => {
+    if (val === undefined || val === null) return false;
+    const str = String(val).trim();
+    return (
+      str !== "" &&
+      str !== "N/A" &&
+      str !== "--" &&
+      str !== "null" &&
+      str !== "undefined" &&
+      !str.includes("undefined") &&
+      !str.includes("null")
+    );
+  };
+
+  if (
+    !trafficData ||
+    !trafficData.traffic ||
+    trafficData.error ||
+    !isValidTrafficRate(trafficData.traffic.in) ||
+    !isValidTrafficRate(trafficData.traffic.out)
+  ) {
     return null;
   }
 

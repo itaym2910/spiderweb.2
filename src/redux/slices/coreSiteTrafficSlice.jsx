@@ -23,13 +23,16 @@ export const fetchAllCoreSitesTraffic = createAsyncThunk(
     try {
       const results = await Promise.all(
         siteIds.map((id) =>
-          api.getCoreSiteTraffic(id).catch((err) => {
-            console.warn(`Failed traffic fetch for site ${id}:`, err);
-            return null;
-          })
+          api
+            .getCoreSiteTraffic(id)
+            .then((res) => ({ id, ...res }))
+            .catch((err) => {
+              console.warn(`Traffic endpoint unavailable for site ${id}:`, err);
+              return { id, traffic: null, error: err.message || "Traffic endpoint unavailable" };
+            })
         )
       );
-      return results.filter(Boolean);
+      return results;
     } catch (error) {
       return rejectWithValue(
         error.message || "Failed to fetch all core sites traffic"
@@ -67,6 +70,10 @@ const coreSiteTrafficSlice = createSlice({
       })
       .addCase(fetchCoreSiteTraffic.rejected, (state, action) => {
         state.error = action.payload;
+        const siteId = action.meta?.arg;
+        if (siteId && state.byId[siteId]) {
+          state.byId[siteId] = { ...state.byId[siteId], traffic: null };
+        }
       })
       // Multiple sites batch fetch
       .addCase(fetchAllCoreSitesTraffic.pending, (state) => {
@@ -86,6 +93,12 @@ const coreSiteTrafficSlice = createSlice({
       .addCase(fetchAllCoreSitesTraffic.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload;
+        // When traffic fetch completely fails, clear traffic so UI hides stale metrics
+        Object.keys(state.byId).forEach((id) => {
+          if (state.byId[id]) {
+            state.byId[id] = { ...state.byId[id], traffic: null };
+          }
+        });
       });
   },
 });
