@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useCallback } from "react";
+import React, { useRef, useMemo, useCallback, useEffect } from "react";
 import { X, Compass } from "lucide-react";
 
 export default function MapMinimap({
@@ -18,7 +18,22 @@ export default function MapMinimap({
   const isDark = theme === "dark";
   const svgRef = useRef(null);
   const isDraggingRef = useRef(false);
-  const dragStartRef = useRef({ mouseX: 0, mouseY: 0, initialX: 0, initialY: 0 });
+  const dragStartRef = useRef({
+    mouseX: 0,
+    mouseY: 0,
+    initialVx: 0,
+    initialVy: 0,
+    k: 1,
+    boxW: 12,
+    boxH: 8,
+  });
+  const dragCleanupRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      dragCleanupRef.current?.();
+    };
+  }, []);
 
   const MINIMAP_WIDTH = 210;
   const MINIMAP_HEIGHT = 135;
@@ -102,7 +117,7 @@ export default function MapMinimap({
     [bounds.minY, offsetY, scale]
   );
 
-  // Viewfinder bounding box in minimap coordinates
+  // Viewfinder bounding box in minimap coordinates with bounds clamping
   const viewfinder = useMemo(() => {
     const k = transform.k || 1;
     const visibleGraphLeft = -transform.x / k;
@@ -110,15 +125,25 @@ export default function MapMinimap({
     const visibleGraphWidth = viewportWidth / k;
     const visibleGraphHeight = viewportHeight / k;
 
-    const vx = toMinimapX(visibleGraphLeft);
-    const vy = toMinimapY(visibleGraphTop);
+    const rawVx = toMinimapX(visibleGraphLeft);
+    const rawVy = toMinimapY(visibleGraphTop);
     const vw = visibleGraphWidth * scale;
     const vh = visibleGraphHeight * scale;
+    const boxW = Math.max(12, vw);
+    const boxH = Math.max(8, vh);
 
-    return { x: vx, y: vy, width: vw, height: vh };
+    const minVx = Math.min(0, MINIMAP_WIDTH - boxW);
+    const maxVx = Math.max(0, MINIMAP_WIDTH - boxW);
+    const vx = Math.max(minVx, Math.min(maxVx, rawVx));
+
+    const minVy = Math.min(0, MINIMAP_HEIGHT - boxH);
+    const maxVy = Math.max(0, MINIMAP_HEIGHT - boxH);
+    const vy = Math.max(minVy, Math.min(maxVy, rawVy));
+
+    return { x: vx, y: vy, width: boxW, height: boxH };
   }, [transform, viewportWidth, viewportHeight, scale, toMinimapX, toMinimapY]);
 
-  // Click on minimap to jump
+  // Click on minimap to jump (bounded to avoid going out of bounds)
   const handleMinimapClick = (e) => {
     if (isDraggingRef.current) return;
     if (!svgRef.current) return;
@@ -127,48 +152,101 @@ export default function MapMinimap({
     const clickMx = e.clientX - rect.left;
     const clickMy = e.clientY - rect.top;
 
-    const targetGx = toGraphX(clickMx);
-    const targetGy = toGraphY(clickMy);
-
     const k = transform.k || 1;
-    const newTx = viewportWidth / 2 - targetGx * k;
-    const newTy = viewportHeight / 2 - targetGy * k;
+    const visibleGraphWidth = viewportWidth / k;
+    const visibleGraphHeight = viewportHeight / k;
+    const vw = visibleGraphWidth * scale;
+    const vh = visibleGraphHeight * scale;
+    const boxW = Math.max(12, vw);
+    const boxH = Math.max(8, vh);
+
+    const targetVx = clickMx - boxW / 2;
+    const targetVy = clickMy - boxH / 2;
+
+    const minVx = Math.min(0, MINIMAP_WIDTH - boxW);
+    const maxVx = Math.max(0, MINIMAP_WIDTH - boxW);
+    const clampedVx = Math.max(minVx, Math.min(maxVx, targetVx));
+
+    const minVy = Math.min(0, MINIMAP_HEIGHT - boxH);
+    const maxVy = Math.max(0, MINIMAP_HEIGHT - boxH);
+    const clampedVy = Math.max(minVy, Math.min(maxVy, targetVy));
+
+    const targetGx = toGraphX(clampedVx);
+    const targetGy = toGraphY(clampedVy);
+
+    const newTx = -targetGx * k;
+    const newTy = -targetGy * k;
 
     onPanTo?.(newTx, newTy, true);
   };
 
-  // Drag the viewfinder box
+  // Drag the viewfinder box (bounded so user cannot drag out of bounds)
   const handleViewfinderMouseDown = (e) => {
     e.stopPropagation();
+    e.preventDefault();
     isDraggingRef.current = true;
+
+    const k = transform.k || 1;
+    const visibleGraphLeft = -transform.x / k;
+    const visibleGraphTop = -transform.y / k;
+    const visibleGraphWidth = viewportWidth / k;
+    const visibleGraphHeight = viewportHeight / k;
+
+    const vw = visibleGraphWidth * scale;
+    const vh = visibleGraphHeight * scale;
+    const boxW = Math.max(12, vw);
+    const boxH = Math.max(8, vh);
+
+    const initialVx = toMinimapX(visibleGraphLeft);
+    const initialVy = toMinimapY(visibleGraphTop);
+
     dragStartRef.current = {
       mouseX: e.clientX,
       mouseY: e.clientY,
-      initialTx: transform.x,
-      initialTy: transform.y,
+      initialVx,
+      initialVy,
+      k,
+      boxW,
+      boxH,
     };
 
     const handleMouseMove = (moveEvent) => {
       if (!isDraggingRef.current) return;
-      const dxMinimap = moveEvent.clientX - dragStartRef.current.mouseX;
-      const dyMinimap = moveEvent.clientY - dragStartRef.current.mouseY;
+      const { mouseX, mouseY, initialVx, initialVy, k: curK, boxW: curW, boxH: curH } =
+        dragStartRef.current;
+      const dxMinimap = moveEvent.clientX - mouseX;
+      const dyMinimap = moveEvent.clientY - mouseY;
 
-      const dxGraph = dxMinimap / scale;
-      const dyGraph = dyMinimap / scale;
+      const targetVx = initialVx + dxMinimap;
+      const targetVy = initialVy + dyMinimap;
 
-      const k = transform.k || 1;
-      const newTx = dragStartRef.current.initialTx - dxGraph * k;
-      const newTy = dragStartRef.current.initialTy - dyGraph * k;
+      const minVx = Math.min(0, MINIMAP_WIDTH - curW);
+      const maxVx = Math.max(0, MINIMAP_WIDTH - curW);
+      const clampedVx = Math.max(minVx, Math.min(maxVx, targetVx));
+
+      const minVy = Math.min(0, MINIMAP_HEIGHT - curH);
+      const maxVy = Math.max(0, MINIMAP_HEIGHT - curH);
+      const clampedVy = Math.max(minVy, Math.min(maxVy, targetVy));
+
+      const newGraphLeft = toGraphX(clampedVx);
+      const newGraphTop = toGraphY(clampedVy);
+
+      const newTx = -newGraphLeft * curK;
+      const newTy = -newGraphTop * curK;
 
       onPanTo?.(newTx, newTy, false);
     };
 
     const handleMouseUp = () => {
-      isDraggingRef.current = false;
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
+      dragCleanupRef.current = null;
+      setTimeout(() => {
+        isDraggingRef.current = false;
+      }, 50);
     };
 
+    dragCleanupRef.current = handleMouseUp;
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
   };
@@ -239,6 +317,7 @@ export default function MapMinimap({
                   className="cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
+                    if (isDraggingRef.current) return;
                     onFocusZone?.(zone);
                   }}
                 />
@@ -292,8 +371,8 @@ export default function MapMinimap({
           <rect
             x={viewfinder.x}
             y={viewfinder.y}
-            width={Math.max(12, viewfinder.width)}
-            height={Math.max(8, viewfinder.height)}
+            width={viewfinder.width}
+            height={viewfinder.height}
             fill="rgba(56, 189, 248, 0.18)"
             stroke={isDark ? "#38bdf8" : "#0284c7"}
             strokeWidth={1.4}
