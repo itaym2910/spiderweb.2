@@ -99,6 +99,10 @@ export function extractPingMetrics(itemOrRate, packetsSuccess, packetsTotal, rat
       raw.ping_rate ??
       obj.pingSuccessRate ??
       raw.pingSuccessRate ??
+      obj.ping ??
+      raw.ping ??
+      obj.pingRate ??
+      raw.pingRate ??
       obj.success_rate ??
       raw.success_rate ??
       obj.rate ??

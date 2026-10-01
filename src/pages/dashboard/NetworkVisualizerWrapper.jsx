@@ -265,16 +265,27 @@ const NetworkVisualizerWrapper = ({ theme }) => {
             existing.description = link.local_interface_description || link.description;
             existing.local_interface_description = existing.description;
           }
-          if (existing.ping_success_attempts === undefined && link.ping_success_attempts !== undefined) {
+          if ((existing.ping_success_attempts == null) && link.ping_success_attempts != null) {
             existing.ping_success_attempts = link.ping_success_attempts;
           }
-          if (existing.ping_success_rate === undefined && link.ping_success_rate !== undefined) {
-            existing.ping_success_rate = link.ping_success_rate;
+          if ((existing.ping_success_rate == null) && (link.ping_success_rate != null || link.ping_rate != null || link.pingSuccessRate != null || link.ping != null)) {
+            existing.ping_success_rate = link.ping_success_rate ?? link.ping_rate ?? link.pingSuccessRate ?? link.ping;
+          }
+          if ((existing.ping_packets_success == null) && (link.ping_packets_success != null || link.ping_success_attempts != null)) {
             existing.ping_packets_success = link.ping_packets_success ?? link.ping_success_attempts;
-            existing.ping_packets_total = link.ping_packets_total;
+          }
+          if ((existing.ping_packets_total == null) && (link.ping_packets_total != null || link.total_pings != null || link.ping_total != null)) {
+            existing.ping_packets_total = link.ping_packets_total ?? link.total_pings ?? link.ping_total;
+          }
+          if ((existing.ping_ratio == null) && link.ping_ratio != null) {
             existing.ping_ratio = link.ping_ratio;
-            existing.total_pings = link.total_pings ?? link.ping_total;
-            existing.ping_total = link.ping_total ?? link.total_pings;
+          }
+          if ((existing.total_pings == null) && (link.total_pings != null || link.ping_total != null || link.ping_packets_total != null)) {
+            existing.total_pings = link.total_pings ?? link.ping_total ?? link.ping_packets_total;
+            existing.ping_total = existing.total_pings;
+          }
+          if ((existing.last_ping_at == null) && (link.last_ping_at != null || link.lastPingAt != null)) {
+            existing.last_ping_at = link.last_ping_at ?? link.lastPingAt;
           }
           return;
         }
@@ -312,14 +323,14 @@ const NetworkVisualizerWrapper = ({ theme }) => {
             : "10G",
           bandwidth_mbps: link.bandwidth_mbps,
           mtu: link.mtu,
-          ping_success_rate: link.ping_success_rate,
-          ping_success_attempts: link.ping_success_attempts,
-          ping_packets_success: link.ping_packets_success ?? link.ping_success_attempts,
-          ping_packets_total: link.ping_packets_total,
-          ping_ratio: link.ping_ratio,
-          total_pings: link.total_pings ?? link.ping_total,
-          ping_total: link.ping_total ?? link.total_pings,
-          last_ping_at: link.last_ping_at,
+          ping_success_rate: link.ping_success_rate ?? link.ping_rate ?? link.pingSuccessRate ?? link.ping ?? link.rawLink?.ping_success_rate,
+          ping_success_attempts: link.ping_success_attempts ?? link.ping_packets_success ?? link.pingPacketsSuccess ?? link.rawLink?.ping_success_attempts,
+          ping_packets_success: link.ping_packets_success ?? link.ping_success_attempts ?? link.pingPacketsSuccess ?? link.rawLink?.ping_packets_success,
+          ping_packets_total: link.ping_packets_total ?? link.total_pings ?? link.ping_total ?? link.pingPacketsTotal ?? link.rawLink?.ping_packets_total,
+          ping_ratio: link.ping_ratio ?? link.packet_ratio ?? link.rawLink?.ping_ratio,
+          total_pings: link.total_pings ?? link.ping_total ?? link.ping_packets_total ?? link.rawLink?.total_pings,
+          ping_total: link.ping_total ?? link.total_pings ?? link.ping_packets_total ?? link.rawLink?.ping_total,
+          last_ping_at: link.last_ping_at ?? link.lastPingAt ?? link.rawLink?.last_ping_at,
           local_interface: link.local_interface,
           remote_interface: link.remote_interface,
           local_link_ip: link.local_link_ip || link.local_ip,
