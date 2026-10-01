@@ -17,7 +17,6 @@ import {
   selectAllNetTypes,
 } from "../redux/slices/netTypesSlice";
 import { MdSettings, MdDelete } from "react-icons/md";
-import CoreSiteTrafficBadge from "../components/CoreSite/CoreSiteTrafficBadge";
 
 // Reusable Input Field Component (Unchanged)
 const InputField = ({
@@ -496,82 +495,6 @@ export function AdminPanelPage() {
           Manage core system entities like Core Sites, Devices, and Net Types.
         </p>
       </header>
-
-      {/* ─── Core Sites & Live Telemetry Overview ─── */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200">
-              Core Sites Telemetry
-            </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-              Live inbound and outbound bandwidth utilization per core site, refreshed via the system poller.
-            </p>
-          </div>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Poller Active
-          </span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
-            <thead className="bg-gray-100 dark:bg-gray-700/60 text-xs uppercase text-gray-700 dark:text-gray-300 font-semibold tracking-wider">
-              <tr>
-                <th className="px-4 py-3 rounded-l-lg">ID</th>
-                <th className="px-4 py-3">Core Site Name</th>
-                <th className="px-4 py-3">Network</th>
-                <th className="px-4 py-3">Devices</th>
-                <th className="px-4 py-3 rounded-r-lg text-right">In / Out Traffic</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
-              {allCoreSites.map((site) => {
-                const siteDevices = allDevices.filter(
-                  (d) =>
-                    d.coresite_id === site.id ||
-                    d.core_pikudim_site_id === site.id
-                );
-                const netType = allNetTypes.find(
-                  (nt) =>
-                    site.network_ids?.includes(nt.id) ||
-                    (site.type_id && site.type_id === nt.id)
-                );
-
-                return (
-                  <tr
-                    key={site.id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
-                  >
-                    <td className="px-4 py-3 font-mono text-xs font-bold text-gray-500 dark:text-gray-400">
-                      #{site.id}
-                    </td>
-                    <td className="px-4 py-3 font-semibold text-gray-900 dark:text-gray-100">
-                      {site.core_site_name || site.name}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                        {netType?.name || (site.id <= 6 ? "L-Network" : "P-Network")}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
-                      {siteDevices.length} router{siteDevices.length !== 1 ? "s" : ""}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <CoreSiteTrafficBadge
-                        coreSiteId={site.id}
-                        siteName={site.name}
-                        size="sm"
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
         <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-4">
           Add Entities
