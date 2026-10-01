@@ -67,9 +67,19 @@ form[data-loading="true"] button:disabled {
 
 /* --- Hardware-accelerated Smooth SVG Chart Transitions --- */
 svg line.visible-link,
-svg path.duplicate-link {
+svg path.duplicate-link,
+svg path.temp-duplicate-link {
   transition: stroke 0.15s ease-out, stroke-width 0.15s ease-out, stroke-opacity 0.15s ease-out;
+  vector-effect: non-scaling-stroke;
   pointer-events: none;
+}
+
+/* Grab cursor on chart canvas */
+svg.topology-chart-svg {
+  cursor: grab;
+}
+svg.topology-chart-svg.is-panning {
+  cursor: grabbing;
 }
 
 svg circle.node {
@@ -84,38 +94,50 @@ svg circle.zone {
   transition: fill 0.15s ease-out, fill-opacity 0.15s ease-out;
 }
 
-/* --- Prevent unwanted global text selection across the dashboard interface --- */
-html,
-body,
-#root {
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-}
+/* --- Text Selection & Interaction Rules --- */
 
-/* Ensure buttons, tabs, navigation chrome, and SVG elements are not marked */
+/* Prevent accidental text selection on interactive chrome and canvas surfaces */
 button,
-[role="button"],
 [role="tab"],
-nav,
-svg,
-svg text {
+nav button,
+nav a,
+.select-none,
+svg.network-graph,
+svg circle.node,
+svg text.label,
+svg line.visible-link,
+svg path.duplicate-link {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
 }
 
-/* Allow text selection in editable fields and selectable data content */
+/* Ensure data displays, modals, popups, tables, cards, and values are fully selectable */
 input,
 textarea,
 [contenteditable="true"],
 .select-text,
+table,
+table th,
 table td,
-[role="gridcell"] {
+[role="grid"],
+[role="row"],
+[role="gridcell"],
+[role="columnheader"],
+[role="rowheader"],
+[role="dialog"],
+[aria-modal="true"],
+.font-mono {
   -webkit-user-select: text;
   -moz-user-select: text;
   -ms-user-select: text;
   user-select: text;
 }
+
+/* Crisp selection highlighting */
+::selection {
+  background-color: rgba(59, 130, 246, 0.35);
+  color: inherit;
+}
+

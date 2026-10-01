@@ -46,6 +46,9 @@ export function VirtualizedTable({
   }, [onScrollEnd]);
 
   const toggleRow = useCallback((row) => {
+    if (window.getSelection && window.getSelection().toString().trim().length > 0) {
+      return;
+    }
     if (onRowClick) {
       onRowClick(row);
       return;

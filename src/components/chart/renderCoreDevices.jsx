@@ -229,7 +229,8 @@ export function renderCoreDevices(
     .attr("class", "visible-link")
     .attr("stroke", palette.link)
     .attr("stroke-opacity", 0.6)
-    .attr("stroke-width", 2);
+    .attr("stroke-width", 2)
+    .attr("vector-effect", "non-scaling-stroke");
 
   const linkHover = linkGroup
     .selectAll("line.link-hover")

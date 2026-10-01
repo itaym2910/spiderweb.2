@@ -451,9 +451,10 @@ const LinkTable = ({
                       return (
                         <tr
                           key={link.id}
-                          onClick={() =>
-                            setPopupItem({ data: link, type: "link" })
-                          }
+                          onClick={() => {
+                            if (window.getSelection && window.getSelection().toString().trim().length > 0) return;
+                            setPopupItem({ data: link, type: "link" });
+                          }}
                           className="hover:bg-purple-50/60 dark:hover:bg-purple-500/10 cursor-pointer transition-colors duration-150"
                           title="Click for full details popup"
                         >

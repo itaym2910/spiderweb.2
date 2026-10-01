@@ -62,7 +62,9 @@ const AlertModal = ({ alert, onClose }) => {
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto relative"
+        role="dialog"
+        aria-modal="true"
+        className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto relative select-text"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -185,7 +187,10 @@ const AlertModal = ({ alert, onClose }) => {
 const AlertCard = ({ alert, onClick }) => {
   return (
     <div
-      onClick={onClick}
+      onClick={(e) => {
+        if (window.getSelection && window.getSelection().toString().trim().length > 0) return;
+        onClick(e);
+      }}
       className="relative bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer border border-transparent dark:hover:border-blue-500 hover:border-blue-400 flex flex-col h-full"
     >
       {/* NEW: Conditionally render the favorite star */}

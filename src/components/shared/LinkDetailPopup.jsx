@@ -224,7 +224,9 @@ const LinkDetailPopup = ({
       {/* Popup Container */}
       <div
         ref={popupRef}
-        className={`relative w-full max-w-lg mx-4 rounded-2xl shadow-2xl border transition-all duration-200 ${isVisible && !isClosing
+        role="dialog"
+        aria-modal="true"
+        className={`relative w-full max-w-lg mx-4 rounded-2xl shadow-2xl border transition-all duration-200 select-text ${isVisible && !isClosing
           ? "opacity-100 scale-100 translate-y-0"
           : "opacity-0 scale-95 translate-y-4"
           } ${isDark

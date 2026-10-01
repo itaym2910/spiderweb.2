@@ -1,12 +1,13 @@
-// src/components/CoreSite/CoreSiteView.jsx
-
 import React, { useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import CoreSiteCanvas from "./CoreSiteCanvas";
 import SitesBar from "./SitesBar";
 import LinkDetailPopup from "../shared/LinkDetailPopup";
 import CoreSiteControls from "./CoreSiteControls";
 
 export default function CoreSiteView({
+  chartType = "L",
   theme,
   zoneId,
   coreSiteId,
@@ -28,6 +29,10 @@ export default function CoreSiteView({
   onClosePopup,
   onNavigateToSite,
 }) {
+  const navigate = useNavigate();
+  const isDark = theme === "dark";
+  const backPath = chartType === "P" ? "/p-chart" : "/l-chart";
+  const backLabel = chartType === "P" ? "Back to Pikudim Map" : "Back to Libot Map";
   const svgRef = useRef(null);
   const siteRefs = useRef([]);
   const focusedNodeDataRef = useRef(null);
@@ -74,8 +79,23 @@ export default function CoreSiteView({
 
       {/* 2. Main content area that grows to fill the remaining space */}
       <div className="flex-grow relative">
-        {/* Back button and Controls are absolutely positioned within this main content area */}
+        {/* Back to Network Map button */}
+        <button
+          type="button"
+          onClick={() => navigate(backPath)}
+          className={`absolute top-4 left-4 z-30 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold shadow-lg border backdrop-blur-md transition-all duration-150 active:scale-95 ${
+            isDark
+              ? "bg-gray-900/90 hover:bg-gray-800 text-sky-400 border-gray-700/80 shadow-black/30"
+              : "bg-white/95 hover:bg-gray-50 text-sky-700 border-gray-200 shadow-gray-200/50"
+          }`}
+          title={backLabel}
+        >
+          <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+          <span className="hidden sm:inline">{backLabel}</span>
+          <span className="sm:hidden">Back</span>
+        </button>
 
+        {/* CoreSiteControls */}
         <CoreSiteControls
           theme={theme}
           displayZoneId={displayZoneId}

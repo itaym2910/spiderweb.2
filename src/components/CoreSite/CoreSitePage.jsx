@@ -28,6 +28,7 @@ export default function CoreSitePage({ theme = "dark", chartType }) {
 
   return (
     <CoreSiteView
+      chartType={chartType}
       theme={theme}
       zoneId={zoneId}
       coreSiteId={coreSiteId}

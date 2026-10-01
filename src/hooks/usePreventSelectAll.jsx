@@ -35,7 +35,8 @@ function isEditableElement(el) {
 
 /**
  * Hook to prevent default Ctrl+A / Cmd+A ("Select All") behavior across the entire page,
- * while preserving standard text selection within editable fields (search boxes, text inputs, textareas).
+ * while preserving standard text selection within editable fields (search boxes, text inputs, textareas),
+ * and scoping select-all to active modal/dialog/table containers if user is inside one.
  */
 export function usePreventSelectAll() {
   useEffect(() => {
@@ -50,7 +51,26 @@ export function usePreventSelectAll() {
           return;
         }
 
-        // Otherwise prevent browser from selecting/marking all text on the page
+        // If inside an active modal dialog, popup, or data table container, scope selection to that container
+        const currentTarget = target || activeEl;
+        if (currentTarget && typeof currentTarget.closest === "function") {
+          const container = currentTarget.closest(
+            '[role="dialog"], [aria-modal="true"], .modal-container, table, [role="grid"], [data-selectable-container]'
+          );
+          if (container) {
+            e.preventDefault();
+            const selection = window.getSelection();
+            if (selection) {
+              selection.removeAllRanges();
+              const range = document.createRange();
+              range.selectNodeContents(container);
+              selection.addRange(range);
+            }
+            return;
+          }
+        }
+
+        // Otherwise prevent browser from selecting/marking all chrome/background text on the page
         e.preventDefault();
       }
     };
