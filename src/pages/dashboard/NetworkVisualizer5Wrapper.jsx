@@ -277,17 +277,64 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           }
 
           // Fill any missing metadata from reciprocal link
-          if (!existing.remote_device_name && (link.remote_device_name || remoteDeviceName)) {
-            existing.remote_device_name = link.remote_device_name || remoteDeviceName;
-          }
-          if (!existing.remote_interface && link.local_interface) {
-            existing.remote_interface = link.local_interface;
-          }
-          if (!existing.remote_link_ip && (link.local_link_ip || link.local_ip)) {
-            existing.remote_link_ip = link.local_link_ip || link.local_ip;
-          }
-          if (!existing.remote_ip && (link.local_link_ip || link.local_ip)) {
-            existing.remote_ip = link.local_link_ip || link.local_ip;
+          const isFlipped = existing.sourceName === remoteDeviceName;
+          const currentDevIp = device.ip || device.ip_address || null;
+          const currentRemoteDevIp = link.remote_device_ip || (remoteDevice ? (remoteDevice.ip || remoteDevice.ip_address) : null) || link.neighbor_ip || null;
+
+          if (isFlipped) {
+            if (!existing.remote_device_ip && currentDevIp) {
+              existing.remote_device_ip = currentDevIp;
+              existing.target_device_ip = currentDevIp;
+            }
+            if (!existing.local_device_ip && currentRemoteDevIp) {
+              existing.local_device_ip = currentRemoteDevIp;
+              existing.source_device_ip = currentRemoteDevIp;
+            }
+            if (!existing.remote_device_name && (link.remote_device_name || remoteDeviceName)) {
+              existing.remote_device_name = link.remote_device_name || remoteDeviceName;
+            }
+            if (!existing.remote_interface && link.local_interface) {
+              existing.remote_interface = link.local_interface;
+            }
+            if (!existing.remote_link_ip && (link.local_link_ip || link.local_ip)) {
+              existing.remote_link_ip = link.local_link_ip || link.local_ip;
+            }
+            if (!existing.remote_ip && (link.local_link_ip || link.local_ip)) {
+              existing.remote_ip = link.local_link_ip || link.local_ip;
+            }
+            if (!existing.local_link_ip && (link.remote_link_ip || link.remote_ip)) {
+              existing.local_link_ip = link.remote_link_ip || link.remote_ip;
+            }
+            if (!existing.local_ip && (link.remote_link_ip || link.remote_ip)) {
+              existing.local_ip = link.remote_link_ip || link.remote_ip;
+            }
+          } else {
+            if (!existing.local_device_ip && currentDevIp) {
+              existing.local_device_ip = currentDevIp;
+              existing.source_device_ip = currentDevIp;
+            }
+            if (!existing.remote_device_ip && currentRemoteDevIp) {
+              existing.remote_device_ip = currentRemoteDevIp;
+              existing.target_device_ip = currentRemoteDevIp;
+            }
+            if (!existing.remote_device_name && (link.remote_device_name || remoteDeviceName)) {
+              existing.remote_device_name = link.remote_device_name || remoteDeviceName;
+            }
+            if (!existing.remote_interface && link.remote_interface) {
+              existing.remote_interface = link.remote_interface;
+            }
+            if (!existing.local_link_ip && (link.local_link_ip || link.local_ip)) {
+              existing.local_link_ip = link.local_link_ip || link.local_ip;
+            }
+            if (!existing.local_ip && (link.local_link_ip || link.local_ip)) {
+              existing.local_ip = link.local_link_ip || link.local_ip;
+            }
+            if (!existing.remote_link_ip && (link.remote_link_ip || link.remote_ip)) {
+              existing.remote_link_ip = link.remote_link_ip || link.remote_ip;
+            }
+            if (!existing.remote_ip && (link.remote_link_ip || link.remote_ip)) {
+              existing.remote_ip = link.remote_link_ip || link.remote_ip;
+            }
           }
           if (!existing.description && (link.local_interface_description || link.description)) {
             existing.description = link.local_interface_description || link.description;
@@ -317,6 +364,9 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           }
           return;
         }
+
+        const localDevIp = device.ip || device.ip_address || null;
+        const remoteDevIp = link.remote_device_ip || (remoteDevice ? (remoteDevice.ip || remoteDevice.ip_address) : null) || link.neighbor_ip || null;
 
         const linkObj = {
           id: link.id,
@@ -361,12 +411,15 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           last_ping_at: link.last_ping_at ?? link.lastPingAt ?? link.rawLink?.last_ping_at,
           local_interface: link.local_interface,
           remote_interface: link.remote_interface,
+          local_device_ip: localDevIp,
+          source_device_ip: localDevIp,
+          remote_device_ip: remoteDevIp,
+          target_device_ip: remoteDevIp,
           local_link_ip: link.local_link_ip || link.local_ip,
           local_ip: link.local_link_ip || link.local_ip,
-          remote_device_ip: link.remote_device_ip,
           remote_link_ip: link.remote_link_ip || link.remote_ip,
           remote_ip: link.remote_link_ip || link.remote_ip || link.remote_interface_ip,
-          destinationIp: link.remote_link_ip || link.remote_device_ip || link.remote_ip,
+          destinationIp: link.remote_link_ip || remoteDevIp || link.remote_ip,
           ospf_state: link.ospf_state,
           is_ospf_full: link.is_ospf_full !== undefined ? Boolean(link.is_ospf_full) : (String(link.ospf_state || "").toUpperCase() === "FULL"),
           last_up_at: link.last_up_at,

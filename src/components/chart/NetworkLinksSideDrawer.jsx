@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useSelector } from "react-redux";
 import { selectAllDevices } from "../../redux/slices/devicesSlice";
+import { selectTopologyDevices } from "../../redux/slices/coreTopologySlice";
 import {
   ArrowUp,
   ArrowDown,
@@ -105,12 +106,27 @@ function EventLinkCard({ group, isExpanded, onToggle, onInspect, isDark }) {
       >
         <div className="flex flex-col min-w-0 pr-3">
           <div className="flex items-center gap-2 text-xs font-semibold text-gray-800 dark:text-gray-100">
-            <span className="truncate font-mono">{group.deviceName}</span>
+            <span
+              className="truncate font-mono"
+              title={group.localDeviceIp ? `${group.deviceName} (${group.localDeviceIp})` : group.deviceName}
+            >
+              {group.deviceName}
+            </span>
             <span className="text-gray-400 dark:text-gray-500 font-mono text-[10px]">⟷</span>
-            <span className="truncate font-mono">{group.remoteDeviceName}</span>
+            <span
+              className="truncate font-mono"
+              title={group.remoteDeviceIp ? `${group.remoteDeviceName} (${group.remoteDeviceIp})` : group.remoteDeviceName}
+            >
+              {group.remoteDeviceName}
+            </span>
           </div>
-          <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-            {group.interface || "Unknown Interface"}
+          <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-2 flex-wrap">
+            <span>{group.interface || "Unknown Interface"}</span>
+            {(group.localDeviceIp || group.remoteDeviceIp) && (
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
+                ({group.localDeviceIp || "N/A"} ⟷ {group.remoteDeviceIp || "N/A"})
+              </span>
+            )}
           </div>
         </div>
 
@@ -338,6 +354,64 @@ export default function NetworkLinksSideDrawer({
   const [apiRemoteDevice, setApiRemoteDevice] = useState("");
 
   const allDevices = useSelector(selectAllDevices);
+  const topologyDevices = useSelector(selectTopologyDevices);
+
+  // Map for fast device IP lookup by device id, name, or hostname
+  const deviceIpMap = useMemo(() => {
+    const map = new Map();
+    const registerDevice = (d) => {
+      if (!d) return;
+      const ip = d.ip || d.ip_address;
+      if (!ip) return;
+      if (d.id != null) {
+        map.set(String(d.id), ip);
+        map.set(Number(d.id), ip);
+      }
+      if (d.name) {
+        map.set(String(d.name).toLowerCase(), ip);
+      }
+      if (d.hostname) {
+        map.set(String(d.hostname).toLowerCase(), ip);
+      }
+    };
+    if (Array.isArray(allDevices)) {
+      allDevices.forEach(registerDevice);
+    }
+    if (Array.isArray(topologyDevices)) {
+      topologyDevices.forEach(registerDevice);
+    }
+    return map;
+  }, [allDevices, topologyDevices]);
+
+  const getDeviceIp = useCallback(
+    (deviceRef, fallbackName) => {
+      if (!deviceRef && !fallbackName) return null;
+      if (typeof deviceRef === "object" && deviceRef !== null) {
+        if (deviceRef.ip) return deviceRef.ip;
+        if (deviceRef.ip_address) return deviceRef.ip_address;
+        if (deviceRef.name && deviceIpMap.has(String(deviceRef.name).toLowerCase())) {
+          return deviceIpMap.get(String(deviceRef.name).toLowerCase());
+        }
+        if (deviceRef.hostname && deviceIpMap.has(String(deviceRef.hostname).toLowerCase())) {
+          return deviceIpMap.get(String(deviceRef.hostname).toLowerCase());
+        }
+        if (deviceRef.id != null && deviceIpMap.has(String(deviceRef.id))) {
+          return deviceIpMap.get(String(deviceRef.id));
+        }
+      }
+      if (typeof deviceRef === "string" || typeof deviceRef === "number") {
+        const key = String(deviceRef).toLowerCase();
+        if (deviceIpMap.has(key)) return deviceIpMap.get(key);
+      }
+      if (fallbackName) {
+        const key = String(fallbackName).toLowerCase();
+        if (deviceIpMap.has(key)) return deviceIpMap.get(key);
+      }
+      return null;
+    },
+    [deviceIpMap]
+  );
+
   const deviceFilterOptions = useMemo(() => {
     if (!Array.isArray(allDevices)) return [];
     const options = allDevices
@@ -444,17 +518,57 @@ export default function NetworkLinksSideDrawer({
           ? link.target.id || link.target.name
           : link.target;
 
+      const localDeviceIp =
+        link.local_device_ip ||
+        link.source_device_ip ||
+        getDeviceIp(link.source, sourceName) ||
+        (link.coredevice_id != null ? deviceIpMap.get(String(link.coredevice_id)) : null) ||
+        link.rawLink?.local_device_ip ||
+        null;
+
+      const remoteDeviceIp =
+        link.remote_device_ip ||
+        link.target_device_ip ||
+        getDeviceIp(link.target, targetName) ||
+        (link.remote_device_id != null ? deviceIpMap.get(String(link.remote_device_id)) : null) ||
+        (link.neighbor_coredevice_id != null ? deviceIpMap.get(String(link.neighbor_coredevice_id)) : null) ||
+        link.rawLink?.remote_device_ip ||
+        link.rawLink?.neighbor_ip ||
+        null;
+
+      const localLinkIp =
+        link.local_link_ip ||
+        link.local_ip ||
+        link.rawLink?.local_link_ip ||
+        link.rawLink?.local_ip ||
+        null;
+
+      const remoteLinkIp =
+        link.remote_link_ip ||
+        link.remote_ip ||
+        link.destinationIp ||
+        link.rawLink?.remote_link_ip ||
+        link.rawLink?.remote_ip ||
+        link.rawLink?.destinationIp ||
+        null;
+
       return {
         ...link,
         sourceName,
         targetName,
+        local_device_ip: localDeviceIp,
+        source_device_ip: localDeviceIp,
+        remote_device_ip: remoteDeviceIp,
+        target_device_ip: remoteDeviceIp,
+        local_link_ip: localLinkIp,
+        remote_link_ip: remoteLinkIp,
         normalizedStatus,
         statusDate,
         durationStr,
         exactTimeStr,
       };
     });
-  }, [links]);
+  }, [links, deviceIpMap, getDeviceIp]);
 
   // Counts
   const upCount = useMemo(
@@ -537,13 +651,26 @@ export default function NetworkLinksSideDrawer({
           link.description,
           link.Description,
           link.local_interface_description,
+          // Link interface IP addresses (local and remote link IPs)
           link.ip,
           link.local_ip,
           link.local_link_ip,
           link.remote_ip,
           link.remote_link_ip,
-          link.remote_device_ip,
           link.destinationIp,
+          link.rawLink?.local_link_ip,
+          link.rawLink?.remote_link_ip,
+          link.rawLink?.local_ip,
+          link.rawLink?.remote_ip,
+          link.rawLink?.neighbor_ip,
+          // Device IP addresses (local device A and remote device B)
+          link.local_device_ip,
+          link.source_device_ip,
+          link.remote_device_ip,
+          link.target_device_ip,
+          link.device_ip,
+          link.rawLink?.local_device_ip,
+          link.rawLink?.remote_device_ip,
           link.media_type,
           link.MediaType,
           link.bandwidth,
@@ -1298,6 +1425,21 @@ export default function NetworkLinksSideDrawer({
                 const filteredEvents = statusEvents.filter((event) => {
                   if (!searchQuery.trim()) return true;
                   const queryWords = searchQuery.toLowerCase().trim().split(/\s+/).filter(Boolean);
+
+                  const localDevIp =
+                    (event.local_device_name ? deviceIpMap.get(String(event.local_device_name).toLowerCase()) : null) ||
+                    (event.local_device_id != null ? deviceIpMap.get(String(event.local_device_id)) : null);
+                  const remoteDevIp =
+                    (event.remote_device_name ? deviceIpMap.get(String(event.remote_device_name).toLowerCase()) : null) ||
+                    (event.remote_device_id != null ? deviceIpMap.get(String(event.remote_device_id)) : null);
+
+                  const relatedLink = enrichedLinks.find((l) =>
+                    l.id === event.link_id ||
+                    (l.allIds && l.allIds.includes(event.link_id)) ||
+                    (l.sourceName === event.local_device_name && l.targetName === event.remote_device_name) ||
+                    (l.targetName === event.local_device_name && l.sourceName === event.remote_device_name)
+                  );
+
                   const searchableEventText = [
                     event.local_device_name,
                     event.remote_device_name,
@@ -1305,6 +1447,17 @@ export default function NetworkLinksSideDrawer({
                     event.remote_interface,
                     event.event_type,
                     String(event.link_id || ""),
+                    // Device IP addresses
+                    localDevIp,
+                    remoteDevIp,
+                    // Link IP addresses from related link
+                    relatedLink?.local_link_ip,
+                    relatedLink?.local_ip,
+                    relatedLink?.remote_link_ip,
+                    relatedLink?.remote_ip,
+                    relatedLink?.destinationIp,
+                    relatedLink?.local_device_ip,
+                    relatedLink?.remote_device_ip,
                   ]
                     .filter(Boolean)
                     .join(" ")
@@ -1316,10 +1469,19 @@ export default function NetworkLinksSideDrawer({
                 const eventsByLink = filteredEvents.reduce((acc, event) => {
                   const id = event.link_id ?? `${event.local_device_name || ""}-${event.remote_device_name || ""}-${event.local_interface || ""}`;
                   if (!acc[id]) {
+                    const localDevIp =
+                      (event.local_device_name ? deviceIpMap.get(String(event.local_device_name).toLowerCase()) : null) ||
+                      (event.local_device_id != null ? deviceIpMap.get(String(event.local_device_id)) : null);
+                    const remoteDevIp =
+                      (event.remote_device_name ? deviceIpMap.get(String(event.remote_device_name).toLowerCase()) : null) ||
+                      (event.remote_device_id != null ? deviceIpMap.get(String(event.remote_device_id)) : null);
+
                     acc[id] = {
                       linkId: id,
                       deviceName: event.local_device_name,
                       remoteDeviceName: event.remote_device_name,
+                      localDeviceIp: localDevIp,
+                      remoteDeviceIp: remoteDevIp,
                       interface: event.local_interface,
                       events: []
                     };
@@ -1596,14 +1758,21 @@ export default function NetworkLinksSideDrawer({
                       {/* Card Middle: Source ⟷ Target */}
                       <div className="flex items-center justify-between text-xs font-semibold py-1">
                         <div className="flex flex-col min-w-0 pr-2">
-                          <span className="truncate text-gray-800 dark:text-gray-100 font-mono">
+                          <span
+                            className="truncate text-gray-800 dark:text-gray-100 font-mono"
+                            title={link.local_device_ip ? `${link.sourceName} (${link.local_device_ip})` : link.sourceName}
+                          >
                             {link.sourceName}
                           </span>
-                          {link.sourceZone && (
-                            <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                              {link.sourceZone}
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1.5 text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                            {link.sourceZone && <span className="truncate">{link.sourceZone}</span>}
+                            {link.sourceZone && link.local_device_ip && <span>•</span>}
+                            {link.local_device_ip && (
+                              <span className="font-mono text-gray-400 dark:text-gray-500" title={`Device IP: ${link.local_device_ip}`}>
+                                {link.local_device_ip}
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         <div className="text-gray-400 dark:text-gray-500 px-1 font-mono text-[10px]">
@@ -1611,14 +1780,21 @@ export default function NetworkLinksSideDrawer({
                         </div>
 
                         <div className="flex flex-col min-w-0 pl-2 text-right">
-                          <span className="truncate text-gray-800 dark:text-gray-100 font-mono">
+                          <span
+                            className="truncate text-gray-800 dark:text-gray-100 font-mono"
+                            title={link.remote_device_ip ? `${link.targetName} (${link.remote_device_ip})` : link.targetName}
+                          >
                             {link.targetName}
                           </span>
-                          {link.targetZone && (
-                            <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                              {link.targetZone}
-                            </span>
-                          )}
+                          <div className="flex items-center justify-end gap-1.5 text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                            {link.remote_device_ip && (
+                              <span className="font-mono text-gray-400 dark:text-gray-500" title={`Device IP: ${link.remote_device_ip}`}>
+                                {link.remote_device_ip}
+                              </span>
+                            )}
+                            {link.targetZone && link.remote_device_ip && <span>•</span>}
+                            {link.targetZone && <span className="truncate">{link.targetZone}</span>}
+                          </div>
                         </div>
                       </div>
 
@@ -1632,10 +1808,15 @@ export default function NetworkLinksSideDrawer({
                           <span>{link.Bandwidth || link.bandwidth || "10 Gbps"}</span>
                           <span>•</span>
                           <span>{link.MediaType || link.media_type || "Fiber"}</span>
-                          {link.ip && (
+                          {(link.ip || link.local_link_ip || link.remote_link_ip) && (
                             <>
                               <span>•</span>
-                              <span className="font-mono">{link.ip}</span>
+                              <span
+                                className="font-mono"
+                                title={`Link IP${link.local_link_ip && link.remote_link_ip ? `s: Local ${link.local_link_ip} ⟷ Remote ${link.remote_link_ip}` : `: ${link.ip || link.local_link_ip || link.remote_link_ip}`}`}
+                              >
+                                {link.ip || (link.local_link_ip && link.remote_link_ip && link.local_link_ip !== link.remote_link_ip ? `${link.local_link_ip} ⟷ ${link.remote_link_ip}` : link.local_link_ip || link.remote_link_ip)}
+                              </span>
                             </>
                           )}
                           {(() => {
