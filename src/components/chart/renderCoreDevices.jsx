@@ -11,6 +11,41 @@ export function renderCoreDevices(
   onNodeClick,
   trafficByZone = {}
 ) {
+  // Helper function to convert bits to GB and format for display
+  const formatTrafficValue = (bits) => {
+    // Handle null, undefined, or non-numeric values
+    if (bits === undefined || bits === null || bits === "") {
+      return "N/A";
+    }
+
+    const numBits = parseFloat(bits);
+    if (isNaN(numBits)) {
+      return "N/A";
+    }
+
+    // Convert bits to GB (using decimal/SI: 1 GB = 1,000,000,000 bits)
+    const gb = numBits / 1_000_000_000;
+
+    // Format based on magnitude
+    if (gb >= 100) {
+      return `${Math.round(gb)} GB`;
+    } else if (gb >= 10) {
+      return `${gb.toFixed(1)} GB`;
+    } else if (gb >= 1) {
+      return `${gb.toFixed(2)} GB`;
+    } else if (gb >= 0.01) {
+      // Show in MB for smaller values
+      const mb = numBits / 1_000_000;
+      return `${mb.toFixed(1)} MB`;
+    } else if (gb >= 0.00001) {
+      // Show in KB for very small values
+      const kb = numBits / 1_000;
+      return `${kb.toFixed(1)} KB`;
+    } else {
+      return `${numBits} b`;
+    }
+  };
+
   // Define default zone fill and opacity (can be overridden by palette if provided)
   const defaultZoneFill = palette.zone?.fill || "#38bdf8";
   const defaultZoneOpacity = palette.zone?.opacity || 0.12;
@@ -197,11 +232,15 @@ export function renderCoreDevices(
           .style("pointer-events", "none")
           .style("user-select", "none");
 
+        // Format traffic values in GB
+        const trafficInGB = formatTrafficValue(zoneTraffic.traffic.in);
+        const trafficOutGB = formatTrafficValue(zoneTraffic.traffic.out);
+
         // Inbound traffic (emerald)
         textNode
           .append("tspan")
           .attr("fill", isDarkTheme ? "#34d399" : "#059669")
-          .text(`↓ ${zoneTraffic.traffic.in}`);
+          .text(`↓ ${trafficInGB}`);
 
         // Subtle bullet separator
         textNode
@@ -214,7 +253,7 @@ export function renderCoreDevices(
         textNode
           .append("tspan")
           .attr("fill", isDarkTheme ? "#fbbf24" : "#d97706")
-          .text(`↑ ${zoneTraffic.traffic.out}`);
+          .text(`↑ ${trafficOutGB}`);
       }
     });
 
