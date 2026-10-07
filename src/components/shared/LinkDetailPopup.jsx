@@ -3,7 +3,7 @@ import { MdClose, MdArrowForward } from "react-icons/md";
 import { AlertTriangle } from "lucide-react";
 import { api, getLinkDetails } from "../../services/apiServices";
 import { formatPingRateWithPackets } from "./pingHelpers";
-import CoreSiteTrafficBadge from "../CoreSite/CoreSiteTrafficBadge";
+// Remove CoreSiteTrafficBadge import if not used elsewhere
 
 const formatDate = (dateStr) => {
   if (!dateStr || dateStr === "null") return "N/A";
@@ -13,6 +13,19 @@ const formatDate = (dateStr) => {
   } catch {
     return dateStr;
   }
+};
+
+/**
+ * Format bps value to human-readable format (bps, kbps, Mbps, Gbps)
+ */
+const formatBps = (value) => {
+  if (value === undefined || value === null || value === "") return "N/A";
+  const num = typeof value === "number" ? value : parseFloat(value);
+  if (isNaN(num)) return "N/A";
+  if (num >= 1e9) return `${(num / 1e9).toFixed(2)} Gbps`;
+  if (num >= 1e6) return `${(num / 1e6).toFixed(2)} Mbps`;
+  if (num >= 1e3) return `${(num / 1e3).toFixed(2)} kbps`;
+  return `${num.toFixed(0)} bps`;
 };
 
 /**
@@ -35,14 +48,12 @@ const StatusBulb = ({ status }) => {
 const DetailRow = ({ label, value, isDark }) => (
   <div className="flex items-center justify-between py-2 px-1">
     <span
-      className={`text-sm font-medium ${isDark ? "text-gray-400" : "text-gray-500"
-        }`}
+      className={`text-sm font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}
     >
       {label}
     </span>
     <span
-      className={`text-sm font-semibold ${isDark ? "text-gray-100" : "text-gray-800"
-        }`}
+      className={`text-sm font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}
     >
       {value !== undefined && value !== null && value !== "" ? value : "N/A"}
     </span>
@@ -94,7 +105,6 @@ const LinkDetailPopup = ({
   useEffect(() => {
     if (linkData) {
       setIsClosing(false);
-      // Small delay to trigger CSS transition
       requestAnimationFrame(() => setIsVisible(true));
     }
   }, [linkData]);
@@ -136,8 +146,7 @@ const LinkDetailPopup = ({
     setFetchedDetails(null);
     if (itemType === "link" && linkData && !linkData.skipFetch) {
       const { coredevice_id, neighbor_coredevice_id, local_interface } = linkData;
-      
-      // Also try to get them from rawLink if they were nested
+
       const cid = coredevice_id || (linkData.rawLink && linkData.rawLink.coredevice_id);
       const ncid = neighbor_coredevice_id || (linkData.rawLink && linkData.rawLink.neighbor_coredevice_id);
       const name = local_interface || (linkData.rawLink && linkData.rawLink.local_interface);
@@ -155,6 +164,25 @@ const LinkDetailPopup = ({
   }, [linkData, itemType]);
 
   if (!linkData) return null;
+
+  // Extract in_bps and out_bps from various possible sources
+  const inBps =
+    fetchedDetails?.in_bps ??
+    fetchedDetails?.inBps ??
+    fetchedDetails?.bytes_in_rate ??
+    linkData?.in_bps ??
+    linkData?.inBps ??
+    linkData?.bytesIn ??
+    null;
+
+  const outBps =
+    fetchedDetails?.out_bps ??
+    fetchedDetails?.outBps ??
+    fetchedDetails?.bytes_out_rate ??
+    linkData?.out_bps ??
+    linkData?.outBps ??
+    linkData?.bytesOut ??
+    null;
 
   const itemData = {
     ...linkData,
@@ -214,10 +242,7 @@ const LinkDetailPopup = ({
   return (
     // Backdrop
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${isVisible && !isClosing
-        ? "bg-black/40 backdrop-blur-sm"
-        : "bg-transparent"
-        }`}
+      className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${isVisible && !isClosing ? "bg-black/40 backdrop-blur-sm" : "bg-transparent"}`}
       onClick={handleBackdropClick}
       style={{ pointerEvents: linkData ? "auto" : "none" }}
     >
@@ -226,18 +251,11 @@ const LinkDetailPopup = ({
         ref={popupRef}
         role="dialog"
         aria-modal="true"
-        className={`relative w-full max-w-lg mx-4 rounded-2xl shadow-2xl border transition-all duration-200 select-text ${isVisible && !isClosing
-          ? "opacity-100 scale-100 translate-y-0"
-          : "opacity-0 scale-95 translate-y-4"
-          } ${isDark
-            ? "bg-gray-800 border-gray-700"
-            : "bg-white border-gray-200"
-          }`}
+        className={`relative w-full max-w-lg mx-4 rounded-2xl shadow-2xl border transition-all duration-200 select-text ${isVisible && !isClosing ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-4"} ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
       >
         {/* Header */}
         <div
-          className={`flex items-center justify-between px-6 py-4 border-b ${isDark ? "border-gray-700" : "border-gray-200"
-            }`}
+          className={`flex items-center justify-between px-6 py-4 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}
         >
           <div className="flex items-center space-x-3">
             <StatusBulb
@@ -250,47 +268,46 @@ const LinkDetailPopup = ({
               }
             />
             <h3
-              className={`text-lg font-bold ${isDark ? "text-gray-100" : "text-gray-800"
-                }`}
+              className={`text-lg font-bold ${isDark ? "text-gray-100" : "text-gray-800"}`}
             >
               {linkTitle || itemData.name || "Link Details"}
             </h3>
           </div>
           <button
             onClick={handleClose}
-            className={`p-2 rounded-full transition-colors ${isDark
-              ? "text-gray-400 hover:bg-gray-700 hover:text-gray-200"
-              : "text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-              }`}
+            className={`p-2 rounded-full transition-colors ${isDark ? "text-gray-400 hover:bg-gray-700 hover:text-gray-200" : "text-gray-400 hover:bg-gray-100 hover:text-gray-700"}`}
           >
             <MdClose size={20} />
           </button>
         </div>
 
-        {/* Core Site Live Traffic Badges */}
-        {((itemData?.sourceZone && itemData.sourceZone !== "Unknown" && itemData.sourceZone !== "N/A") || itemData?.zone) && (
-          <div className={`px-6 py-2 border-b flex flex-wrap items-center justify-between gap-2 ${isDark ? "border-gray-700/60 bg-slate-800/40" : "border-gray-100 bg-sky-50/50"}`}>
-            <span className={`text-xs font-semibold ${isDark ? "text-gray-400" : "text-sky-800"}`}>
-              {itemType === "site" ? `${itemData.name || "Site"} Live Traffic:` : `${itemData.sourceZone || itemData.zone} Traffic:`}
-            </span>
-            <CoreSiteTrafficBadge
-              siteName={itemData.sourceZone || itemData.zone}
-              coreSiteId={itemData.coresite_id || itemData.id}
-              theme={theme}
-              size="sm"
-            />
-          </div>
-        )}
-        {itemData?.targetZone && itemData.targetZone !== "Unknown" && itemData.targetZone !== "N/A" && itemData.targetZone !== itemData.sourceZone && (
-          <div className={`px-6 py-2 border-b flex flex-wrap items-center justify-between gap-2 ${isDark ? "border-gray-700/60 bg-slate-800/40" : "border-gray-100 bg-sky-50/50"}`}>
-            <span className={`text-xs font-semibold ${isDark ? "text-gray-400" : "text-sky-800"}`}>
-              {`${itemData.targetZone} Traffic:`}
-            </span>
-            <CoreSiteTrafficBadge
-              siteName={itemData.targetZone}
-              theme={theme}
-              size="sm"
-            />
+        {/* In/Out bps Section */}
+        {(inBps !== null || outBps !== null) && (
+          <div className={`px-6 py-3 border-b ${isDark ? "border-gray-700 bg-slate-800/40" : "border-gray-100 bg-sky-50/50"}`}>
+            <div className="flex items-center justify-around gap-4">
+              {/* In bps */}
+              <div className="flex flex-col items-center">
+                <span className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"} mb-1`}>
+                  ↓ In bps
+                </span>
+                <span className={`text-lg font-bold ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>
+                  {formatBps(inBps)}
+                </span>
+              </div>
+
+              {/* Divider */}
+              <div className={`w-px h-10 ${isDark ? "bg-gray-700" : "bg-gray-200"}`} />
+
+              {/* Out bps */}
+              <div className="flex flex-col items-center">
+                <span className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"} mb-1`}>
+                  ↑ Out bps
+                </span>
+                <span className={`text-lg font-bold ${isDark ? "text-blue-400" : "text-blue-600"}`}>
+                  {formatBps(outBps)}
+                </span>
+              </div>
+            </div>
           </div>
         )}
 
@@ -300,8 +317,7 @@ const LinkDetailPopup = ({
           {itemType === "link" && itemData && !itemData.isCoreTopology && (
             <div className="space-y-1">
               <div
-                className={`divide-y ${isDark ? "divide-gray-700" : "divide-gray-100"
-                  }`}
+                className={`divide-y ${isDark ? "divide-gray-700" : "divide-gray-100"}`}
               >
                 <DetailRow
                   label="Physical Status"
@@ -398,18 +414,15 @@ const LinkDetailPopup = ({
 
               {/* Expanded details section */}
               <div
-                className={`mt-4 pt-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"
-                  }`}
+                className={`mt-4 pt-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}
               >
                 <p
-                  className={`text-xs font-semibold uppercase tracking-wider mb-3 ${isDark ? "text-gray-500" : "text-gray-400"
-                    }`}
+                  className={`text-xs font-semibold uppercase tracking-wider mb-3 ${isDark ? "text-gray-500" : "text-gray-400"}`}
                 >
                   Extended Details
                 </p>
                 <div
-                  className={`divide-y ${isDark ? "divide-gray-700" : "divide-gray-100"
-                    }`}
+                  className={`divide-y ${isDark ? "divide-gray-700" : "divide-gray-100"}`}
                 >
                   <DetailRow
                     label="Description"
@@ -464,15 +477,11 @@ const LinkDetailPopup = ({
             Object.entries(itemData.rawLink).forEach(([key, value]) => {
               if (typeof value === "object" && value !== null) return;
               
-              // Exclude IDs
               if (key === "id" || key.endsWith("_id")) return;
-              // Exclude Remote Device IP
               if (key === "remote_device_ip") return;
-              // Exclude Dates
               if (key.endsWith("_at")) return;
               if (typeof value === "string" && value.match(/^\d{4}-\d{2}-\d{2}T/)) return;
-              
-              // Exclude specific fields requested by user
+
               if (key === "is_ospf_full" || key === "link_drops_last_24h" || key === "ospf_drops_last_24h") return;
 
               if (key.startsWith("local_")) {
@@ -542,8 +551,7 @@ const LinkDetailPopup = ({
           {itemType === "site" && itemData && (
             <div className="space-y-1">
               <div
-                className={`divide-y ${isDark ? "divide-gray-700" : "divide-gray-100"
-                  }`}
+                className={`divide-y ${isDark ? "divide-gray-700" : "divide-gray-100"}`}
               >
                 <DetailRow label="Physical" value="Up" isDark={isDark} />
                 <DetailRow
@@ -570,18 +578,15 @@ const LinkDetailPopup = ({
 
               {/* Expanded details section */}
               <div
-                className={`mt-4 pt-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"
-                  }`}
+                className={`mt-4 pt-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}
               >
                 <p
-                  className={`text-xs font-semibold uppercase tracking-wider mb-3 ${isDark ? "text-gray-500" : "text-gray-400"
-                    }`}
+                  className={`text-xs font-semibold uppercase tracking-wider mb-3 ${isDark ? "text-gray-500" : "text-gray-400"}`}
                 >
                   Extended Details
                 </p>
                 <div
-                  className={`divide-y ${isDark ? "divide-gray-700" : "divide-gray-100"
-                    }`}
+                  className={`divide-y ${isDark ? "divide-gray-700" : "divide-gray-100"}`}
                 >
                   <DetailRow
                     label="Description"
@@ -608,27 +613,28 @@ const LinkDetailPopup = ({
 
         {/* Footer */}
         <div
-          className={`flex items-center justify-end px-6 py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"
-            }`}
+          className={`flex items-center justify-between px-6 py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}
         >
-          {itemType === "site" && onNavigateToSite && (
+          <span className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+            Updated: {new Date().toLocaleTimeString()}
+          </span>
+          <div className="flex items-center gap-3">
+            {itemType === "site" && onNavigateToSite && (
+              <button
+                onClick={handleNavigate}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 transition-colors"
+              >
+                Go to Site Details
+                <MdArrowForward />
+              </button>
+            )}
             <button
-              onClick={handleNavigate}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 mr-3 transition-colors"
+              onClick={handleClose}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${isDark ? "text-gray-300 bg-gray-700 hover:bg-gray-600" : "text-gray-700 bg-gray-100 hover:bg-gray-200"}`}
             >
-              Go to Site Details
-              <MdArrowForward />
+              Close
             </button>
-          )}
-          <button
-            onClick={handleClose}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${isDark
-              ? "text-gray-300 bg-gray-700 hover:bg-gray-600"
-              : "text-gray-700 bg-gray-100 hover:bg-gray-200"
-              }`}
-          >
-            Close
-          </button>
+          </div>
         </div>
       </div>
     </div>
