@@ -358,29 +358,27 @@ const LinkDetailPopup = ({
                   return (
                     <div className="flex items-center justify-between py-2 px-1">
                       <span
-                        className={`text-sm font-medium ${
-                          isDark ? "text-gray-400" : "text-gray-500"
-                        }`}
+                        className={`text-sm font-medium ${isDark ? "text-gray-400" : "text-gray-500"
+                          }`}
                       >
                         Ping Success Rate
                       </span>
                       <span className="flex items-center gap-1.5 text-sm font-semibold flex-wrap justify-end">
                         <span
-                          className={`w-2 h-2 rounded-full ${
-                            isDown
+                          className={`w-2 h-2 rounded-full ${isDown
                               ? "bg-rose-500"
                               : hasLoss
-                              ? "bg-amber-500 animate-pulse"
-                              : "bg-emerald-500"
-                          }`}
+                                ? "bg-amber-500 animate-pulse"
+                                : "bg-emerald-500"
+                            }`}
                         />
                         <span
                           className={
                             isDown
                               ? "text-rose-600 dark:text-rose-400"
                               : hasLoss
-                              ? "text-amber-600 dark:text-amber-400"
-                              : "text-emerald-600 dark:text-emerald-400"
+                                ? "text-amber-600 dark:text-amber-400"
+                                : "text-emerald-600 dark:text-emerald-400"
                           }
                           title={`${pingInfo.packetsSuccess ?? "?"}/${pingInfo.packetsTotal ?? "?"} packets received${hasLoss ? ` • ${packetsLost} packet(s) lost!` : ""}`}
                         >
@@ -476,13 +474,15 @@ const LinkDetailPopup = ({
 
             Object.entries(itemData.rawLink).forEach(([key, value]) => {
               if (typeof value === "object" && value !== null) return;
-              
+
               if (key === "id" || key.endsWith("_id")) return;
               if (key === "remote_device_ip") return;
               if (key.endsWith("_at")) return;
               if (typeof value === "string" && value.match(/^\d{4}-\d{2}-\d{2}T/)) return;
 
               if (key === "is_ospf_full" || key === "link_drops_last_24h" || key === "ospf_drops_last_24h") return;
+
+              if (key === "in_bps" || key === "out_bps" || key === "inBps" || key === "outBps") return;
 
               if (key.startsWith("local_")) {
                 localDeviceKeys.push([key, value]);
