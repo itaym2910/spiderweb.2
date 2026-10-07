@@ -8,9 +8,6 @@ import {
   removeAllParallelLinks,
   applyMarkedState,
 } from "./handleInteractions";
-import MapNavigationControls from "./MapNavigationControls";
-import MapMinimap from "./MapMinimap";
-import ZoneNavigatorBar from "./ZoneNavigatorBar";
 
 const NetworkVisualizer = ({
   theme,
@@ -640,50 +637,9 @@ const NetworkVisualizer = ({
       {/* Background SVG Canvas */}
       <svg
         ref={svgRef}
-        className={`absolute top-0 left-0 w-full h-full bg-white dark:bg-gray-800 transition-colors topology-chart-svg ${
-          isPanning ? "is-panning" : ""
-        }`}
+        className={`absolute top-0 left-0 w-full h-full bg-white dark:bg-gray-800 transition-colors topology-chart-svg ${isPanning ? "is-panning" : ""
+          }`}
       />
-
-      {/* Top-Right Quick Zone Navigator Bar */}
-      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
-        <ZoneNavigatorBar
-          theme={theme}
-          zones={graphLayout.nodeGroups}
-          activeZoneId={activeZoneId}
-          onSelectZone={handleFocusZone}
-          onFitAll={handleFitView}
-        />
-      </div>
-
-      {/* Bottom-Right Floating Controls & Minimap Dock */}
-      <div className="absolute bottom-4 right-4 z-20 flex flex-col items-end gap-2.5 pointer-events-none">
-        <MapMinimap
-          theme={theme}
-          isOpen={isMinimapOpen}
-          onClose={() => setIsMinimapOpen(false)}
-          nodes={graphLayout.nodes}
-          links={graphLayout.links}
-          nodeGroups={graphLayout.nodeGroups}
-          transform={currentTransform}
-          viewportWidth={graphLayout.dimensions.width}
-          viewportHeight={graphLayout.dimensions.height}
-          graphBounds={graphLayout.bounds}
-          onPanTo={handlePanTo}
-          onFocusZone={handleFocusZone}
-        />
-
-        <MapNavigationControls
-          theme={theme}
-          zoomPercent={zoomPercent}
-          onZoomIn={handleZoomIn}
-          onZoomOut={handleZoomOut}
-          onFitView={handleFitView}
-          onResetZoom={handleResetZoom}
-          isMinimapOpen={isMinimapOpen}
-          onToggleMinimap={() => setIsMinimapOpen((prev) => !prev)}
-        />
-      </div>
     </div>
   );
 };
