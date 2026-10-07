@@ -9,11 +9,13 @@ import {
   TrendingDown,
   Layers,
   Radio,
+  Clock,
 } from "lucide-react";
 
 /**
  * PingSummaryModal
- * A clean, neat, and comprehensive summary dialog displaying aggregate ping telemetry across all lines.
+ * A clean, neat, and comprehensive summary dialog displaying aggregate ping telemetry across all links.
+ * Data shown represents ping checks from the last hour.
  */
 export default function PingSummaryModal({
   isOpen,
@@ -112,9 +114,15 @@ export default function PingSummaryModal({
                   {chartName}
                 </span>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Aggregate real-time ICMP ping health across all monitored lines
-              </p>
+              {/* ====== LAST HOUR LABEL 1: Subtitle + Badge ====== */}
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  ICMP ping health from the last hour across all monitored links
+                </p>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+                  Last 1 Hour
+                </span>
+              </div>
             </div>
           </div>
           <button
@@ -127,6 +135,13 @@ export default function PingSummaryModal({
 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto space-y-6">
+          {/* ====== LAST HOUR LABEL 2: Time Range Notice Banner ====== */}
+          <div className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+            <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+            <p className="text-xs font-medium text-blue-700 dark:text-blue-300">
+              Showing ping telemetry data from the <span className="font-bold">last 1 hour</span>
+            </p>
+          </div>
           {/* Top KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
             {/* Card 1: Overall Ping Rate */}
@@ -135,8 +150,9 @@ export default function PingSummaryModal({
                 isDark ? "bg-gray-800/60 border-gray-700/60" : "bg-gray-50 border-gray-200/80"
               }`}
             >
+              {/* ====== LAST HOUR LABEL 3: Card 1 Label ====== */}
               <div className="flex items-center justify-between text-xs font-medium text-gray-500 dark:text-gray-400">
-                <span>Overall Success Rate</span>
+                <span>Overall Success Rate <span className="text-gray-400 font-normal">(last hour)</span></span>
                 <Radio className="w-3.5 h-3.5 text-blue-500 animate-pulse" />
               </div>
               <div className="mt-2 flex items-baseline gap-2">
@@ -160,7 +176,7 @@ export default function PingSummaryModal({
                   </span>
                 ) : (
                   <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                    All {monitoredCount} lines at 100% (0 loss)
+                    All {monitoredCount} links at 100% (0 loss)
                   </span>
                 )}
               </p>
@@ -172,8 +188,9 @@ export default function PingSummaryModal({
                 isDark ? "bg-gray-800/60 border-gray-700/60" : "bg-gray-50 border-gray-200/80"
               }`}
             >
+              {/* ====== LAST HOUR LABEL 4: Card 2 Label ====== */}
               <div className="flex items-center justify-between text-xs font-medium text-gray-500 dark:text-gray-400">
-                <span>Packets Received / Sent</span>
+                <span>Packets Received / Sent <span className="text-gray-400 font-normal">(last hour)</span></span>
                 <Layers className="w-3.5 h-3.5 text-indigo-500" />
               </div>
               <div className="mt-2 flex items-baseline gap-1.5">
@@ -200,19 +217,20 @@ export default function PingSummaryModal({
               </p>
             </div>
 
-            {/* Card 3: Lines Monitored */}
+            {/* Card 3: Links Monitored */}
             <div
               className={`p-4 rounded-xl border flex flex-col justify-between ${
                 isDark ? "bg-gray-800/60 border-gray-700/60" : "bg-gray-50 border-gray-200/80"
               }`}
             >
+              {/* ====== LAST HOUR LABEL 5: Card 3 Label ====== */}
               <div className="flex items-center justify-between text-xs font-medium text-gray-500 dark:text-gray-400">
-                <span>Total Monitored Lines</span>
+                <span>Total Monitored Links <span className="text-gray-400 font-normal">(last hour)</span></span>
                 <Activity className="w-3.5 h-3.5 text-emerald-500" />
               </div>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-2xl font-bold">{monitoredCount}</span>
-                <span className="text-xs font-medium text-gray-400">Lines</span>
+                <span className="text-xs font-medium text-gray-400">Links</span>
               </div>
               <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
                 {problemLinks.length > 0 ? (
@@ -222,7 +240,7 @@ export default function PingSummaryModal({
                   </span>
                 ) : (
                   <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                    All lines operational (100%)
+                    All links operational (100%)
                   </span>
                 )}
               </p>
@@ -235,10 +253,11 @@ export default function PingSummaryModal({
               isDark ? "bg-gray-800/40 border-gray-800" : "bg-gray-50/70 border-gray-200/60"
             }`}
           >
+            {/* ====== LAST HOUR LABEL 6: Distribution Bar Title ====== */}
             <div className="flex items-center justify-between text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              <span>Lines Health Breakdown</span>
+              <span>Links Health Breakdown <span className="text-gray-400 font-normal">(last hour)</span></span>
               <span className="text-gray-400 font-normal">
-                {monitoredCount} lines evaluated
+                {monitoredCount} links evaluated
               </span>
             </div>
 
@@ -248,21 +267,21 @@ export default function PingSummaryModal({
                 <div
                   style={{ width: `${healthyPercent}%` }}
                   className="bg-emerald-500 h-full transition-all duration-300"
-                  title={`Healthy (100%): ${healthyCount} lines (${healthyPercent}%)`}
+                  title={`Healthy (100%): ${healthyCount} links (${healthyPercent}%)`}
                 />
               )}
               {degradedPercent > 0 && (
                 <div
                   style={{ width: `${degradedPercent}%` }}
                   className="bg-amber-500 h-full transition-all duration-300"
-                  title={`Degraded (<100%): ${degradedCount} lines (${degradedPercent}%)`}
+                  title={`Degraded (<100%): ${degradedCount} links (${degradedPercent}%)`}
                 />
               )}
               {downPercent > 0 && (
                 <div
                   style={{ width: `${downPercent}%` }}
                   className="bg-rose-500 h-full transition-all duration-300"
-                  title={`Down (0%): ${downCount} lines (${downPercent}%)`}
+                  title={`Down (0%): ${downCount} links (${downPercent}%)`}
                 />
               )}
             </div>
@@ -340,34 +359,34 @@ export default function PingSummaryModal({
             </div>
           </div>
 
-          {/* Lines Table / List */}
+          {/* Links Table / List */}
           <div>
             <div className="flex items-center justify-between mb-2.5">
               <h3 className="text-sm font-semibold flex items-center gap-2 text-gray-800 dark:text-gray-200">
                 {filterType === "healthy" ? (
                   <>
                     <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    <span>Healthy Lines ({displayedLinks.length})</span>
+                    <span>Healthy Links ({displayedLinks.length})</span>
                   </>
                 ) : filterType === "degraded" ? (
                   <>
                     <AlertTriangle className="w-4 h-4 text-amber-500" />
-                    <span>Degraded Lines with Packet Loss ({displayedLinks.length})</span>
+                    <span>Degraded Links with Packet Loss ({displayedLinks.length})</span>
                   </>
                 ) : filterType === "down" ? (
                   <>
                     <XCircle className="w-4 h-4 text-rose-500" />
-                    <span>Offline Lines ({displayedLinks.length})</span>
+                    <span>Offline Links ({displayedLinks.length})</span>
                   </>
                 ) : filterType === "all" ? (
                   <>
                     <Activity className="w-4 h-4 text-blue-500" />
-                    <span>All Network Lines ({displayedLinks.length})</span>
+                    <span>All Network Links ({displayedLinks.length})</span>
                   </>
                 ) : (
                   <>
                     <AlertTriangle className="w-4 h-4 text-amber-500" />
-                    <span>Lines Requiring Attention ({displayedLinks.length})</span>
+                    <span>Links Requiring Attention ({displayedLinks.length})</span>
                   </>
                 )}
               </h3>
@@ -409,7 +428,7 @@ export default function PingSummaryModal({
                 <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
                 <p className="font-semibold text-gray-700 dark:text-gray-300">
                   {filterType === "problem"
-                    ? "All network lines are operating with 100% ping success rate!"
+                    ? "All network links are operating with 100% ping success rate!"
                     : "No links found in this category."}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
@@ -528,7 +547,7 @@ export default function PingSummaryModal({
               }}
               className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1.5"
             >
-              <span>Explore all lines in side drawer</span>
+              <span>Explore all links in side drawer</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           ) : (
