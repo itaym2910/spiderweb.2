@@ -20,6 +20,7 @@ const formatDate = (dateStr) => {
  */
 const formatBps = (value) => {
   if (value === undefined || value === null || value === "") return "N/A";
+  if (typeof value === "string" && /[a-zA-Z]/.test(value)) return value;
   const num = typeof value === "number" ? value : parseFloat(value);
   if (isNaN(num)) return "N/A";
   if (num >= 1e9) return `${(num / 1e9).toFixed(2)} Gbps`;
@@ -165,23 +166,45 @@ const LinkDetailPopup = ({
 
   if (!linkData) return null;
 
-  // Extract in_bps and out_bps from various possible sources
+  // Extract in_bps and out_bps from various possible sources (including rawLink & input/output rates)
   const inBps =
     fetchedDetails?.in_bps ??
     fetchedDetails?.inBps ??
     fetchedDetails?.bytes_in_rate ??
+    fetchedDetails?.input_rate ??
+    fetchedDetails?.in_rate ??
     linkData?.in_bps ??
     linkData?.inBps ??
+    linkData?.bytes_in_rate ??
     linkData?.bytesIn ??
+    linkData?.input_rate ??
+    linkData?.in_rate ??
+    linkData?.rawLink?.in_bps ??
+    linkData?.rawLink?.inBps ??
+    linkData?.rawLink?.bytes_in_rate ??
+    linkData?.rawLink?.bytesIn ??
+    linkData?.rawLink?.input_rate ??
+    linkData?.rawLink?.in_rate ??
     null;
 
   const outBps =
     fetchedDetails?.out_bps ??
     fetchedDetails?.outBps ??
     fetchedDetails?.bytes_out_rate ??
+    fetchedDetails?.output_rate ??
+    fetchedDetails?.out_rate ??
     linkData?.out_bps ??
     linkData?.outBps ??
+    linkData?.bytes_out_rate ??
     linkData?.bytesOut ??
+    linkData?.output_rate ??
+    linkData?.out_rate ??
+    linkData?.rawLink?.out_bps ??
+    linkData?.rawLink?.outBps ??
+    linkData?.rawLink?.bytes_out_rate ??
+    linkData?.rawLink?.bytesOut ??
+    linkData?.rawLink?.output_rate ??
+    linkData?.rawLink?.out_rate ??
     null;
 
   const itemData = {
@@ -482,7 +505,18 @@ const LinkDetailPopup = ({
 
               if (key === "is_ospf_full" || key === "link_drops_last_24h" || key === "ospf_drops_last_24h") return;
 
-              if (key === "in_bps" || key === "out_bps" || key === "inBps" || key === "outBps") return;
+              if (
+                key === "in_bps" ||
+                key === "out_bps" ||
+                key === "inBps" ||
+                key === "outBps" ||
+                key === "bytes_in_rate" ||
+                key === "bytes_out_rate" ||
+                key === "input_rate" ||
+                key === "output_rate" ||
+                key === "in_rate" ||
+                key === "out_rate"
+              ) return;
 
               if (key.startsWith("local_")) {
                 localDeviceKeys.push([key, value]);

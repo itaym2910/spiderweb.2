@@ -288,7 +288,10 @@ async def get_core_topology(current_user: dict = Depends(user_role_checker)):
                 "last_seen_at": link.get("updated_at", datetime.utcnow().isoformat()),
                 "last_state_change_at": link.get("status_changed_at", link.get("updated_at", datetime.utcnow().isoformat())),
                 "link_drops_last_24h": link_drops_24h,
-                "ospf_drops_last_24h": ospf_drops_24h,
+                "in_bps": link.get("in_bps") or link.get("input_rate"),
+                "out_bps": link.get("out_bps") or link.get("output_rate"),
+                "input_rate": link.get("input_rate") or link.get("in_bps"),
+                "output_rate": link.get("output_rate") or link.get("out_bps"),
                 # Backwards-compatibility aliases
                 "local_ip": device.get("ip") or f"10.0.{link['id'] % 250}.1",
                 "remote_ip": link.get("neighbor_ip", "") or f"10.0.{link['id'] % 250}.2",

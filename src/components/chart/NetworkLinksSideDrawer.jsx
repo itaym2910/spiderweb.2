@@ -22,6 +22,7 @@ import {
 import { api } from "../../services/apiServices";
 import { formatPingRateWithPackets, calculatePingSummary } from "../shared/pingHelpers";
 import PingSummaryModal from "../shared/PingSummaryModal";
+import { createLinkPopupPayload } from "./handleInteractions";
 
 /**
  * Formats elapsed time since a given date into a human readable duration string.
@@ -1511,10 +1512,11 @@ export default function NetworkLinksSideDrawer({
                 const handleInspectGroup = (group) => {
                   const fullLink = findLinkForGroup(group);
                   if (fullLink) {
-                    onLinkClick?.(fullLink);
+                    const payload = createLinkPopupPayload(fullLink) || fullLink;
+                    onLinkClick?.(payload);
                   } else {
                     // Fallback
-                    onLinkClick?.({
+                    const fallbackData = {
                       id: group.linkId,
                       sourceName: group.deviceName,
                       targetName: group.remoteDeviceName,
@@ -1524,7 +1526,9 @@ export default function NetworkLinksSideDrawer({
                       statusChangedAt: group.events[0]?.created_at,
                       category: "issue",
                       status: "issue",
-                    });
+                    };
+                    const payload = createLinkPopupPayload(fallbackData) || fallbackData;
+                    onLinkClick?.(payload);
                   }
                 };
 
@@ -1659,11 +1663,12 @@ export default function NetworkLinksSideDrawer({
                       onMouseLeave={() => onHoverLink?.(null)}
                       onClick={() => {
                         if (onLinkClick) {
-                          onLinkClick({
+                          const payload = createLinkPopupPayload(link) || {
                             ...link,
                             sourceNode: link.sourceName,
                             targetNode: link.targetName,
-                          });
+                          };
+                          onLinkClick(payload);
                         }
                       }}
                       className={`group relative p-3 rounded-xl border transition-all duration-200 cursor-pointer ${
@@ -1798,27 +1803,13 @@ export default function NetworkLinksSideDrawer({
                         </div>
                       </div>
 
-                      {/* Card Bottom: Meta info & Inspect button */}
+                      {/* Card Bottom: Ping info & Inspect button */}
                       <div
                         className={`mt-2 pt-2 border-t flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 ${
                           isDark ? "border-gray-700/50" : "border-gray-100"
                         }`}
                       >
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span>{link.Bandwidth || link.bandwidth || "10 Gbps"}</span>
-                          <span>•</span>
-                          <span>{link.MediaType || link.media_type || "Fiber"}</span>
-                          {(link.ip || link.local_link_ip || link.remote_link_ip) && (
-                            <>
-                              <span>•</span>
-                              <span
-                                className="font-mono"
-                                title={`Link IP${link.local_link_ip && link.remote_link_ip ? `s: Local ${link.local_link_ip} ⟷ Remote ${link.remote_link_ip}` : `: ${link.ip || link.local_link_ip || link.remote_link_ip}`}`}
-                              >
-                                {link.ip || (link.local_link_ip && link.remote_link_ip && link.local_link_ip !== link.remote_link_ip ? `${link.local_link_ip} ⟷ ${link.remote_link_ip}` : link.local_link_ip || link.remote_link_ip)}
-                              </span>
-                            </>
-                          )}
                           {(() => {
                             const pInfo = formatPingRateWithPackets(link);
                             if (!pInfo) return null;
@@ -1828,36 +1819,48 @@ export default function NetworkLinksSideDrawer({
                             const isDown = numRate === 0;
                             const lastPing = link.last_ping_at || link.rawLink?.last_ping_at;
                             return (
-                              <>
-                                <span>•</span>
-                                <span
-                                  className={`inline-flex items-center gap-1 font-semibold ${
-                                    isDown
-                                      ? "text-rose-600 dark:text-rose-400"
-                                      : hasLoss
-                                      ? "text-amber-600 dark:text-amber-400"
-                                      : "text-emerald-600 dark:text-emerald-400"
-                                  }`}
-                                  title={lastPing ? `Last ping: ${lastPing} • ${pInfo.full}${hasLoss ? ` • ${packetsLost} packet(s) lost!` : ""}` : `${pInfo.full}${hasLoss ? ` • ${packetsLost} packet(s) lost!` : ""}`}
-                                >
-                                  {hasLoss && !isDown ? (
-                                    <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
-                                  ) : (
-                                    <Activity className="w-3 h-3 shrink-0" />
-                                  )}
-                                  <span>Ping: {pInfo.short}</span>
-                                  {hasLoss && !isDown && (
-                                    <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
-                                      {packetsLost} lost
-                                    </span>
-                                  )}
-                                </span>
-                              </>
+                              <span
+                                className={`inline-flex items-center gap-1 font-semibold ${
+                                  isDown
+                                    ? "text-rose-600 dark:text-rose-400"
+                                    : hasLoss
+                                    ? "text-amber-600 dark:text-amber-400"
+                                    : "text-emerald-600 dark:text-emerald-400"
+                                }`}
+                                title={lastPing ? `Last ping: ${lastPing} • ${pInfo.full}${hasLoss ? ` • ${packetsLost} packet(s) lost!` : ""}` : `${pInfo.full}${hasLoss ? ` • ${packetsLost} packet(s) lost!` : ""}`}
+                              >
+                                {hasLoss && !isDown ? (
+                                  <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+                                ) : (
+                                  <Activity className="w-3 h-3 shrink-0" />
+                                )}
+                                <span>Ping: {pInfo.short}</span>
+                                {hasLoss && !isDown && (
+                                  <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                    {packetsLost} lost
+                                  </span>
+                                )}
+                              </span>
                             );
                           })()}
                         </div>
 
-                        <div className="flex items-center gap-1 text-blue-500 dark:text-blue-400 font-medium group-hover:underline">
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onLinkClick) {
+                              const payload = createLinkPopupPayload(link) || {
+                                ...link,
+                                sourceNode: link.sourceName,
+                                targetNode: link.targetName,
+                              };
+                              onLinkClick(payload);
+                            }
+                          }}
+                          className="flex items-center gap-1 text-blue-500 dark:text-blue-400 font-medium hover:underline cursor-pointer"
+                        >
                           <span>Inspect</span>
                           <ExternalLink className="w-3 h-3" />
                         </div>

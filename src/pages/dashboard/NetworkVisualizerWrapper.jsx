@@ -6,6 +6,7 @@ import LinkDetailPopup from "../../components/shared/LinkDetailPopup";
 import NetworkLinksSideDrawer from "../../components/chart/NetworkLinksSideDrawer";
 import ToggleDetailButton from "../../components/chart/ToggleDetailButton";
 import { getLinkStatusAndDate } from "../../components/chart/drawHelpers";
+import { createLinkPopupPayload } from "../../components/chart/handleInteractions";
 import { fetchInitialData } from "../../redux/slices/authSlice";
 import { toggleFavoriteLink } from "../../redux/slices/favoritesSlice";
 import {
@@ -400,6 +401,10 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           last_seen_at: link.last_seen_at,
           link_drops_last_24h: link.link_drops_last_24h ?? 0,
           ospf_drops_last_24h: link.ospf_drops_last_24h ?? 0,
+          in_bps: link.in_bps ?? link.input_rate ?? link.inBps ?? link.bytes_in_rate ?? link.bytesIn ?? null,
+          out_bps: link.out_bps ?? link.output_rate ?? link.outBps ?? link.bytes_out_rate ?? link.bytesOut ?? null,
+          input_rate: link.input_rate ?? link.in_bps ?? null,
+          output_rate: link.output_rate ?? link.out_bps ?? null,
           rawLink: link,
           isVisibleOnMap: isBothDevicesVisible,
         };
@@ -436,17 +441,18 @@ const NetworkVisualizerWrapper = ({ theme }) => {
 
   const handleLinkClick = (linkData) => {
     if (!linkData) return;
+    const payload = createLinkPopupPayload(linkData) || linkData;
     const src =
-      typeof linkData.source === "object"
-        ? linkData.source?.id || linkData.source?.hostname || linkData.source?.name
-        : linkData.sourceNode || linkData.sourceName || linkData.source;
+      typeof payload.source === "object"
+        ? payload.source?.id || payload.source?.hostname || payload.source?.name
+        : payload.sourceNode || payload.sourceName || payload.source;
     const tgt =
-      typeof linkData.target === "object"
-        ? linkData.target?.id || linkData.target?.hostname || linkData.target?.name
-        : linkData.targetNode || linkData.targetName || linkData.target;
+      typeof payload.target === "object"
+        ? payload.target?.id || payload.target?.hostname || payload.target?.name
+        : payload.targetNode || payload.targetName || payload.target;
 
     setPopupLink({
-      data: { ...linkData, skipFetch: true, isCoreTopology: true },
+      data: { ...payload, skipFetch: true, isCoreTopology: true },
       type: "link",
       title: `${src || "Device A"} ⟷ ${tgt || "Device B"}`,
     });
