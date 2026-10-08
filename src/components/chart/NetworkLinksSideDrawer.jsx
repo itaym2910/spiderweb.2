@@ -23,6 +23,7 @@ import { api } from "../../services/apiServices";
 import { formatPingRateWithPackets, calculatePingSummary } from "../shared/pingHelpers";
 import PingSummaryModal from "../shared/PingSummaryModal";
 import { createLinkPopupPayload } from "./handleInteractions";
+import { normalizeInterfaceName } from "./drawHelpers";
 
 /**
  * Formats elapsed time since a given date into a human readable duration string.
@@ -646,6 +647,7 @@ export default function NetworkLinksSideDrawer({
           link.interface,
           link.local_interface,
           link.remote_interface,
+          ...(link.allInterfaces || []),
           link.id,
           link.sourceZone,
           link.targetZone,
@@ -1492,12 +1494,22 @@ export default function NetworkLinksSideDrawer({
                 }, {});
 
                 const findLinkForGroup = (group) => {
-                  return enrichedLinks.find((l) =>
-                    l.id === group.linkId ||
-                    (l.allIds && l.allIds.includes(group.linkId)) ||
-                    (l.sourceName === group.deviceName && l.targetName === group.remoteDeviceName && l.local_interface === group.interface) ||
-                    (l.targetName === group.deviceName && l.sourceName === group.remoteDeviceName && (l.remote_interface === group.interface || l.local_interface === group.interface))
-                  );
+                  const normGroupIf = normalizeInterfaceName(group.interface);
+                  return enrichedLinks.find((l) => {
+                    if (l.id === group.linkId || (l.allIds && l.allIds.includes(group.linkId))) return true;
+                    const normLocalIf = normalizeInterfaceName(l.local_interface);
+                    const normRemoteIf = normalizeInterfaceName(l.remote_interface);
+                    const matchSameDir =
+                      (l.sourceName === group.deviceName && l.targetName === group.remoteDeviceName) &&
+                      (normLocalIf === normGroupIf ||
+                        (l.allLocalInterfaces && l.allLocalInterfaces.some((i) => normalizeInterfaceName(i) === normGroupIf)));
+                    const matchRevDir =
+                      (l.targetName === group.deviceName && l.sourceName === group.remoteDeviceName) &&
+                      (normRemoteIf === normGroupIf ||
+                        normLocalIf === normGroupIf ||
+                        (l.allRemoteInterfaces && l.allRemoteInterfaces.some((i) => normalizeInterfaceName(i) === normGroupIf)));
+                    return matchSameDir || matchRevDir;
+                  });
                 };
 
                 const visibleGroupedEvents = Object.values(eventsByLink).filter(group => {

@@ -5,7 +5,7 @@ import NetworkVisualizer5 from "../../components/chart/NetworkVisualizer5";
 import LinkDetailPopup from "../../components/shared/LinkDetailPopup";
 import NetworkLinksSideDrawer from "../../components/chart/NetworkLinksSideDrawer";
 import ToggleDetailButton from "../../components/chart/ToggleDetailButton";
-import { getLinkStatusAndDate } from "../../components/chart/drawHelpers";
+import { getLinkStatusAndDate, normalizeInterfaceName } from "../../components/chart/drawHelpers";
 import { createLinkPopupPayload } from "../../components/chart/handleInteractions";
 import { fetchInitialData } from "../../redux/slices/authSlice";
 import { toggleFavoriteLink } from "../../redux/slices/favoritesSlice";
@@ -205,6 +205,7 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
     const seenLinkIds = new Set();
     const linksBySignature = new Map();
     const endpointToSignature = new Map();
+    const ipPairToSignature = new Map();
 
     devicesForChart.forEach((device) => {
       if (!device.links) return;
@@ -227,22 +228,54 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           visibleDeviceNames.has(remoteDevice.name)
         );
 
-        // Determine link signature for bidirectional deduplication
-        const localEp = `${device.name}::${link.local_interface || ""}`;
-        const remoteEp = `${remoteDeviceName}::${link.remote_interface || ""}`;
+        // Determine link endpoints and normalized interface keys for bidirectional deduplication
+        const localDevName = String(device.name || "").trim();
+        const remDevName = String(remoteDeviceName || "").trim();
 
+        const rawLocalIf = link.local_interface ? String(link.local_interface).trim() : "";
+        const rawRemoteIf = link.remote_interface ? String(link.remote_interface).trim() : "";
+
+        const normLocalIf = normalizeInterfaceName(rawLocalIf);
+        const normRemoteIf = normalizeInterfaceName(rawRemoteIf);
+
+        const normLocalEp = normLocalIf ? `${localDevName}::${normLocalIf}` : null;
+        const normRemoteEp = normRemoteIf ? `${remDevName}::${normRemoteIf}` : null;
+
+        const rawLocalEp = rawLocalIf ? `${localDevName}::${rawLocalIf}` : null;
+        const rawRemoteEp = rawRemoteIf ? `${remDevName}::${rawRemoteIf}` : null;
+
+        const localIp = link.local_link_ip || link.local_ip || null;
+        const remoteIp = link.remote_link_ip || link.remote_ip || null;
+        const ipPairKey = (localIp && remoteIp)
+          ? [String(localIp).trim(), String(remoteIp).trim()].sort().join("<->")
+          : null;
+
+        // Try to match an existing reciprocal signature
         let signature = null;
-        if (link.local_interface && endpointToSignature.has(localEp)) {
-          signature = endpointToSignature.get(localEp);
-        } else if (link.remote_interface && endpointToSignature.has(remoteEp)) {
-          signature = endpointToSignature.get(remoteEp);
+        if (normLocalEp && endpointToSignature.has(normLocalEp)) {
+          signature = endpointToSignature.get(normLocalEp);
+        } else if (normRemoteEp && endpointToSignature.has(normRemoteEp)) {
+          signature = endpointToSignature.get(normRemoteEp);
+        } else if (rawLocalEp && endpointToSignature.has(rawLocalEp)) {
+          signature = endpointToSignature.get(rawLocalEp);
+        } else if (rawRemoteEp && endpointToSignature.has(rawRemoteEp)) {
+          signature = endpointToSignature.get(rawRemoteEp);
+        } else if (ipPairKey && ipPairToSignature.has(ipPairKey)) {
+          signature = ipPairToSignature.get(ipPairKey);
         }
 
+        // If no existing signature matched, generate canonical signature
         if (!signature) {
-          if (link.local_interface || link.remote_interface) {
-            signature = [localEp, remoteEp].sort().join("---");
+          if (normLocalEp && normRemoteEp) {
+            signature = [normLocalEp, normRemoteEp].sort().join("---");
+          } else if (rawLocalEp && rawRemoteEp) {
+            signature = [rawLocalEp, rawRemoteEp].sort().join("---");
+          } else if (normLocalEp || normRemoteEp) {
+            signature = [normLocalEp || `${localDevName}::*`, normRemoteEp || `${remDevName}::*`].sort().join("---");
+          } else if (ipPairKey) {
+            signature = `${[localDevName, remDevName].sort().join("---")}#${ipPairKey}`;
           } else {
-            signature = [device.name, remoteDeviceName, link.id].sort().join("---");
+            signature = [localDevName, remDevName, link.id].sort().join("---");
           }
         }
 
@@ -278,11 +311,21 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           }
 
           // Fill any missing metadata from reciprocal link
-          const isFlipped = existing.sourceName === remoteDeviceName;
+          const isFlipped = existing.sourceName === remDevName;
           const currentDevIp = device.ip || device.ip_address || null;
           const currentRemoteDevIp = link.remote_device_ip || (remoteDevice ? (remoteDevice.ip || remoteDevice.ip_address) : null) || link.neighbor_ip || null;
 
+          if (!existing.allLocalInterfaces) existing.allLocalInterfaces = [existing.local_interface].filter(Boolean);
+          if (!existing.allRemoteInterfaces) existing.allRemoteInterfaces = [existing.remote_interface].filter(Boolean);
+
           if (isFlipped) {
+            if (rawLocalIf && !existing.allRemoteInterfaces.includes(rawLocalIf)) {
+              existing.allRemoteInterfaces.push(rawLocalIf);
+            }
+            if (rawRemoteIf && !existing.allLocalInterfaces.includes(rawRemoteIf)) {
+              existing.allLocalInterfaces.push(rawRemoteIf);
+            }
+
             if (!existing.remote_device_ip && currentDevIp) {
               existing.remote_device_ip = currentDevIp;
               existing.target_device_ip = currentDevIp;
@@ -291,11 +334,11 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
               existing.local_device_ip = currentRemoteDevIp;
               existing.source_device_ip = currentRemoteDevIp;
             }
-            if (!existing.remote_device_name && (link.remote_device_name || remoteDeviceName)) {
-              existing.remote_device_name = link.remote_device_name || remoteDeviceName;
+            if (!existing.remote_device_name && (link.remote_device_name || remDevName)) {
+              existing.remote_device_name = link.remote_device_name || remDevName;
             }
-            if (!existing.remote_interface && link.local_interface) {
-              existing.remote_interface = link.local_interface;
+            if (!existing.remote_interface && rawLocalIf) {
+              existing.remote_interface = rawLocalIf;
             }
             if (!existing.remote_link_ip && (link.local_link_ip || link.local_ip)) {
               existing.remote_link_ip = link.local_link_ip || link.local_ip;
@@ -310,6 +353,13 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
               existing.local_ip = link.remote_link_ip || link.remote_ip;
             }
           } else {
+            if (rawLocalIf && !existing.allLocalInterfaces.includes(rawLocalIf)) {
+              existing.allLocalInterfaces.push(rawLocalIf);
+            }
+            if (rawRemoteIf && !existing.allRemoteInterfaces.includes(rawRemoteIf)) {
+              existing.allRemoteInterfaces.push(rawRemoteIf);
+            }
+
             if (!existing.local_device_ip && currentDevIp) {
               existing.local_device_ip = currentDevIp;
               existing.source_device_ip = currentDevIp;
@@ -318,11 +368,11 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
               existing.remote_device_ip = currentRemoteDevIp;
               existing.target_device_ip = currentRemoteDevIp;
             }
-            if (!existing.remote_device_name && (link.remote_device_name || remoteDeviceName)) {
-              existing.remote_device_name = link.remote_device_name || remoteDeviceName;
+            if (!existing.remote_device_name && (link.remote_device_name || remDevName)) {
+              existing.remote_device_name = link.remote_device_name || remDevName;
             }
-            if (!existing.remote_interface && link.remote_interface) {
-              existing.remote_interface = link.remote_interface;
+            if (!existing.remote_interface && rawRemoteIf) {
+              existing.remote_interface = rawRemoteIf;
             }
             if (!existing.local_link_ip && (link.local_link_ip || link.local_ip)) {
               existing.local_link_ip = link.local_link_ip || link.local_ip;
@@ -337,6 +387,14 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
               existing.remote_ip = link.remote_link_ip || link.remote_ip;
             }
           }
+
+          existing.allInterfaces = Array.from(new Set([
+            ...existing.allLocalInterfaces,
+            ...existing.allRemoteInterfaces,
+            existing.local_interface,
+            existing.remote_interface,
+          ].filter(Boolean)));
+
           if (!existing.description && (link.local_interface_description || link.description)) {
             existing.description = link.local_interface_description || link.description;
             existing.local_interface_description = existing.description;
@@ -363,6 +421,23 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           if ((existing.last_ping_at == null) && (link.last_ping_at != null || link.lastPingAt != null)) {
             existing.last_ping_at = link.last_ping_at ?? link.lastPingAt;
           }
+
+          const currentInBps = link.in_bps ?? link.input_rate ?? link.inBps ?? link.bytes_in_rate ?? link.bytesIn ?? null;
+          const currentOutBps = link.out_bps ?? link.output_rate ?? link.outBps ?? link.bytes_out_rate ?? link.bytesOut ?? null;
+          if (existing.in_bps == null) {
+            existing.in_bps = isFlipped ? currentOutBps : currentInBps;
+            existing.input_rate = existing.in_bps;
+          }
+          if (existing.out_bps == null) {
+            existing.out_bps = isFlipped ? currentInBps : currentOutBps;
+            existing.output_rate = existing.out_bps;
+          }
+
+          if (normLocalEp) endpointToSignature.set(normLocalEp, signature);
+          if (normRemoteEp) endpointToSignature.set(normRemoteEp, signature);
+          if (rawLocalEp) endpointToSignature.set(rawLocalEp, signature);
+          if (rawRemoteEp) endpointToSignature.set(rawRemoteEp, signature);
+          if (ipPairKey) ipPairToSignature.set(ipPairKey, signature);
           return;
         }
 
@@ -412,6 +487,9 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           last_ping_at: link.last_ping_at ?? link.lastPingAt ?? link.rawLink?.last_ping_at,
           local_interface: link.local_interface,
           remote_interface: link.remote_interface,
+          allLocalInterfaces: [link.local_interface].filter(Boolean),
+          allRemoteInterfaces: [link.remote_interface].filter(Boolean),
+          allInterfaces: [link.local_interface, link.remote_interface].filter(Boolean),
           local_device_ip: localDevIp,
           source_device_ip: localDevIp,
           remote_device_ip: remoteDevIp,
@@ -438,8 +516,11 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
         };
 
         linksBySignature.set(signature, linkObj);
-        if (link.local_interface) endpointToSignature.set(localEp, signature);
-        if (link.remote_interface) endpointToSignature.set(remoteEp, signature);
+        if (normLocalEp) endpointToSignature.set(normLocalEp, signature);
+        if (normRemoteEp) endpointToSignature.set(normRemoteEp, signature);
+        if (rawLocalEp) endpointToSignature.set(rawLocalEp, signature);
+        if (rawRemoteEp) endpointToSignature.set(rawRemoteEp, signature);
+        if (ipPairKey) ipPairToSignature.set(ipPairKey, signature);
       });
     });
 
