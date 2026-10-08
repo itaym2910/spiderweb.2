@@ -104,9 +104,44 @@ export function createLinkPopupPayload(linkDataObject) {
     linkDataObject.id ||
     `${sourceId}-${targetId}-${Math.random().toString(16).slice(2)}`;
 
+  const in_bps =
+    raw.in_bps ??
+    linkDataObject.in_bps ??
+    raw.inBps ??
+    linkDataObject.inBps ??
+    raw.bytes_in_rate ??
+    linkDataObject.bytes_in_rate ??
+    raw.input_rate ??
+    linkDataObject.input_rate ??
+    raw.in_rate ??
+    linkDataObject.in_rate ??
+    raw.bytesIn ??
+    linkDataObject.bytesIn ??
+    null;
+
+  const out_bps =
+    raw.out_bps ??
+    linkDataObject.out_bps ??
+    raw.outBps ??
+    linkDataObject.outBps ??
+    raw.bytes_out_rate ??
+    linkDataObject.bytes_out_rate ??
+    raw.output_rate ??
+    linkDataObject.output_rate ??
+    raw.out_rate ??
+    linkDataObject.out_rate ??
+    raw.bytesOut ??
+    linkDataObject.bytesOut ??
+    null;
+
   return {
     ...raw,
     ...linkDataObject,
+    rawLink: raw,
+    in_bps,
+    out_bps,
+    input_rate: raw.input_rate ?? linkDataObject.input_rate ?? in_bps,
+    output_rate: raw.output_rate ?? linkDataObject.output_rate ?? out_bps,
     type: "link",
     id: popupId,
     linkId: linkDataObject.id || popupId,

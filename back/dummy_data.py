@@ -264,6 +264,8 @@ def generate_dummy_data():
             "last_ping_at": (datetime.utcnow() - timedelta(minutes=random.randint(1, 15))).isoformat(),
             "ospf_state": ospf_st,
             "media_type": media_type,
+            "in_bps": in_rate,
+            "out_bps": out_rate,
             "input_rate": in_rate,
             "output_rate": out_rate,
             "rx": rx_power,

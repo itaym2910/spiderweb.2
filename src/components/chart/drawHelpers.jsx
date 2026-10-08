@@ -147,3 +147,103 @@ export function getLinkStatusAndDate(link) {
 export function normalizeLinkStatus(link) {
   return getLinkStatusAndDate(link).status;
 }
+
+/**
+ * Normalizes interface names across vendor variants, abbreviations, and case differences.
+ * e.g.,
+ *   PO0/1/1, POS0/1/1, pos 0/1/1 -> pos0/1/1
+ *   GigabitEthernet0/1/0, Gi0/1/0, GigE0/1/0 -> gi0/1/0
+ *   TenGigE0/1/0/0, Te0/1/0/0 -> te0/1/0/0
+ *   HundredGigE0/0/0/0, Hu0/0/0/0, 100GE0/0/0/0 -> hu0/0/0/0
+ *   Bundle-Ether1, BE1 -> be1
+ *   Port-Channel5, Po5 -> po5
+ */
+export function normalizeInterfaceName(raw) {
+  if (!raw) return "";
+  let name = String(raw).trim().toLowerCase();
+  if (!name) return "";
+
+  // Remove whitespace
+  name = name.replace(/\s+/g, "");
+
+  // Packet-over-SONET: POS or PO with slashes
+  // Matches: pos0/1/1, pos-0/1/1, po0/1/1, po-0/1/1, pos0/0/0/0, po0/0/0/0
+  if (/^pos(?:\d|[-_\/])/i.test(name)) {
+    return name.replace(/^pos/i, "pos");
+  }
+  if (/^po(?:\d|[-_\/])/i.test(name) && name.includes("/")) {
+    return name.replace(/^po/i, "pos");
+  }
+
+  // Port-channel (without /)
+  if (/^(?:port-channel|portchannel|po)(?:\d|[-_])/i.test(name)) {
+    return name.replace(/^(?:port-channel|portchannel|po)/i, "po");
+  }
+
+  // Bundle-Ether / BE
+  if (/^(?:bundle-ether|bundle-ethernet|bundle|be)(?:\d|[-_])/i.test(name)) {
+    return name.replace(/^(?:bundle-ether|bundle-ethernet|bundle|be)/i, "be");
+  }
+
+  // GigabitEthernet: gigabitethernet, gigethernet, gige, ge, gi
+  if (/^(?:gigabitethernet|gigethernet|gige|ge|gi)(?=\d|[-_\/])/i.test(name)) {
+    return name.replace(/^(?:gigabitethernet|gigethernet|gige|ge|gi)/i, "gi");
+  }
+
+  // TenGigabitEthernet: tengigabitethernet, tengigethernet, tengige, xge, te, tg
+  if (/^(?:tengigabitethernet|tengigethernet|tengige|xge|te|tg)(?=\d|[-_\/])/i.test(name)) {
+    return name.replace(/^(?:tengigabitethernet|tengigethernet|tengige|xge|te|tg)/i, "te");
+  }
+
+  // TwentyFiveGigE: twentyfivegigabitethernet, twentyfivegige, twentyfivegig, 25gige, 25ge, tf, twe
+  if (/^(?:twentyfivegigabitethernet|twentyfivegige|twentyfivegig|25gige|25ge|tf|twe)(?=\d|[-_\/])/i.test(name)) {
+    return name.replace(/^(?:twentyfivegigabitethernet|twentyfivegige|twentyfivegig|25gige|25ge|tf|twe)/i, "25ge");
+  }
+
+  // FortyGigE: fortygigabitethernet, fortygige, 40gige, 40ge, fo
+  if (/^(?:fortygigabitethernet|fortygige|40gige|40ge|fo)(?=\d|[-_\/])/i.test(name)) {
+    return name.replace(/^(?:fortygigabitethernet|fortygige|40gige|40ge|fo)/i, "fo");
+  }
+
+  // HundredGigE: hundredgigabitethernet, hundredgige, 100gige, 100ge, hu
+  if (/^(?:hundredgigabitethernet|hundredgige|100gige|100ge|hu)(?=\d|[-_\/])/i.test(name)) {
+    return name.replace(/^(?:hundredgigabitethernet|hundredgige|100gige|100ge|hu)/i, "hu");
+  }
+
+  // FourHundredGigE: fourhundredgigabitethernet, fourhundredgige, 400gige, 400ge, fh
+  if (/^(?:fourhundredgigabitethernet|fourhundredgige|400gige|400ge|fh)(?=\d|[-_\/])/i.test(name)) {
+    return name.replace(/^(?:fourhundredgigabitethernet|fourhundredgige|400gige|400ge|fh)/i, "400ge");
+  }
+
+  // FastEthernet: fastethernet, fasteth, fa, fe
+  if (/^(?:fastethernet|fasteth|fa|fe)(?=\d|[-_\/])/i.test(name)) {
+    return name.replace(/^(?:fastethernet|fasteth|fa|fe)/i, "fa");
+  }
+
+  // Ethernet: ethernet, eth
+  if (/^(?:ethernet|eth)(?=\d|[-_\/])/i.test(name)) {
+    return name.replace(/^(?:ethernet|eth)/i, "eth");
+  }
+
+  // Loopback: loopback, lo
+  if (/^(?:loopback|lo)(?=\d|[-_\/])/i.test(name)) {
+    return name.replace(/^(?:loopback|lo)/i, "lo");
+  }
+
+  // Management: management, mgmt, ma
+  if (/^(?:management|mgmt|ma)(?=\d|[-_\/])/i.test(name)) {
+    return name.replace(/^(?:management|mgmt|ma)/i, "mgmt");
+  }
+
+  // Serial: serial, ser, se
+  if (/^(?:serial|ser|se)(?=\d|[-_\/])/i.test(name)) {
+    return name.replace(/^(?:serial|ser|se)/i, "se");
+  }
+
+  // Vlan: vlan, vl
+  if (/^(?:vlan|vl)(?=\d|[-_\/])/i.test(name)) {
+    return name.replace(/^(?:vlan|vl)/i, "vlan");
+  }
+
+  return name;
+}
