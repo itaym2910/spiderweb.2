@@ -23,7 +23,7 @@ import { api } from "../../services/apiServices";
 import { formatPingRateWithPackets, calculatePingSummary } from "../shared/pingHelpers";
 import PingSummaryModal from "../shared/PingSummaryModal";
 import { createLinkPopupPayload } from "./handleInteractions";
-import { normalizeInterfaceName } from "./drawHelpers";
+import { normalizeInterfaceName, cleanDeviceKey } from "./drawHelpers";
 
 /**
  * Formats elapsed time since a given date into a human readable duration string.
@@ -1439,8 +1439,8 @@ export default function NetworkLinksSideDrawer({
                   const relatedLink = enrichedLinks.find((l) =>
                     l.id === event.link_id ||
                     (l.allIds && l.allIds.includes(event.link_id)) ||
-                    (l.sourceName === event.local_device_name && l.targetName === event.remote_device_name) ||
-                    (l.targetName === event.local_device_name && l.sourceName === event.remote_device_name)
+                    (cleanDeviceKey(l.sourceName) === cleanDeviceKey(event.local_device_name) && cleanDeviceKey(l.targetName) === cleanDeviceKey(event.remote_device_name)) ||
+                    (cleanDeviceKey(l.targetName) === cleanDeviceKey(event.local_device_name) && cleanDeviceKey(l.sourceName) === cleanDeviceKey(event.remote_device_name))
                   );
 
                   const searchableEventText = [
@@ -1500,11 +1500,11 @@ export default function NetworkLinksSideDrawer({
                     const normLocalIf = normalizeInterfaceName(l.local_interface);
                     const normRemoteIf = normalizeInterfaceName(l.remote_interface);
                     const matchSameDir =
-                      (l.sourceName === group.deviceName && l.targetName === group.remoteDeviceName) &&
+                      (cleanDeviceKey(l.sourceName) === cleanDeviceKey(group.deviceName) && cleanDeviceKey(l.targetName) === cleanDeviceKey(group.remoteDeviceName)) &&
                       (normLocalIf === normGroupIf ||
                         (l.allLocalInterfaces && l.allLocalInterfaces.some((i) => normalizeInterfaceName(i) === normGroupIf)));
                     const matchRevDir =
-                      (l.targetName === group.deviceName && l.sourceName === group.remoteDeviceName) &&
+                      (cleanDeviceKey(l.targetName) === cleanDeviceKey(group.deviceName) && cleanDeviceKey(l.sourceName) === cleanDeviceKey(group.remoteDeviceName)) &&
                       (normRemoteIf === normGroupIf ||
                         normLocalIf === normGroupIf ||
                         (l.allRemoteInterfaces && l.allRemoteInterfaces.some((i) => normalizeInterfaceName(i) === normGroupIf)));

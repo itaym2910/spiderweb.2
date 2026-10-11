@@ -158,6 +158,19 @@ export function normalizeLinkStatus(link) {
  *   Bundle-Ether1, BE1 -> be1
  *   Port-Channel5, Po5 -> po5
  */
+/**
+ * Normalizes a device name into a clean, canonical key for link deduplication.
+ * Strips FQDN domain suffixes, trims whitespace, and converts to lowercase.
+ */
+export function cleanDeviceKey(raw) {
+  if (!raw) return "";
+  let name = String(raw).trim().toLowerCase();
+  if (name.includes(".")) {
+    name = name.split(".")[0];
+  }
+  return name;
+}
+
 export function normalizeInterfaceName(raw) {
   if (!raw) return "";
   let name = String(raw).trim().toLowerCase();
@@ -166,12 +179,12 @@ export function normalizeInterfaceName(raw) {
   // Remove whitespace
   name = name.replace(/\s+/g, "");
 
-  // Packet-over-SONET: POS or PO with slashes
+  // Packet-over-SONET / SDH: pos, packet-over-sonet, packet-over-sdh, sonet, or po with slashes
   // Matches: pos0/1/1, pos-0/1/1, po0/1/1, po-0/1/1, pos0/0/0/0, po0/0/0/0
-  if (/^pos(?:\d|[-_\/])/i.test(name)) {
-    return name.replace(/^pos/i, "pos");
+  if (/^(?:packet-over-sonet|packetover-sonet|packet-over-sdh|packetover-sdh|sonet|pos)(?=\d|[-_\/])/i.test(name)) {
+    return name.replace(/^(?:packet-over-sonet|packetover-sonet|packet-over-sdh|packetover-sdh|sonet|pos)/i, "pos");
   }
-  if (/^po(?:\d|[-_\/])/i.test(name) && name.includes("/")) {
+  if (/^po(?=\d|[-_\/])/i.test(name) && name.includes("/")) {
     return name.replace(/^po/i, "pos");
   }
 
