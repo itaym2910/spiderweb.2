@@ -607,8 +607,6 @@ export default function NetworkLinksSideDrawer({
 
   // Filtered links for the active view, time window, and search
   const filteredLinks = useMemo(() => {
-    const isStabilityMode = activeFilter !== "all" && activeFilter !== "ping";
-
     const baseList = enrichedLinks.filter((link) => {
       // Status filter
       if (activeFilter === "up" && link.normalizedStatus !== "up") return false;
@@ -623,7 +621,7 @@ export default function NetworkLinksSideDrawer({
         if (pingSubFilter === "healthy" && hasLoss) return false;
       }
 
-      // Time filter
+      // Time filter (<= 24h, <= 1 week, <= 1 month)
       if (timeFilter && activeFilter !== "ping") {
         if (timeFilter === "72h_ospf") {
           const hasOspfDrop = (link.ospf_drops_last_24h ?? 0) > 0 || link.rawLink?.ospf_drops_last_24h > 0 || (link.ospf_state && link.ospf_state.toLowerCase() !== "full");
@@ -633,17 +631,10 @@ export default function NetworkLinksSideDrawer({
           if (!isNaN(targetDate.getTime())) {
             const diffHours = (Date.now() - targetDate.getTime()) / (1000 * 60 * 60);
             
-            if (isStabilityMode) {
-              // >= X time filter
-              if (timeFilter === "24h" && diffHours < 24) return false;
-              if (timeFilter === "7d" && diffHours < 24 * 7) return false;
-              if (timeFilter === "30d" && diffHours < 24 * 30) return false;
-            } else {
-              // < X time filter
-              if (timeFilter === "24h" && diffHours > 24) return false;
-              if (timeFilter === "7d" && diffHours > 24 * 7) return false;
-              if (timeFilter === "30d" && diffHours > 24 * 30) return false;
-            }
+            // <= X time filter: all lines with status changed within the last X duration
+            if (timeFilter === "24h" && diffHours > 24) return false;
+            if (timeFilter === "7d" && diffHours > 24 * 7) return false;
+            if (timeFilter === "30d" && diffHours > 24 * 30) return false;
           }
         }
       }
@@ -721,8 +712,6 @@ export default function NetworkLinksSideDrawer({
 
   // Helper to get links matching status and time window for marking on chart
   const getMatchingLinks = (statusF, timeF, pingSubF = pingSubFilter) => {
-    const isStabilityMode = statusF !== "all" && statusF !== "ping";
-
     return enrichedLinks.filter((link) => {
       // Status filter
       if (statusF === "up" && link.normalizedStatus !== "up") return false;
@@ -737,7 +726,7 @@ export default function NetworkLinksSideDrawer({
         if (pingSubF === "healthy" && hasLoss) return false;
       }
 
-      // Time filter
+      // Time filter (<= 24h, <= 1 week, <= 1 month)
       if (timeF && statusF !== "ping") {
         if (timeF === "72h_ospf") {
           return (link.ospf_drops_last_24h ?? 0) > 0 || link.rawLink?.ospf_drops_last_24h > 0 || (link.ospf_state && link.ospf_state.toLowerCase() !== "full");
@@ -747,17 +736,10 @@ export default function NetworkLinksSideDrawer({
           const diffHours =
             (Date.now() - targetDate.getTime()) / (1000 * 60 * 60);
           
-          if (isStabilityMode) {
-            // >= X time filter
-            if (timeF === "24h" && diffHours < 24) return false;
-            if (timeF === "7d" && diffHours < 24 * 7) return false;
-            if (timeF === "30d" && diffHours < 24 * 30) return false;
-          } else {
-            // < X time filter
-            if (timeF === "24h" && diffHours > 24) return false;
-            if (timeF === "7d" && diffHours > 24 * 7) return false;
-            if (timeF === "30d" && diffHours > 24 * 30) return false;
-          }
+          // <= X time filter: all lines with status changed within the last X duration
+          if (timeF === "24h" && diffHours > 24) return false;
+          if (timeF === "7d" && diffHours > 24 * 7) return false;
+          if (timeF === "30d" && diffHours > 24 * 30) return false;
         }
       }
       return true;
@@ -1287,17 +1269,16 @@ export default function NetworkLinksSideDrawer({
               </span>
               <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none flex-1">
                 {[
-                  { id: "24h", labelAll: "< 24h", labelStability: "≥ 24h" },
-                  { id: "7d", labelAll: "< 1 Week", labelStability: "≥ 1 Week" },
-                  { id: "30d", labelAll: "< 1 Month", labelStability: "≥ 1 Month" },
+                  { id: "24h", label: "≤ 24h" },
+                  { id: "7d", label: "≤ 1 Week" },
+                  { id: "30d", label: "≤ 1 Month" },
                   ...(activeFilter === "all"
-                    ? [{ id: "72h_ospf", labelAll: "OSPF Drops (72h)", labelStability: "OSPF Drops (72h)" }]
+                    ? [{ id: "72h_ospf", label: "OSPF Drops (72h)" }]
                     : []),
                 ].map((opt) => {
                   const isSelected = timeFilter === opt.id;
                   const isOspf = opt.id === "72h_ospf";
-                  const isStabilityMode = activeFilter !== "all";
-                  const displayLabel = isStabilityMode ? opt.labelStability : opt.labelAll;
+                  const displayLabel = opt.label;
                   
                   return (
                     <button
@@ -1447,8 +1428,8 @@ export default function NetworkLinksSideDrawer({
                     if (directMatch) return directMatch;
                   }
 
-                  const evDev1 = (event.local_device_name || "").trim().toLowerCase();
-                  const evDev2 = (event.remote_device_name || "").trim().toLowerCase();
+                  const evDev1 = cleanDeviceKey(event.local_device_name);
+                  const evDev2 = cleanDeviceKey(event.remote_device_name);
                   if (!evDev1 || !evDev2) return null;
 
                   const evIf1 = normalizeInterfaceName(event.local_interface);
@@ -1456,8 +1437,8 @@ export default function NetworkLinksSideDrawer({
 
                   // 1. Device names + interface match in either direction
                   const candidate = enrichedLinks.find((l) => {
-                    const lSrc = (l.sourceName || "").trim().toLowerCase();
-                    const lTgt = (l.targetName || "").trim().toLowerCase();
+                    const lSrc = cleanDeviceKey(l.sourceName);
+                    const lTgt = cleanDeviceKey(l.targetName);
                     const sameDir = lSrc === evDev1 && lTgt === evDev2;
                     const revDir = lSrc === evDev2 && lTgt === evDev1;
                     if (!sameDir && !revDir) return false;
@@ -1482,8 +1463,8 @@ export default function NetworkLinksSideDrawer({
 
                   // 2. Device pair fallback if there's only 1 link between these devices
                   const pairMatches = enrichedLinks.filter((l) => {
-                    const lSrc = (l.sourceName || "").trim().toLowerCase();
-                    const lTgt = (l.targetName || "").trim().toLowerCase();
+                    const lSrc = cleanDeviceKey(l.sourceName);
+                    const lTgt = cleanDeviceKey(l.targetName);
                     return (lSrc === evDev1 && lTgt === evDev2) || (lSrc === evDev2 && lTgt === evDev1);
                   });
                   if (pairMatches.length === 1) return pairMatches[0];
@@ -1502,16 +1483,7 @@ export default function NetworkLinksSideDrawer({
                     (event.remote_device_name ? deviceIpMap.get(String(event.remote_device_name).toLowerCase()) : null) ||
                     (event.remote_device_id != null ? deviceIpMap.get(String(event.remote_device_id)) : null);
 
-<<<<<<< Updated upstream
-                  const relatedLink = enrichedLinks.find((l) =>
-                    l.id === event.link_id ||
-                    (l.allIds && l.allIds.includes(event.link_id)) ||
-                    (cleanDeviceKey(l.sourceName) === cleanDeviceKey(event.local_device_name) && cleanDeviceKey(l.targetName) === cleanDeviceKey(event.remote_device_name)) ||
-                    (cleanDeviceKey(l.targetName) === cleanDeviceKey(event.local_device_name) && cleanDeviceKey(l.sourceName) === cleanDeviceKey(event.remote_device_name))
-                  );
-=======
                   const relatedLink = findCanonicalLinkForEvent(event);
->>>>>>> Stashed changes
 
                   const searchableEventText = [
                     event.local_device_name,
@@ -1596,26 +1568,6 @@ export default function NetworkLinksSideDrawer({
                     remoteIface = if2;
                     isVisibleOnMap = false;
                   }
-
-<<<<<<< Updated upstream
-                const findLinkForGroup = (group) => {
-                  const normGroupIf = normalizeInterfaceName(group.interface);
-                  return enrichedLinks.find((l) => {
-                    if (l.id === group.linkId || (l.allIds && l.allIds.includes(group.linkId))) return true;
-                    const normLocalIf = normalizeInterfaceName(l.local_interface);
-                    const normRemoteIf = normalizeInterfaceName(l.remote_interface);
-                    const matchSameDir =
-                      (cleanDeviceKey(l.sourceName) === cleanDeviceKey(group.deviceName) && cleanDeviceKey(l.targetName) === cleanDeviceKey(group.remoteDeviceName)) &&
-                      (normLocalIf === normGroupIf ||
-                        (l.allLocalInterfaces && l.allLocalInterfaces.some((i) => normalizeInterfaceName(i) === normGroupIf)));
-                    const matchRevDir =
-                      (cleanDeviceKey(l.targetName) === cleanDeviceKey(group.deviceName) && cleanDeviceKey(l.sourceName) === cleanDeviceKey(group.remoteDeviceName)) &&
-                      (normRemoteIf === normGroupIf ||
-                        normLocalIf === normGroupIf ||
-                        (l.allRemoteInterfaces && l.allRemoteInterfaces.some((i) => normalizeInterfaceName(i) === normGroupIf)));
-                    return matchSameDir || matchRevDir;
-                  });
-=======
                   if (!groupsById[groupId]) {
                     groupsById[groupId] = {
                       linkId: canonicalLink?.id || groupId,
@@ -1648,7 +1600,6 @@ export default function NetworkLinksSideDrawer({
                   if (!t) return 0;
                   const d = new Date(t);
                   return isNaN(d.getTime()) ? 0 : d.getTime();
->>>>>>> Stashed changes
                 };
 
                 // Deduplicate and sort events within each canonical group
