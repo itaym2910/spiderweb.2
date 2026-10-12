@@ -101,8 +101,19 @@ const LinkDetailTabs = ({
         total_pings: fetchedDetails.total_pings ?? itemData.total_pings,
         ping_total: fetchedDetails.ping_total ?? itemData.ping_total,
         last_ping_at: fetchedDetails.last_ping_at || itemData.last_ping_at,
+        ospf_up_time: fetchedDetails.ospf_up_time ?? itemData.ospf_up_time,
+        ospf_state_duration: fetchedDetails.ospf_state_duration ?? itemData.ospf_state_duration,
+        last_up_at: fetchedDetails.last_up_at || itemData.last_up_at,
+        last_down_at: fetchedDetails.last_down_at || itemData.last_down_at,
+        last_ospf_down_at: fetchedDetails.last_ospf_down_at || itemData.last_ospf_down_at,
+        statusDate: fetchedDetails.statusDate || itemData.statusDate,
       } : {})
     };
+
+    delete itemData.ospf_up_time_seconds;
+    delete itemData.ospf_state_duration_seconds;
+    delete itemData.ospfUpTimeSeconds;
+    delete itemData.ospfStateDurationSeconds;
   }
 
   const isDark = theme === "dark";

@@ -5,7 +5,7 @@ import NetworkVisualizer5 from "../../components/chart/NetworkVisualizer5";
 import LinkDetailPopup from "../../components/shared/LinkDetailPopup";
 import NetworkLinksSideDrawer from "../../components/chart/NetworkLinksSideDrawer";
 import ToggleDetailButton from "../../components/chart/ToggleDetailButton";
-import { getLinkStatusAndDate, normalizeInterfaceName } from "../../components/chart/drawHelpers";
+import { getLinkStatusAndDate, normalizeInterfaceName, cleanDeviceKey } from "../../components/chart/drawHelpers";
 import { createLinkPopupPayload } from "../../components/chart/handleInteractions";
 import { fetchInitialData } from "../../redux/slices/authSlice";
 import { toggleFavoriteLink } from "../../redux/slices/favoritesSlice";
@@ -51,11 +51,11 @@ function selectTopTwoDevices(devices) {
 const NetworkVisualizer5Wrapper = ({ theme }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  // Poll core topology every 30 seconds
+  // Poll core topology every 5 seconds
   React.useEffect(() => {
     const interval = setInterval(() => {
       dispatch(fetchCoreTopology());
-    }, 30000);
+    }, 5000);
     return () => clearInterval(interval);
   }, [dispatch]);
 
@@ -152,9 +152,24 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
 
     const visibleDeviceNames = new Set(topDevicesPerSite.map((d) => d.name));
 
-    // Build a map of device id -> device for link resolution
-    const allDevicesMapById = new Map(allTopologyDevices.map((d) => [d.id, d]));
-    const deviceMapById = new Map(devicesForChart.map((d) => [d.id, d]));
+    // Build a map of device id -> device for link resolution (supporting string and number IDs)
+    const allDevicesMapById = new Map();
+    allTopologyDevices.forEach((d) => {
+      allDevicesMapById.set(d.id, d);
+      if (d.id != null) {
+        allDevicesMapById.set(String(d.id), d);
+        if (!isNaN(Number(d.id))) allDevicesMapById.set(Number(d.id), d);
+      }
+    });
+
+    const deviceMapById = new Map();
+    devicesForChart.forEach((d) => {
+      deviceMapById.set(d.id, d);
+      if (d.id != null) {
+        deviceMapById.set(String(d.id), d);
+        if (!isNaN(Number(d.id))) deviceMapById.set(Number(d.id), d);
+      }
+    });
 
     // Helper to get short name
     const getShortName = (name) => {
@@ -201,11 +216,27 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
       device: device,
     }));
 
+    // Pre-calculate IP pair frequencies per device to identify bundle members sharing an IP
+    const ipPairCountsPerDevice = new Map();
+    devicesForChart.forEach((dev) => {
+      if (!dev.links) return;
+      const devKey = cleanDeviceKey(dev.name);
+      dev.links.forEach((l) => {
+        const locIp = l.local_link_ip || l.local_ip;
+        const remIp = l.remote_link_ip || l.remote_ip;
+        if (locIp && remIp) {
+          const pair = [String(locIp).trim(), String(remIp).trim()].sort().join("<->");
+          const key = `${devKey}##${pair}`;
+          ipPairCountsPerDevice.set(key, (ipPairCountsPerDevice.get(key) || 0) + 1);
+        }
+      });
+    });
+
     // Extract and deduplicate links from devices
     const seenLinkIds = new Set();
     const linksBySignature = new Map();
     const endpointToSignature = new Map();
-    const ipPairToSignature = new Map();
+    const uniqueIpPairToSignature = new Map();
 
     devicesForChart.forEach((device) => {
       if (!device.links) return;
@@ -215,8 +246,12 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
         if (seenLinkIds.has(link.id)) return;
         seenLinkIds.add(link.id);
 
-        const remoteDevice = deviceMapById.get(link.remote_device_id) || allDevicesMapById.get(link.remote_device_id);
-        const remoteDeviceName = link.remote_device_name || (remoteDevice ? remoteDevice.name : "Unknown");
+        const remoteDevice =
+          (link.remote_device_id != null ? (deviceMapById.get(link.remote_device_id) || allDevicesMapById.get(link.remote_device_id)) : null) ||
+          (link.remote_device_id != null ? (deviceMapById.get(String(link.remote_device_id)) || allDevicesMapById.get(String(link.remote_device_id))) : null);
+
+        const canonicalRemoteDevName = (remoteDevice ? remoteDevice.name : null) || link.remote_device_name || "Unknown";
+        const remoteDeviceName = canonicalRemoteDevName;
         const remoteZone = (remoteDevice ? remoteDevice.coresite_name : null) || link.remote_coresite_name || "Unknown";
 
         // Normalize oper_status and ospf_state to up/down/issue
@@ -229,8 +264,8 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
         );
 
         // Determine link endpoints and normalized interface keys for bidirectional deduplication
-        const localDevName = String(device.name || "").trim();
-        const remDevName = String(remoteDeviceName || "").trim();
+        const localDevClean = cleanDeviceKey(device.name);
+        const remDevClean = cleanDeviceKey(canonicalRemoteDevName);
 
         const rawLocalIf = link.local_interface ? String(link.local_interface).trim() : "";
         const rawRemoteIf = link.remote_interface ? String(link.remote_interface).trim() : "";
@@ -238,16 +273,39 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
         const normLocalIf = normalizeInterfaceName(rawLocalIf);
         const normRemoteIf = normalizeInterfaceName(rawRemoteIf);
 
-        const normLocalEp = normLocalIf ? `${localDevName}::${normLocalIf}` : null;
-        const normRemoteEp = normRemoteIf ? `${remDevName}::${normRemoteIf}` : null;
+        const normLocalEp = normLocalIf ? `${localDevClean}::${normLocalIf}` : null;
+        const normRemoteEp = normRemoteIf ? `${remDevClean}::${normRemoteIf}` : null;
 
-        const rawLocalEp = rawLocalIf ? `${localDevName}::${rawLocalIf}` : null;
-        const rawRemoteEp = rawRemoteIf ? `${remDevName}::${rawRemoteIf}` : null;
+        const rawLocalEp = rawLocalIf ? `${localDevClean}::${rawLocalIf}` : null;
+        const rawRemoteEp = rawRemoteIf ? `${remDevClean}::${rawRemoteIf}` : null;
+
+        const localDevId = device.id != null ? String(device.id) : null;
+        const remoteDevId = (remoteDevice?.id ?? link.remote_device_id) != null ? String(remoteDevice?.id ?? link.remote_device_id) : null;
+
+        const idLocalEp = (localDevId && normLocalIf) ? `id:${localDevId}::${normLocalIf}` : null;
+        const idRemoteEp = (remoteDevId && normRemoteIf) ? `id:${remoteDevId}::${normRemoteIf}` : null;
 
         const localIp = link.local_link_ip || link.local_ip || null;
         const remoteIp = link.remote_link_ip || link.remote_ip || null;
-        const ipPairKey = (localIp && remoteIp)
+        const ipPair = (localIp && remoteIp)
           ? [String(localIp).trim(), String(remoteIp).trim()].sort().join("<->")
+          : null;
+
+        const devIpKey = `${localDevClean}##${ipPair}`;
+        const remDevIpKey = `${remDevClean}##${ipPair}`;
+        const isSharedIpOnAnyDev = Boolean(
+          (ipPairCountsPerDevice.get(devIpKey) || 0) > 1 ||
+          (ipPairCountsPerDevice.get(remDevIpKey) || 0) > 1
+        );
+
+        const isBundleLink = Boolean(
+          isSharedIpOnAnyDev ||
+          /\b(?:bundle|be|port-channel|portchannel)\s*[-_]?\s*\d+/i.test(link.description || "") ||
+          /\b(?:bundle|be|port-channel|portchannel)\s*[-_]?\s*\d+/i.test(link.local_interface_description || "")
+        );
+
+        const uniqueIpKey = (ipPair && !isBundleLink)
+          ? `${[localDevClean, remDevClean].sort().join("---")}##${ipPair}`
           : null;
 
         // Try to match an existing reciprocal signature
@@ -256,26 +314,32 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           signature = endpointToSignature.get(normLocalEp);
         } else if (normRemoteEp && endpointToSignature.has(normRemoteEp)) {
           signature = endpointToSignature.get(normRemoteEp);
+        } else if (idLocalEp && endpointToSignature.has(idLocalEp)) {
+          signature = endpointToSignature.get(idLocalEp);
+        } else if (idRemoteEp && endpointToSignature.has(idRemoteEp)) {
+          signature = endpointToSignature.get(idRemoteEp);
         } else if (rawLocalEp && endpointToSignature.has(rawLocalEp)) {
           signature = endpointToSignature.get(rawLocalEp);
         } else if (rawRemoteEp && endpointToSignature.has(rawRemoteEp)) {
           signature = endpointToSignature.get(rawRemoteEp);
-        } else if (ipPairKey && ipPairToSignature.has(ipPairKey)) {
-          signature = ipPairToSignature.get(ipPairKey);
+        } else if (uniqueIpKey && uniqueIpPairToSignature.has(uniqueIpKey)) {
+          signature = uniqueIpPairToSignature.get(uniqueIpKey);
         }
 
         // If no existing signature matched, generate canonical signature
         if (!signature) {
           if (normLocalEp && normRemoteEp) {
             signature = [normLocalEp, normRemoteEp].sort().join("---");
+          } else if (idLocalEp && idRemoteEp) {
+            signature = [idLocalEp, idRemoteEp].sort().join("---");
           } else if (rawLocalEp && rawRemoteEp) {
             signature = [rawLocalEp, rawRemoteEp].sort().join("---");
           } else if (normLocalEp || normRemoteEp) {
-            signature = [normLocalEp || `${localDevName}::*`, normRemoteEp || `${remDevName}::*`].sort().join("---");
-          } else if (ipPairKey) {
-            signature = `${[localDevName, remDevName].sort().join("---")}#${ipPairKey}`;
+            signature = [normLocalEp || `${localDevClean}::*`, normRemoteEp || `${remDevClean}::*`].sort().join("---");
+          } else if (uniqueIpKey) {
+            signature = uniqueIpKey;
           } else {
-            signature = [localDevName, remDevName, link.id].sort().join("---");
+            signature = [localDevClean, remDevClean, link.id].sort().join("---");
           }
         }
 
@@ -311,7 +375,7 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           }
 
           // Fill any missing metadata from reciprocal link
-          const isFlipped = existing.sourceName === remDevName;
+          const isFlipped = cleanDeviceKey(existing.sourceName) === remDevClean;
           const currentDevIp = device.ip || device.ip_address || null;
           const currentRemoteDevIp = link.remote_device_ip || (remoteDevice ? (remoteDevice.ip || remoteDevice.ip_address) : null) || link.neighbor_ip || null;
 
@@ -421,6 +485,21 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           if ((existing.last_ping_at == null) && (link.last_ping_at != null || link.lastPingAt != null)) {
             existing.last_ping_at = link.last_ping_at ?? link.lastPingAt;
           }
+          if (existing.ospf_up_time_seconds == null && link.ospf_up_time_seconds != null) {
+            existing.ospf_up_time_seconds = link.ospf_up_time_seconds;
+          }
+          if (existing.ospf_up_time == null && link.ospf_up_time != null) {
+            existing.ospf_up_time = link.ospf_up_time;
+          }
+          if (existing.ospf_state_duration_seconds == null && link.ospf_state_duration_seconds != null) {
+            existing.ospf_state_duration_seconds = link.ospf_state_duration_seconds;
+          }
+          if (existing.ospf_state_duration == null && link.ospf_state_duration != null) {
+            existing.ospf_state_duration = link.ospf_state_duration;
+          }
+          if (existing.last_ospf_down_at == null && link.last_ospf_down_at != null) {
+            existing.last_ospf_down_at = link.last_ospf_down_at;
+          }
 
           const currentInBps = link.in_bps ?? link.input_rate ?? link.inBps ?? link.bytes_in_rate ?? link.bytesIn ?? null;
           const currentOutBps = link.out_bps ?? link.output_rate ?? link.outBps ?? link.bytes_out_rate ?? link.bytesOut ?? null;
@@ -435,9 +514,11 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
 
           if (normLocalEp) endpointToSignature.set(normLocalEp, signature);
           if (normRemoteEp) endpointToSignature.set(normRemoteEp, signature);
+          if (idLocalEp) endpointToSignature.set(idLocalEp, signature);
+          if (idRemoteEp) endpointToSignature.set(idRemoteEp, signature);
           if (rawLocalEp) endpointToSignature.set(rawLocalEp, signature);
           if (rawRemoteEp) endpointToSignature.set(rawRemoteEp, signature);
-          if (ipPairKey) ipPairToSignature.set(ipPairKey, signature);
+          if (uniqueIpKey) uniqueIpPairToSignature.set(uniqueIpKey, signature);
           return;
         }
 
@@ -501,8 +582,13 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           destinationIp: link.remote_link_ip || remoteDevIp || link.remote_ip,
           ospf_state: link.ospf_state,
           is_ospf_full: link.is_ospf_full !== undefined ? Boolean(link.is_ospf_full) : (String(link.ospf_state || "").toUpperCase() === "FULL"),
+          ospf_up_time_seconds: link.ospf_up_time_seconds ?? link.rawLink?.ospf_up_time_seconds,
+          ospf_up_time: link.ospf_up_time ?? link.rawLink?.ospf_up_time,
+          ospf_state_duration_seconds: link.ospf_state_duration_seconds ?? link.rawLink?.ospf_state_duration_seconds,
+          ospf_state_duration: link.ospf_state_duration ?? link.rawLink?.ospf_state_duration,
           last_up_at: link.last_up_at,
           last_down_at: link.last_down_at,
+          last_ospf_down_at: link.last_ospf_down_at ?? link.rawLink?.last_ospf_down_at,
           last_ospf_full_at: link.last_ospf_full_at,
           last_seen_at: link.last_seen_at,
           link_drops_last_24h: link.link_drops_last_24h ?? 0,
@@ -518,9 +604,11 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
         linksBySignature.set(signature, linkObj);
         if (normLocalEp) endpointToSignature.set(normLocalEp, signature);
         if (normRemoteEp) endpointToSignature.set(normRemoteEp, signature);
+        if (idLocalEp) endpointToSignature.set(idLocalEp, signature);
+        if (idRemoteEp) endpointToSignature.set(idRemoteEp, signature);
         if (rawLocalEp) endpointToSignature.set(rawLocalEp, signature);
         if (rawRemoteEp) endpointToSignature.set(rawRemoteEp, signature);
-        if (ipPairKey) ipPairToSignature.set(ipPairKey, signature);
+        if (uniqueIpKey) uniqueIpPairToSignature.set(uniqueIpKey, signature);
       });
     });
 

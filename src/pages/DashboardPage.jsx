@@ -4,7 +4,6 @@ import {
   Routes,
   Route,
   useParams,
-  useLocation,
   Navigate,
 } from "react-router-dom";
 import { ArrowUp, ArrowDown, XCircle } from "lucide-react";
@@ -23,8 +22,8 @@ import LinkTable from "../components/CoreDevice/LinkTable";
 import { useRelatedDevices } from "../hooks/useRelatedDevices";
 import { selectAllDevices, selectDeviceInfo } from "../redux/slices/devicesSlice";
 import { selectAllSites } from "../redux/slices/sitesSlice";
-import { selectAllTenGigLinks } from "../redux/slices/tenGigLinksSlice";
 import { selectTopologyDevices } from "../redux/slices/coreTopologySlice";
+import { getLinkStatusAndDate } from "../components/chart/drawHelpers";
 import { api } from "../services/apiServices";
 
 // This helper component can be used by other pages like FavoritesPage
@@ -249,21 +248,7 @@ function NodeDetailView({ chartType, theme }) {
           linkType = "inter-core-different-site";
         }
 
-        const rawStatus = (
-          link.oper_status ||
-          link.status ||
-          link.physicalStatus ||
-          "up"
-        ).toLowerCase();
-        
-        const ospfStatus = (link.ospf_state || link.ospfStatus || "full").toLowerCase();
-
-        let normalizedStatus = "up";
-        if (rawStatus === "down") {
-          normalizedStatus = "down";
-        } else if (rawStatus === "issue" || ospfStatus !== "full") {
-          normalizedStatus = "issue";
-        }
+        const { status: normalizedStatus, statusDate: linkStatusDate } = getLinkStatusAndDate(link);
 
         const bw = link.bandwidth || link.Bandwidth || link.bw;
         const formattedBw =
@@ -284,6 +269,15 @@ function NodeDetailView({ chartType, theme }) {
           remote_link_ip: link.remote_link_ip || link.remote_ip,
           remote_device_ip: link.remote_device_ip,
           status: normalizedStatus,
+          statusDate: linkStatusDate,
+          statusChangedAt: linkStatusDate || link.last_state_change_at,
+          ospf_up_time_seconds: link.ospf_up_time_seconds,
+          ospf_up_time: link.ospf_up_time,
+          ospf_state_duration_seconds: link.ospf_state_duration_seconds,
+          ospf_state_duration: link.ospf_state_duration,
+          last_up_at: link.last_up_at,
+          last_down_at: link.last_down_at,
+          last_ospf_down_at: link.last_ospf_down_at,
           bandwidth: formattedBw,
           bandwidth_mbps: link.bandwidth_mbps,
           mtu: link.mtu,

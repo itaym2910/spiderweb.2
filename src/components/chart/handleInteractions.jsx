@@ -1,5 +1,5 @@
 // src/chart/handleInteractions.jsx
-import { linkPositionFromEdges, normalizeLinkStatus } from "./drawHelpers";
+import { linkPositionFromEdges, normalizeLinkStatus, getLinkStatusAndDate } from "./drawHelpers";
 import { formatPingRateWithPackets } from "../shared/pingHelpers";
 import * as d3 from "d3";
 
@@ -19,7 +19,7 @@ export function createLinkPopupPayload(linkDataObject) {
       ? linkDataObject.target.id || linkDataObject.target.hostname || linkDataObject.target.name
       : (linkDataObject.targetNode || linkDataObject.targetName || linkDataObject.target);
 
-  const status = normalizeLinkStatus(linkDataObject);
+  const { status, statusDate } = getLinkStatusAndDate(linkDataObject);
   const physicalStatus =
     raw.physical_status ||
     raw.physicalStatus ||
@@ -134,10 +134,16 @@ export function createLinkPopupPayload(linkDataObject) {
     linkDataObject.bytesOut ??
     null;
 
-  return {
-    ...raw,
+  const cleanRaw = { ...raw };
+  delete cleanRaw.ospf_up_time_seconds;
+  delete cleanRaw.ospf_state_duration_seconds;
+  delete cleanRaw.ospfUpTimeSeconds;
+  delete cleanRaw.ospfStateDurationSeconds;
+
+  const payload = {
+    ...cleanRaw,
     ...linkDataObject,
-    rawLink: raw,
+    rawLink: cleanRaw,
     in_bps,
     out_bps,
     input_rate: raw.input_rate ?? linkDataObject.input_rate ?? in_bps,
@@ -156,6 +162,8 @@ export function createLinkPopupPayload(linkDataObject) {
     name: `Link ${sourceId} ⟷ ${targetId}`,
     status,
     normalizedStatus: status,
+    statusDate,
+    statusChangedAt: statusDate || linkDataObject.statusChangedAt || linkDataObject.last_state_change_at,
     physicalStatus,
     protocolStatus,
     mpls,
@@ -173,8 +181,20 @@ export function createLinkPopupPayload(linkDataObject) {
     total_pings,
     ping_total: total_pings,
     last_ping_at,
+    ospf_up_time: linkDataObject.ospf_up_time ?? raw.ospf_up_time,
+    ospf_state_duration: linkDataObject.ospf_state_duration ?? raw.ospf_state_duration,
+    last_up_at: linkDataObject.last_up_at ?? raw.last_up_at,
+    last_down_at: linkDataObject.last_down_at ?? raw.last_down_at,
+    last_ospf_down_at: linkDataObject.last_ospf_down_at ?? raw.last_ospf_down_at,
     ip,
   };
+
+  delete payload.ospf_up_time_seconds;
+  delete payload.ospf_state_duration_seconds;
+  delete payload.ospfUpTimeSeconds;
+  delete payload.ospfStateDurationSeconds;
+
+  return payload;
 }
 
 // ===================================================================
@@ -592,6 +612,60 @@ export function removeAllParallelLinks(zoomLayer) {
 }
 
 // ===================================================================
+// ===================================================================
+// Helper: Compute parallel link path (straight lines with parallel offsets)
+// ===================================================================
+export function computeParallelLinkPath({
+  sourceNode,
+  targetNode,
+  offset = 0,
+  nodeRadius = 60,
+}) {
+  const { x1, y1, x2, y2 } = linkPositionFromEdges(
+    { source: sourceNode, target: targetNode },
+    nodeRadius
+  );
+
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const length = Math.sqrt(dx * dx + dy * dy);
+  if (length === 0) {
+    return {
+      d: "",
+      startX: x1,
+      startY: y1,
+      endX: x2,
+      endY: y2,
+      ux: 0,
+      uy: 0,
+      perpX: 0,
+      perpY: 0,
+    };
+  }
+
+  const ux = dx / length;
+  const uy = dy / length;
+  const perpX = -uy;
+  const perpY = ux;
+
+  const startX = x1 + perpX * offset;
+  const startY = y1 + perpY * offset;
+  const endX = x2 + perpX * offset;
+  const endY = y2 + perpY * offset;
+
+  return {
+    d: `M${startX},${startY} L${endX},${endY}`,
+    startX,
+    startY,
+    endX,
+    endY,
+    ux,
+    uy,
+    perpX,
+    perpY,
+  };
+}
+
 // Function to draw all parallel links across the entire graph
 // ===================================================================
 export function drawAllParallelLinks({
@@ -628,7 +702,32 @@ export function drawAllParallelLinks({
   const svgNode = zoomLayer.node().ownerSVGElement;
   const svg = d3.select(svgNode);
 
-  linkGroups.forEach((duplicates) => {
+  // Sort link groups so inter-zone links are rendered first, and intra-zone links last (on top in SVG DOM)
+  const sortedLinkGroups = Array.from(linkGroups.values()).sort((a, b) => {
+    const aFirst = a[0];
+    const bFirst = b[0];
+    const aSId = typeof aFirst.source === "object" ? aFirst.source.id : aFirst.source;
+    const aTId = typeof aFirst.target === "object" ? aFirst.target.id : aFirst.target;
+    const bSId = typeof bFirst.source === "object" ? bFirst.source.id : bFirst.source;
+    const bTId = typeof bFirst.target === "object" ? bFirst.target.id : bFirst.target;
+
+    const aS = nodeMap.get(aSId);
+    const aT = nodeMap.get(aTId);
+    const bS = nodeMap.get(bSId);
+    const bT = nodeMap.get(bTId);
+
+    const aIsIntra = aS && aT && aS.zone && aS.zone === aT.zone;
+    const bIsIntra = bS && bT && bS.zone && bS.zone === bT.zone;
+
+    if (aIsIntra && !bIsIntra) return 1;
+    if (!aIsIntra && bIsIntra) return -1;
+
+    const distA = aS && aT ? Math.hypot(aT.x - aS.x, aT.y - aS.y) : 0;
+    const distB = bS && bT ? Math.hypot(bT.x - bS.x, bT.y - bS.y) : 0;
+    return distB - distA;
+  });
+
+  sortedLinkGroups.forEach((duplicates) => {
     if (duplicates.length === 0) return;
 
     const firstLink = duplicates[0];
@@ -646,34 +745,27 @@ export function drawAllParallelLinks({
 
     if (!sourceNode || !targetNode) return;
 
-    const nodeRadius = 60;
-    const { x1, y1, x2, y2 } = linkPositionFromEdges(
-      { source: sourceNode, target: targetNode },
-      nodeRadius
-    );
-
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const length = Math.sqrt(dx * dx + dy * dy);
-    if (length === 0) return;
-
-    const ux = dx / length;
-    const uy = dy / length;
-    const perpX = -uy;
-    const perpY = ux;
+    const isIntra = sourceNode.zone && targetNode.zone && sourceNode.zone === targetNode.zone;
+    const hoverStrokeWidth = isIntra ? 16 : 12;
 
     duplicates.forEach((linkData, index) => {
       const offset = 10 * (index - (duplicates.length - 1) / 2);
-      const startX = x1 + perpX * offset;
-      const startY = y1 + perpY * offset;
-      const endX = x2 + perpX * offset;
-      const endY = y2 + perpY * offset;
+      const pathInfo = computeParallelLinkPath({
+        sourceNode,
+        targetNode,
+        offset,
+        nodeRadius: 60,
+      });
+
+      if (!pathInfo.d) return;
+
+      const { d: pathD, startX, startY, endX, endY, ux, uy, perpX, perpY } = pathInfo;
 
       zoomLayer
         .append("path")
         .datum(linkData)
         .attr("class", "duplicate-link")
-        .attr("d", `M${startX},${startY} L${endX},${endY}`)
+        .attr("d", pathD)
         .attr("fill", "none")
         .attr("stroke", palette.link)
         .attr("stroke-opacity", 0.6)
@@ -685,10 +777,10 @@ export function drawAllParallelLinks({
         .append("path")
         .datum(linkData)
         .attr("class", "duplicate-link-hover")
-        .attr("d", `M${startX},${startY} L${endX},${endY}`)
+        .attr("d", pathD)
         .attr("fill", "none")
         .attr("stroke", "transparent")
-        .attr("stroke-width", 14)
+        .attr("stroke-width", hoverStrokeWidth)
         .style("cursor", "pointer")
         .on("mouseenter", function (event, d_hover) {
           const markedIds = getMarkedLinkIds ? getMarkedLinkIds() : null;
@@ -1099,16 +1191,22 @@ export function drawTempParallelLinks({
 
   duplicates.forEach((linkData, index) => {
     const offset = 10 * (index - (duplicates.length - 1) / 2);
-    const startX = x1 + perpX * offset;
-    const startY = y1 + perpY * offset;
-    const endX = x2 + perpX * offset;
-    const endY = y2 + perpY * offset;
+    const pathInfo = computeParallelLinkPath({
+      sourceNode,
+      targetNode,
+      offset,
+      nodeRadius: 60,
+    });
+
+    if (!pathInfo.d) return;
+
+    const { d: pathD, startX, startY, endX, endY, ux, uy, perpX, perpY } = pathInfo;
 
     zoomLayer
       .append("path")
       .datum(linkData)
       .attr("class", "temp-duplicate-link")
-      .attr("d", `M${startX},${startY} L${endX},${endY}`)
+      .attr("d", pathD)
       .attr("fill", "none")
       .attr("stroke", getLinkColorByCategory(linkData, palette))
       .attr("stroke-width", 3)

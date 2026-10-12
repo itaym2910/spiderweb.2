@@ -150,6 +150,8 @@ const createTenGigLink = (sourceDevice, targetDevice, sourceInterface) => {
 
   const statuses = ["up", "up", "up", "up", "up", "up", "up", "up", "down", "issue"];
   const status = statuses[linkCounter % statuses.length];
+  const durationSec = Math.floor(daysAgo * 86400);
+  const durationStr = `${Math.floor(daysAgo)}d`;
 
   return {
     id: `link-10g-${faker.string.alphanumeric(8)}`,
@@ -160,6 +162,19 @@ const createTenGigLink = (sourceDevice, targetDevice, sourceInterface) => {
     status,
     timestamp: statusChangedDate,
     statusChangedAt: statusChangedDate,
+    statusDate: statusChangedDate,
+    oper_status: status === "down" ? "down" : "up",
+    ospf_state: status === "down" ? "Down" : "Full",
+    is_ospf_full: status !== "down",
+    ospf_up_time_seconds: status === "up" ? durationSec : undefined,
+    ospf_up_time: status === "up" ? durationStr : undefined,
+    ospf_state_duration_seconds: status === "down" ? durationSec : undefined,
+    ospf_state_duration: status === "down" ? durationStr : undefined,
+    last_up_at: status === "up" ? statusChangedDate : undefined,
+    last_down_at: status === "down" ? statusChangedDate : undefined,
+    last_ospf_down_at: status === "down" ? statusChangedDate : undefined,
+    last_ping_at: status === "issue" ? statusChangedDate : undefined,
+    ping_success_attempts: status === "issue" ? "9980/10000" : "10000/10000",
     physicalStatus: status === "down" ? "Down" : sourceInterface.physical_status || "Up",
     protocolStatus: status === "down" ? "Down" : sourceInterface.protocol_status || "Up",
     MPLS: sourceInterface.mpls || "Enabled",

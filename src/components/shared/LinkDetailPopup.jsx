@@ -227,8 +227,26 @@ const LinkDetailPopup = ({
       total_pings: fetchedDetails?.total_pings ?? linkData?.total_pings,
       ping_total: fetchedDetails?.ping_total ?? linkData?.ping_total,
       last_ping_at: fetchedDetails?.last_ping_at || linkData?.last_ping_at,
+      ospf_up_time: fetchedDetails?.ospf_up_time ?? linkData?.ospf_up_time,
+      ospf_state_duration: fetchedDetails?.ospf_state_duration ?? linkData?.ospf_state_duration,
+      last_up_at: fetchedDetails?.last_up_at || linkData?.last_up_at,
+      last_down_at: fetchedDetails?.last_down_at || linkData?.last_down_at,
+      last_ospf_down_at: fetchedDetails?.last_ospf_down_at || linkData?.last_ospf_down_at,
+      statusDate: fetchedDetails?.statusDate || linkData?.statusDate,
     } : {}),
   };
+
+  if (itemData.rawLink) {
+    itemData.rawLink = { ...itemData.rawLink };
+    delete itemData.rawLink.ospf_up_time_seconds;
+    delete itemData.rawLink.ospf_state_duration_seconds;
+    delete itemData.rawLink.ospfUpTimeSeconds;
+    delete itemData.rawLink.ospfStateDurationSeconds;
+  }
+  delete itemData.ospf_up_time_seconds;
+  delete itemData.ospf_state_duration_seconds;
+  delete itemData.ospfUpTimeSeconds;
+  delete itemData.ospfStateDurationSeconds;
 
   const rawPingRate =
     itemData?.ping_success_rate ??
@@ -503,7 +521,15 @@ const LinkDetailPopup = ({
               if (key.endsWith("_at")) return;
               if (typeof value === "string" && value.match(/^\d{4}-\d{2}-\d{2}T/)) return;
 
-              if (key === "is_ospf_full" || key === "link_drops_last_24h" || key === "ospf_drops_last_24h") return;
+              if (
+                key === "is_ospf_full" ||
+                key === "link_drops_last_24h" ||
+                key === "ospf_drops_last_24h" ||
+                key === "ospf_up_time_seconds" ||
+                key === "ospf_state_duration_seconds" ||
+                key.endsWith("_seconds") ||
+                /seconds/i.test(key)
+              ) return;
 
               if (
                 key === "in_bps" ||

@@ -61,34 +61,159 @@ export function linkPositionFromEdges(d, r = 60) {
 export function hasValidDate(val) {
   if (val === null || val === undefined) return false;
   const s = String(val).trim().toLowerCase();
-  return s !== "" && s !== "null" && s !== "undefined" && s !== "none";
+  if (s === "" || s === "null" || s === "undefined" || s === "none") return false;
+  const d = new Date(val);
+  return !isNaN(d.getTime());
 }
 
 /**
- * Determines a link's status ("up" | "issue" | "down") and its corresponding timestamp
+ * Parses duration in seconds from either:
+ * - A numeric value (e.g. 424720)
+ * - A numeric string (e.g. "424720")
+ * - A duration string (e.g. "4d21h", "4d 21h", "1w2d", "12h", "45m", "30s", "01:23:45")
+ */
+export function parseDurationToSeconds(val) {
+  if (val === null || val === undefined) return null;
+  if (typeof val === "number") {
+    return isNaN(val) || val < 0 ? null : val;
+  }
+  const str = String(val).trim();
+  if (str === "" || str === "null" || str === "undefined" || str === "none") return null;
+
+  // Pure numeric string
+  if (/^\d+(\.\d+)?$/.test(str)) {
+    const num = Number(str);
+    return isNaN(num) || num < 0 ? null : num;
+  }
+
+  // Check colon format e.g. "01:23:45"
+  const colonMatch = str.match(/^(\d+):(\d{2}):(\d{2})$/);
+  if (colonMatch) {
+    return Number(colonMatch[1]) * 3600 + Number(colonMatch[2]) * 60 + Number(colonMatch[3]);
+  }
+
+  let totalSec = 0;
+  let matched = false;
+
+  const wMatch = str.match(/(\d+(?:\.\d+)?)\s*w/i);
+  if (wMatch) { totalSec += Number(wMatch[1]) * 7 * 86400; matched = true; }
+
+  const dMatch = str.match(/(\d+(?:\.\d+)?)\s*d/i);
+  if (dMatch) { totalSec += Number(dMatch[1]) * 86400; matched = true; }
+
+  const hMatch = str.match(/(\d+(?:\.\d+)?)\s*h/i);
+  if (hMatch) { totalSec += Number(hMatch[1]) * 3600; matched = true; }
+
+  const mMatch = str.match(/(\d+(?:\.\d+)?)\s*m(?!s)/i);
+  if (mMatch) { totalSec += Number(mMatch[1]) * 60; matched = true; }
+
+  const sMatch = str.match(/(\d+(?:\.\d+)?)\s*s/i);
+  if (sMatch) { totalSec += Number(sMatch[1]); matched = true; }
+
+  return matched ? totalSec : null;
+}
+
+/**
+ * Converts a duration in seconds into an ISO timestamp string representing `Date.now() - seconds * 1000`.
+ */
+export function durationSecondsToIsoTimestamp(seconds) {
+  if (seconds === null || seconds === undefined) return null;
+  const num = typeof seconds === "number" ? seconds : Number(String(seconds).trim());
+  if (isNaN(num) || num < 0) return null;
+  return new Date(Date.now() - num * 1000).toISOString();
+}
+
+/**
+ * Calculates missing packets from ping_success_attempts (e.g. "10000/10000", "9990/10000")
+ * or separate packets success/total fields.
+ */
+export function getMissingPacketsCount(link) {
+  if (!link) return 0;
+  const raw = link.rawLink || link;
+
+  const attempts =
+    raw.ping_success_attempts ??
+    link.ping_success_attempts ??
+    raw.ping_packets_success ??
+    link.ping_packets_success ??
+    raw.ping_ratio ??
+    link.ping_ratio;
+
+  if (attempts !== undefined && attempts !== null) {
+    const s = String(attempts).trim();
+    const match = s.match(/(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/);
+    if (match) {
+      const succ = Number(match[1]);
+      const tot = Number(match[2]);
+      if (!isNaN(succ) && !isNaN(tot) && tot >= succ) {
+        return Math.max(0, tot - succ);
+      }
+    }
+  }
+
+  const total =
+    raw.ping_packets_total ??
+    link.ping_packets_total ??
+    raw.ping_total ??
+    link.ping_total ??
+    raw.total_pings ??
+    link.total_pings;
+
+  const success =
+    raw.ping_packets_success ??
+    link.ping_packets_success ??
+    raw.ping_success ??
+    link.ping_success;
+
+  if (total != null && success != null) {
+    const t = Number(total);
+    const sc = Number(success);
+    if (!isNaN(t) && !isNaN(sc) && t >= sc) {
+      return Math.max(0, t - sc);
+    }
+  }
+
+  const rateVal =
+    raw.ping_success_rate ??
+    link.ping_success_rate ??
+    raw.ping_rate ??
+    link.ping_rate;
+
+  if (rateVal != null) {
+    const r = Number(String(rateVal).replace("%", "").trim());
+    if (!isNaN(r) && r < 100) {
+      const missing = Math.round(((100 - r) / 100) * 10000);
+      return Math.max(0, missing);
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * Determines a link's classification ("up" | "down" | "issue") and its corresponding timestamp
  * according to the following rules:
- * - down:  oper status !== up && last down at date !== null (timestamp = last down at)
- * - issue: oper status = up && ospf state !== full && last ospf full date !== null (timestamp = last ospf full date)
- * - up:    oper status = up && last up at date !== null (timestamp = last up at)
- * Note: If oper status = up && ospf state !== full but last ospf full date === null, it has UP status (not issue).
+ *
+ * down: ospf_state !== "full"
+ *       for timestamp:
+ *         1. ospf_state_duration_seconds ("ospf_state_duration_seconds": 424720)
+ *         2. else ospf_state_duration ("ospf_state_duration": "4d21h")
+ *         3. else last_ospf_down_at ("last_ospf_down_at": "2026-09-20T00:34:20.868836+03:00")
+ *
+ * issue: ping_success_attempts has at least 10 missing packets ("ping_success_attempts": "10000/10000")
+ *       for timestamp:
+ *         1. last_ping_at ("last_ping_at": "2026-10-12T08:41:32.983566+00:00")
+ *
+ * up:   oper_status === "up"
+ *       for timestamp:
+ *         1. ospf_up_time_seconds ("ospf_up_time_seconds": 424720)
+ *         2. else ospf_up_time ("ospf_up_time": "4d21h")
+ *         3. else last_up_at ("last_up_at": "2026-09-20T00:34:20.868836+03:00")
  */
 export function getLinkStatusAndDate(link) {
   if (!link) return { status: "up", statusDate: null };
 
   const raw = link.rawLink || link;
-
-  // Extract dates
-  const lastUpAt = hasValidDate(raw.last_up_at)
-    ? raw.last_up_at
-    : (hasValidDate(link.last_up_at) ? link.last_up_at : null);
-
-  const lastDownAt = hasValidDate(raw.last_down_at)
-    ? raw.last_down_at
-    : (hasValidDate(link.last_down_at) ? link.last_down_at : null);
-
-  const lastOspfFullAt = hasValidDate(raw.last_ospf_full_at)
-    ? raw.last_ospf_full_at
-    : (hasValidDate(link.last_ospf_full_at) ? link.last_ospf_full_at : null);
 
   const operStatus = String(
     raw.oper_status !== undefined
@@ -110,37 +235,178 @@ export function getLinkStatusAndDate(link) {
     ? Boolean(raw.is_ospf_full)
     : (link.is_ospf_full !== undefined ? Boolean(link.is_ospf_full) : ospfState === "full");
 
-  // Rule 1: down -> oper status !== up && last down at date !== null
-  // (timestamp will be the date in the last down at date field)
-  if (operStatus !== "up" && lastDownAt !== null) {
-    return { status: "down", statusDate: lastDownAt };
-  }
+  const missingPackets = getMissingPacketsCount(link);
 
-  // Rule 2: issue -> oper status = up && ospf state !== full && last ospf full date !== null
-  // (timestamp will be the date in the last ospf full date field)
-  if (operStatus === "up" && !isOspfFull && lastOspfFullAt !== null) {
-    return { status: "issue", statusDate: lastOspfFullAt };
-  }
+  // 1. down: ospf_state !== "full" (or oper_status !== "up")
+  if (!isOspfFull || operStatus !== "up") {
+    const ospfStateDurationSeconds =
+      raw.ospf_state_duration_seconds ??
+      link.ospf_state_duration_seconds ??
+      raw.ospfStateDurationSeconds ??
+      link.ospfStateDurationSeconds;
 
-  // Rule 3: up -> oper status = up && last up at date !== null
-  // (timestamp will be the date in the last up at date field)
-  // If oper status = up && ospf state !== full but last ospf full date === null, it has UP status
-  if (operStatus === "up" && lastUpAt !== null) {
-    return { status: "up", statusDate: lastUpAt };
-  }
+    const ospfStateDuration =
+      raw.ospf_state_duration ??
+      link.ospf_state_duration ??
+      raw.ospfStateDuration ??
+      link.ospfStateDuration;
 
-  // Fallbacks if one of the specific date fields is missing:
-  if (operStatus !== "up") {
+    const lastOspfDownAt =
+      raw.last_ospf_down_at ??
+      link.last_ospf_down_at ??
+      raw.lastOspfDownAt ??
+      link.lastOspfDownAt;
+
+    let statusDate = null;
+    let rawTimestamp = null;
+    let durationSeconds = null;
+
+    if (ospfStateDurationSeconds !== undefined && ospfStateDurationSeconds !== null) {
+      const sec = parseDurationToSeconds(ospfStateDurationSeconds);
+      if (sec !== null) {
+        statusDate = durationSecondsToIsoTimestamp(sec);
+        rawTimestamp = ospfStateDurationSeconds;
+        durationSeconds = sec;
+      }
+    }
+
+    if (!statusDate && ospfStateDuration !== undefined && ospfStateDuration !== null) {
+      const sec = parseDurationToSeconds(ospfStateDuration);
+      if (sec !== null) {
+        statusDate = durationSecondsToIsoTimestamp(sec);
+        rawTimestamp = ospfStateDuration;
+        durationSeconds = sec;
+      }
+    }
+
+    if (!statusDate && hasValidDate(lastOspfDownAt)) {
+      statusDate = String(lastOspfDownAt);
+      rawTimestamp = lastOspfDownAt;
+    }
+
+    // Fallbacks
+    if (!statusDate) {
+      statusDate =
+        raw.last_down_at ||
+        link.last_down_at ||
+        raw.status_changed_at ||
+        link.status_changed_at ||
+        raw.last_state_change_at ||
+        link.last_state_change_at ||
+        raw.updated_at ||
+        link.updated_at ||
+        null;
+      rawTimestamp = statusDate;
+    }
+
     return {
       status: "down",
-      statusDate: lastDownAt || raw.last_state_change_at || link.last_state_change_at || raw.updated_at || link.updated_at || null,
+      statusDate,
+      rawTimestamp,
+      durationSeconds,
     };
   }
 
-  // operStatus === "up":
+  // 2. issue: ping_success_attempts has at least 10 missing packets
+  if (missingPackets >= 10) {
+    const lastPingAt =
+      raw.last_ping_at ??
+      link.last_ping_at ??
+      raw.lastPingAt ??
+      link.lastPingAt;
+
+    let statusDate = null;
+    let rawTimestamp = null;
+
+    if (hasValidDate(lastPingAt)) {
+      statusDate = String(lastPingAt);
+      rawTimestamp = lastPingAt;
+    } else {
+      statusDate =
+        raw.status_changed_at ||
+        link.status_changed_at ||
+        raw.last_state_change_at ||
+        link.last_state_change_at ||
+        raw.updated_at ||
+        link.updated_at ||
+        null;
+      rawTimestamp = statusDate;
+    }
+
+    return {
+      status: "issue",
+      statusDate,
+      rawTimestamp,
+      missingPackets,
+    };
+  }
+
+  // 3. up: oper_status === "up"
+  const ospfUpTimeSeconds =
+    raw.ospf_up_time_seconds ??
+    link.ospf_up_time_seconds ??
+    raw.ospfUpTimeSeconds ??
+    link.ospfUpTimeSeconds;
+
+  const ospfUpTime =
+    raw.ospf_up_time ??
+    link.ospf_up_time ??
+    raw.ospfUpTime ??
+    link.ospfUpTime;
+
+  const lastUpAt =
+    raw.last_up_at ??
+    link.last_up_at ??
+    raw.lastUpAt ??
+    link.lastUpAt;
+
+  let statusDate = null;
+  let rawTimestamp = null;
+  let durationSeconds = null;
+
+  if (ospfUpTimeSeconds !== undefined && ospfUpTimeSeconds !== null) {
+    const sec = parseDurationToSeconds(ospfUpTimeSeconds);
+    if (sec !== null) {
+      statusDate = durationSecondsToIsoTimestamp(sec);
+      rawTimestamp = ospfUpTimeSeconds;
+      durationSeconds = sec;
+    }
+  }
+
+  if (!statusDate && ospfUpTime !== undefined && ospfUpTime !== null) {
+    const sec = parseDurationToSeconds(ospfUpTime);
+    if (sec !== null) {
+      statusDate = durationSecondsToIsoTimestamp(sec);
+      rawTimestamp = ospfUpTime;
+      durationSeconds = sec;
+    }
+  }
+
+  if (!statusDate && hasValidDate(lastUpAt)) {
+    statusDate = String(lastUpAt);
+    rawTimestamp = lastUpAt;
+  }
+
+  // Fallbacks
+  if (!statusDate) {
+    statusDate =
+      raw.status_changed_at ||
+      link.status_changed_at ||
+      raw.last_state_change_at ||
+      link.last_state_change_at ||
+      raw.created_at ||
+      link.created_at ||
+      raw.updated_at ||
+      link.updated_at ||
+      null;
+    rawTimestamp = statusDate;
+  }
+
   return {
     status: "up",
-    statusDate: lastUpAt || raw.last_state_change_at || link.last_state_change_at || raw.created_at || link.created_at || null,
+    statusDate,
+    rawTimestamp,
+    durationSeconds,
   };
 }
 
@@ -158,6 +424,19 @@ export function normalizeLinkStatus(link) {
  *   Bundle-Ether1, BE1 -> be1
  *   Port-Channel5, Po5 -> po5
  */
+/**
+ * Normalizes a device name into a clean, canonical key for link deduplication.
+ * Strips FQDN domain suffixes, trims whitespace, and converts to lowercase.
+ */
+export function cleanDeviceKey(raw) {
+  if (!raw) return "";
+  let name = String(raw).trim().toLowerCase();
+  if (name.includes(".")) {
+    name = name.split(".")[0];
+  }
+  return name;
+}
+
 export function normalizeInterfaceName(raw) {
   if (!raw) return "";
   let name = String(raw).trim().toLowerCase();
@@ -166,12 +445,12 @@ export function normalizeInterfaceName(raw) {
   // Remove whitespace
   name = name.replace(/\s+/g, "");
 
-  // Packet-over-SONET: POS or PO with slashes
+  // Packet-over-SONET / SDH: pos, packet-over-sonet, packet-over-sdh, sonet, or po with slashes
   // Matches: pos0/1/1, pos-0/1/1, po0/1/1, po-0/1/1, pos0/0/0/0, po0/0/0/0
-  if (/^pos(?:\d|[-_\/])/i.test(name)) {
-    return name.replace(/^pos/i, "pos");
+  if (/^(?:packet-over-sonet|packetover-sonet|packet-over-sdh|packetover-sdh|sonet|pos)(?=\d|[-_/])/i.test(name)) {
+    return name.replace(/^(?:packet-over-sonet|packetover-sonet|packet-over-sdh|packetover-sdh|sonet|pos)/i, "pos");
   }
-  if (/^po(?:\d|[-_\/])/i.test(name) && name.includes("/")) {
+  if (/^po(?=\d|[-_/])/i.test(name) && name.includes("/")) {
     return name.replace(/^po/i, "pos");
   }
 
@@ -186,62 +465,62 @@ export function normalizeInterfaceName(raw) {
   }
 
   // GigabitEthernet: gigabitethernet, gigethernet, gige, ge, gi
-  if (/^(?:gigabitethernet|gigethernet|gige|ge|gi)(?=\d|[-_\/])/i.test(name)) {
+  if (/^(?:gigabitethernet|gigethernet|gige|ge|gi)(?=\d|[-_/])/i.test(name)) {
     return name.replace(/^(?:gigabitethernet|gigethernet|gige|ge|gi)/i, "gi");
   }
 
   // TenGigabitEthernet: tengigabitethernet, tengigethernet, tengige, xge, te, tg
-  if (/^(?:tengigabitethernet|tengigethernet|tengige|xge|te|tg)(?=\d|[-_\/])/i.test(name)) {
+  if (/^(?:tengigabitethernet|tengigethernet|tengige|xge|te|tg)(?=\d|[-_/])/i.test(name)) {
     return name.replace(/^(?:tengigabitethernet|tengigethernet|tengige|xge|te|tg)/i, "te");
   }
 
   // TwentyFiveGigE: twentyfivegigabitethernet, twentyfivegige, twentyfivegig, 25gige, 25ge, tf, twe
-  if (/^(?:twentyfivegigabitethernet|twentyfivegige|twentyfivegig|25gige|25ge|tf|twe)(?=\d|[-_\/])/i.test(name)) {
+  if (/^(?:twentyfivegigabitethernet|twentyfivegige|twentyfivegig|25gige|25ge|tf|twe)(?=\d|[-_/])/i.test(name)) {
     return name.replace(/^(?:twentyfivegigabitethernet|twentyfivegige|twentyfivegig|25gige|25ge|tf|twe)/i, "25ge");
   }
 
   // FortyGigE: fortygigabitethernet, fortygige, 40gige, 40ge, fo
-  if (/^(?:fortygigabitethernet|fortygige|40gige|40ge|fo)(?=\d|[-_\/])/i.test(name)) {
+  if (/^(?:fortygigabitethernet|fortygige|40gige|40ge|fo)(?=\d|[-_/])/i.test(name)) {
     return name.replace(/^(?:fortygigabitethernet|fortygige|40gige|40ge|fo)/i, "fo");
   }
 
   // HundredGigE: hundredgigabitethernet, hundredgige, 100gige, 100ge, hu
-  if (/^(?:hundredgigabitethernet|hundredgige|100gige|100ge|hu)(?=\d|[-_\/])/i.test(name)) {
+  if (/^(?:hundredgigabitethernet|hundredgige|100gige|100ge|hu)(?=\d|[-_/])/i.test(name)) {
     return name.replace(/^(?:hundredgigabitethernet|hundredgige|100gige|100ge|hu)/i, "hu");
   }
 
   // FourHundredGigE: fourhundredgigabitethernet, fourhundredgige, 400gige, 400ge, fh
-  if (/^(?:fourhundredgigabitethernet|fourhundredgige|400gige|400ge|fh)(?=\d|[-_\/])/i.test(name)) {
+  if (/^(?:fourhundredgigabitethernet|fourhundredgige|400gige|400ge|fh)(?=\d|[-_/])/i.test(name)) {
     return name.replace(/^(?:fourhundredgigabitethernet|fourhundredgige|400gige|400ge|fh)/i, "400ge");
   }
 
   // FastEthernet: fastethernet, fasteth, fa, fe
-  if (/^(?:fastethernet|fasteth|fa|fe)(?=\d|[-_\/])/i.test(name)) {
+  if (/^(?:fastethernet|fasteth|fa|fe)(?=\d|[-_/])/i.test(name)) {
     return name.replace(/^(?:fastethernet|fasteth|fa|fe)/i, "fa");
   }
 
   // Ethernet: ethernet, eth
-  if (/^(?:ethernet|eth)(?=\d|[-_\/])/i.test(name)) {
+  if (/^(?:ethernet|eth)(?=\d|[-_/])/i.test(name)) {
     return name.replace(/^(?:ethernet|eth)/i, "eth");
   }
 
   // Loopback: loopback, lo
-  if (/^(?:loopback|lo)(?=\d|[-_\/])/i.test(name)) {
+  if (/^(?:loopback|lo)(?=\d|[-_/])/i.test(name)) {
     return name.replace(/^(?:loopback|lo)/i, "lo");
   }
 
   // Management: management, mgmt, ma
-  if (/^(?:management|mgmt|ma)(?=\d|[-_\/])/i.test(name)) {
+  if (/^(?:management|mgmt|ma)(?=\d|[-_/])/i.test(name)) {
     return name.replace(/^(?:management|mgmt|ma)/i, "mgmt");
   }
 
   // Serial: serial, ser, se
-  if (/^(?:serial|ser|se)(?=\d|[-_\/])/i.test(name)) {
+  if (/^(?:serial|ser|se)(?=\d|[-_/])/i.test(name)) {
     return name.replace(/^(?:serial|ser|se)/i, "se");
   }
 
   // Vlan: vlan, vl
-  if (/^(?:vlan|vl)(?=\d|[-_\/])/i.test(name)) {
+  if (/^(?:vlan|vl)(?=\d|[-_/])/i.test(name)) {
     return name.replace(/^(?:vlan|vl)/i, "vlan");
   }
 

@@ -162,8 +162,12 @@ async def get_core_topology_events(
         if ev_dt < cutoff:
             continue
 
-        if effective_event_type and ev.get("event_type") != effective_event_type:
-            continue
+        if effective_event_type:
+            ev_type = ev.get("event_type")
+            if ev_type != effective_event_type:
+                # Treat ospf_full and ospf_recovery interchangeably for compatibility
+                if not (effective_event_type in ("ospf_full", "ospf_recovery") and ev_type in ("ospf_full", "ospf_recovery")):
+                    continue
 
         if local_device_id is not None and ev.get("local_device_id") != local_device_id:
             continue
@@ -261,7 +265,7 @@ async def get_core_topology(current_user: dict = Depends(user_role_checker)):
             ospf_drops_24h = len([e for e in ev_24h if e.get("event_type") == "ospf_drop"])
 
             rate_val = link.ping_success_rate if link.ping_success_rate is not None else 100.0
-            attempts_val = link.ping_packets_success if link.ping_packets_success is not None else int(round((rate_val / 100.0) * 10000))
+            attempts_val = link.get("ping_ratio") or (f"{link.get('ping_packets_success')}/{link.get('ping_packets_total', 10000)}" if link.get("ping_packets_success") is not None else f"{int(round((rate_val / 100.0) * 10000))}/10000")
 
             links_out.append({
                 "id": link["id"],
@@ -282,8 +286,13 @@ async def get_core_topology(current_user: dict = Depends(user_role_checker)):
                 "last_ping_at": _isoformat(link.last_ping_at),
                 "ospf_state": link.ospf_state or "Full",
                 "is_ospf_full": str(link.ospf_state or "Full").upper() == "FULL",
+                "ospf_up_time_seconds": link.get("ospf_up_time_seconds"),
+                "ospf_up_time": link.get("ospf_up_time"),
+                "ospf_state_duration_seconds": link.get("ospf_state_duration_seconds"),
+                "ospf_state_duration": link.get("ospf_state_duration"),
                 "last_up_at": link.get("last_up_at"),
                 "last_down_at": link.get("last_down_at"),
+                "last_ospf_down_at": link.get("last_ospf_down_at"),
                 "last_ospf_full_at": link.get("last_ospf_full_at"),
                 "last_seen_at": link.get("updated_at", datetime.utcnow().isoformat()),
                 "last_state_change_at": link.get("status_changed_at", link.get("updated_at", datetime.utcnow().isoformat())),

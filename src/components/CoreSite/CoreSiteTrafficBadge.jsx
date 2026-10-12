@@ -4,6 +4,41 @@ import { ArrowDownToLine, ArrowUpFromLine, Activity } from "lucide-react";
 import { selectAllTrafficById } from "../../redux/slices/coreSiteTrafficSlice";
 import { selectAllPikudim } from "../../redux/slices/corePikudimSlice";
 
+// Helper function to convert bits to GB and format for display
+const formatTrafficValue = (bits) => {
+  // Handle null, undefined, or non-numeric values
+  if (bits === undefined || bits === null || bits === "") {
+    return "N/A";
+  }
+
+  const numBits = parseFloat(bits);
+  if (isNaN(numBits)) {
+    return "N/A";
+  }
+
+  // Convert bits to GB (using decimal/SI: 1 GB = 1,000,000,000 bits)
+  const gb = numBits / 1_000_000_000;
+
+  // Format based on magnitude
+  if (gb >= 100) {
+    return `${Math.round(gb)} GB`;
+  } else if (gb >= 10) {
+    return `${gb.toFixed(1)} GB`;
+  } else if (gb >= 1) {
+    return `${gb.toFixed(2)} GB`;
+  } else if (gb >= 0.01) {
+    // Show in MB for smaller values
+    const mb = numBits / 1_000_000;
+    return `${mb.toFixed(1)} MB`;
+  } else if (gb >= 0.00001) {
+    // Show in KB for very small values
+    const kb = numBits / 1_000;
+    return `${kb.toFixed(1)} KB`;
+  } else {
+    return `${numBits} b`;
+  }
+};
+
 /**
  * CoreSiteTrafficBadge
  * Displays inbound and outbound network traffic for a specific core site.
@@ -96,7 +131,7 @@ export default function CoreSiteTrafficBadge({
           ? "bg-gray-800/90 border-gray-700/80 text-gray-100 backdrop-blur-md shadow-black/20"
           : "bg-white/95 border-gray-200 text-gray-800 backdrop-blur-md shadow-gray-200/50"
       } ${sizeClasses} ${className}`}
-      title={`Live Site Traffic - Inbound: ${trafficIn} | Outbound: ${trafficOut}`}
+      title={`Live Site Traffic - Inbound: ${formatTrafficValue(trafficIn)} | Outbound: ${formatTrafficValue(trafficOut)}`}
     >
       {showActivity && (
         <span className="flex items-center text-emerald-400 mr-0.5">
@@ -111,7 +146,7 @@ export default function CoreSiteTrafficBadge({
         }`}
       >
         <ArrowDownToLine className={`${iconSizes} flex-shrink-0 stroke-[2.2]`} />
-        <span>{trafficIn}</span>
+        <span>{formatTrafficValue(trafficIn)}</span>
       </span>
 
       {/* Subtle Dot or Divider */}
@@ -126,7 +161,7 @@ export default function CoreSiteTrafficBadge({
         }`}
       >
         <ArrowUpFromLine className={`${iconSizes} flex-shrink-0 stroke-[2.2]`} />
-        <span>{trafficOut}</span>
+        <span>{formatTrafficValue(trafficOut)}</span>
       </span>
     </div>
   );

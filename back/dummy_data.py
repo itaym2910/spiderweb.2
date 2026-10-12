@@ -221,20 +221,51 @@ def generate_dummy_data():
             # ~6% dropped from Full (issue, last_ospf_full_at != None),
             # ~6% never established OSPF Full (up, last_ospf_full_at == None).
             ospf_choice = random.choices(["Full", "Dropped", "NeverFull"], weights=[0.88, 0.06, 0.06])[0]
+            status_changed_dt = datetime.fromisoformat(status_changed_iso)
+            diff_sec = int(max(0, (datetime.utcnow() - status_changed_dt).total_seconds()))
+            days = diff_sec // 86400
+            hours = (diff_sec % 86400) // 3600
+            dur_str = f"{days}d{hours}h" if days > 0 else f"{hours}h"
+
             if ospf_choice == "Full":
                 ospf_st = "Full"
                 rec_last_ospf_full = status_changed_iso
+                rec_ospf_up_time_sec = diff_sec
+                rec_ospf_up_time = dur_str
+                rec_ospf_state_dur_sec = None
+                rec_ospf_state_dur = None
+                rec_last_ospf_down = None
             elif ospf_choice == "Dropped":
                 ospf_st = "2-Way"
                 rec_last_ospf_full = (datetime.utcnow() - timedelta(hours=random.uniform(24, 200))).isoformat()
+                rec_ospf_up_time_sec = None
+                rec_ospf_up_time = None
+                rec_ospf_state_dur_sec = diff_sec
+                rec_ospf_state_dur = dur_str
+                rec_last_ospf_down = status_changed_iso
             else:
                 ospf_st = "2-Way"
                 rec_last_ospf_full = None
+                rec_ospf_up_time_sec = None
+                rec_ospf_up_time = None
+                rec_ospf_state_dur_sec = diff_sec
+                rec_ospf_state_dur = dur_str
+                rec_last_ospf_down = status_changed_iso
         else:
             ospf_st = "Down"
             rec_last_up = None
             rec_last_down = status_changed_iso
             rec_last_ospf_full = None
+            status_changed_dt = datetime.fromisoformat(status_changed_iso)
+            diff_sec = int(max(0, (datetime.utcnow() - status_changed_dt).total_seconds()))
+            days = diff_sec // 86400
+            hours = (diff_sec % 86400) // 3600
+            dur_str = f"{days}d{hours}h" if days > 0 else f"{hours}h"
+            rec_ospf_up_time_sec = None
+            rec_ospf_up_time = None
+            rec_ospf_state_dur_sec = diff_sec
+            rec_ospf_state_dur = dur_str
+            rec_last_ospf_down = status_changed_iso
 
         record = {
             "id": link_id_counter,
@@ -280,7 +311,12 @@ def generate_dummy_data():
             "status_changed_at": status_changed_iso,
             "last_up_at": rec_last_up,
             "last_down_at": rec_last_down,
+            "last_ospf_down_at": rec_last_ospf_down,
             "last_ospf_full_at": rec_last_ospf_full,
+            "ospf_up_time_seconds": rec_ospf_up_time_sec,
+            "ospf_up_time": rec_ospf_up_time,
+            "ospf_state_duration_seconds": rec_ospf_state_dur_sec,
+            "ospf_state_duration": rec_ospf_state_dur,
             "crawler_cycle_id": 1,
         }
         link_id_counter += 1
@@ -674,13 +710,29 @@ def generate_dummy_data():
             link["physical_status"] = latest["new_oper_status"]
             link["protocol_status"] = latest["new_oper_status"]
             link["ospf_state"] = latest["new_ospf_state"]
+            diff_sec = int(max(0, (datetime.utcnow() - datetime.fromisoformat(latest["created_at"])).total_seconds()))
+            days = diff_sec // 86400
+            hours = (diff_sec % 86400) // 3600
+            dur_str = f"{days}d{hours}h" if days > 0 else f"{hours}h"
+
             if latest["new_oper_status"] == "Down":
                 link["last_down_at"] = latest["created_at"]
             elif latest["new_oper_status"] == "Up":
                 link["last_up_at"] = latest["created_at"]
             if latest["new_ospf_state"] == "Full":
                 link["last_ospf_full_at"] = latest["created_at"]
-            elif latest["old_ospf_state"] == "Full" and not link.get("last_ospf_full_at"):
+                link["ospf_up_time_seconds"] = diff_sec
+                link["ospf_up_time"] = dur_str
+                link["ospf_state_duration_seconds"] = None
+                link["ospf_state_duration"] = None
+                link["last_ospf_down_at"] = None
+            else:
+                link["last_ospf_down_at"] = latest["created_at"]
+                link["ospf_state_duration_seconds"] = diff_sec
+                link["ospf_state_duration"] = dur_str
+                link["ospf_up_time_seconds"] = None
+                link["ospf_up_time"] = None
+            if latest["old_ospf_state"] == "Full" and not link.get("last_ospf_full_at"):
                 link["last_ospf_full_at"] = (datetime.fromisoformat(latest["created_at"]) - timedelta(hours=random.uniform(1, 10))).isoformat()
 
     # --- Core Site Traffic (Inbound and Outbound) ---

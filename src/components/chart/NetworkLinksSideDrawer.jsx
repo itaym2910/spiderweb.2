@@ -23,7 +23,7 @@ import { api } from "../../services/apiServices";
 import { formatPingRateWithPackets, calculatePingSummary } from "../shared/pingHelpers";
 import PingSummaryModal from "../shared/PingSummaryModal";
 import { createLinkPopupPayload } from "./handleInteractions";
-import { normalizeInterfaceName } from "./drawHelpers";
+import { normalizeInterfaceName, cleanDeviceKey } from "./drawHelpers";
 
 /**
  * Formats elapsed time since a given date into a human readable duration string.
@@ -31,6 +31,35 @@ import { normalizeInterfaceName } from "./drawHelpers";
  */
 export function formatDuration(timestamp) {
   if (!timestamp) return "N/A";
+
+  // If it's a duration string like "4d21h" or "4d 21h"
+  if (typeof timestamp === "string") {
+    const s = timestamp.trim();
+    if (/^\d+\s*[wdhms]/i.test(s)) {
+      return s.replace(/([a-zA-Z])(?=\d)/g, "$1 ").trim();
+    }
+  }
+
+  // If it's a numeric duration in seconds (e.g. 424720)
+  if (typeof timestamp === "number" && timestamp >= 0 && timestamp < 100000000) {
+    const diffSec = Math.floor(timestamp);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHours = Math.floor(diffMin / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays > 0) {
+      const remHours = diffHours % 24;
+      return remHours > 0 ? `${diffDays}d ${remHours}h` : `${diffDays}d`;
+    }
+    if (diffHours > 0) {
+      const remMin = diffMin % 60;
+      return remMin > 0 ? `${diffHours}h ${remMin}m` : `${diffHours}h`;
+    }
+    if (diffMin > 0) {
+      return `${diffMin}m`;
+    }
+    return "< 1m";
+  }
+
   const date = new Date(timestamp);
   if (isNaN(date.getTime())) return "N/A";
 
@@ -123,7 +152,11 @@ function EventLinkCard({ group, isExpanded, onToggle, onInspect, isDark }) {
             </span>
           </div>
           <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-2 flex-wrap">
-            <span>{group.interface || "Unknown Interface"}</span>
+            <span>
+              {group.interface && group.remoteInterface && group.interface !== group.remoteInterface
+                ? `${group.interface} ⟷ ${group.remoteInterface}`
+                : group.interface || group.remoteInterface || "Unknown Interface"}
+            </span>
             {(group.localDeviceIp || group.remoteDeviceIp) && (
               <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
                 ({group.localDeviceIp || "N/A"} ⟷ {group.remoteDeviceIp || "N/A"})
@@ -195,17 +228,25 @@ function EventLinkCard({ group, isExpanded, onToggle, onInspect, isDark }) {
                 isDark ? "border-gray-700/50" : "border-gray-100"
               }`}
             >
-              {group.events.map((event) => {
+              {group.events.map((event, index) => {
                 const statusColors = {
                   up: { bg: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" },
                   down: { bg: "bg-rose-500", text: "text-rose-600 dark:text-rose-400" },
                   issue: { bg: "bg-amber-500", text: "text-amber-600 dark:text-amber-400" },
                 };
 
-                const isOspfEvent =
-                  event.event_type === "ospf_drop" || event.event_type === "ospf_full";
-                const oldStatusStr = isOspfEvent ? event.old_ospf_state : event.old_oper_status;
-                const newStatusStr = isOspfEvent ? event.new_ospf_state : event.new_oper_status;
+                const isOspfEvent = Boolean(
+                  event.old_ospf_state ||
+                  event.new_ospf_state ||
+                  String(event.event_type || "").toLowerCase().startsWith("ospf")
+                );
+                const isDrop = event.event_type === "ospf_drop";
+                const oldStatusStr = isOspfEvent
+                  ? event.old_ospf_state || (isDrop ? "Full" : "Down")
+                  : event.old_oper_status;
+                const newStatusStr = isOspfEvent
+                  ? event.new_ospf_state || (isDrop ? "Down" : "Full")
+                  : event.new_oper_status;
 
                 const getStatusColor = (statusStr) => {
                   if (!statusStr) return statusColors.issue;
@@ -221,16 +262,16 @@ function EventLinkCard({ group, isExpanded, onToggle, onInspect, isDark }) {
                 const oldLabel = oldStatusStr ? String(oldStatusStr).toUpperCase() : "N/A";
                 const newLabel = newStatusStr ? String(newStatusStr).toUpperCase() : "N/A";
 
-                const eventTime = formatExactTime(event.created_at);
-                const eventDuration = formatDuration(event.created_at);
+                const eventTime = formatExactTime(event.created_at || event.changed_at);
+                const eventDuration = formatDuration(event.created_at || event.changed_at);
 
                 const eventTypeLabel = String(event.event_type || "Event")
-                  .replace("_", " ")
+                  .replace(/_/g, " ")
                   .toUpperCase();
 
                 return (
                   <div
-                    key={event.id}
+                    key={event.id ?? `${event.event_type}-${event.created_at || event.changed_at}-${index}`}
                     className={`p-2 rounded-lg border ${
                       isDark ? "bg-gray-800/80 border-gray-700/80" : "bg-gray-50 border-gray-100"
                     }`}
@@ -261,8 +302,13 @@ function EventLinkCard({ group, isExpanded, onToggle, onInspect, isDark }) {
                       </div>
                     </div>
                     <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
-                      <span className="font-medium text-blue-600 dark:text-blue-400">
-                        {eventTypeLabel}
+                      <span className="font-medium text-blue-600 dark:text-blue-400 flex items-center gap-1.5 flex-wrap">
+                        <span>{eventTypeLabel}</span>
+                        {event.local_device_name && (
+                          <span className="text-[10px] text-gray-400 dark:text-gray-500 font-normal font-mono">
+                            ({event.local_device_name}{event.local_interface ? `:${event.local_interface}` : ""})
+                          </span>
+                        )}
                       </span>
                       <span className="font-mono">{eventTime}</span>
                     </div>
@@ -594,8 +640,6 @@ export default function NetworkLinksSideDrawer({
 
   // Filtered links for the active view, time window, and search
   const filteredLinks = useMemo(() => {
-    const isStabilityMode = activeFilter !== "all" && activeFilter !== "ping";
-
     const baseList = enrichedLinks.filter((link) => {
       // Status filter
       if (activeFilter === "up" && link.normalizedStatus !== "up") return false;
@@ -610,7 +654,7 @@ export default function NetworkLinksSideDrawer({
         if (pingSubFilter === "healthy" && hasLoss) return false;
       }
 
-      // Time filter
+      // Time filter (<= 24h, <= 1 week, <= 1 month)
       if (timeFilter && activeFilter !== "ping") {
         if (timeFilter === "72h_ospf") {
           const hasOspfDrop = (link.ospf_drops_last_24h ?? 0) > 0 || link.rawLink?.ospf_drops_last_24h > 0 || (link.ospf_state && link.ospf_state.toLowerCase() !== "full");
@@ -620,17 +664,10 @@ export default function NetworkLinksSideDrawer({
           if (!isNaN(targetDate.getTime())) {
             const diffHours = (Date.now() - targetDate.getTime()) / (1000 * 60 * 60);
             
-            if (isStabilityMode) {
-              // >= X time filter
-              if (timeFilter === "24h" && diffHours < 24) return false;
-              if (timeFilter === "7d" && diffHours < 24 * 7) return false;
-              if (timeFilter === "30d" && diffHours < 24 * 30) return false;
-            } else {
-              // < X time filter
-              if (timeFilter === "24h" && diffHours > 24) return false;
-              if (timeFilter === "7d" && diffHours > 24 * 7) return false;
-              if (timeFilter === "30d" && diffHours > 24 * 30) return false;
-            }
+            // <= X time filter: all lines with status changed within the last X duration
+            if (timeFilter === "24h" && diffHours > 24) return false;
+            if (timeFilter === "7d" && diffHours > 24 * 7) return false;
+            if (timeFilter === "30d" && diffHours > 24 * 30) return false;
           }
         }
       }
@@ -708,8 +745,6 @@ export default function NetworkLinksSideDrawer({
 
   // Helper to get links matching status and time window for marking on chart
   const getMatchingLinks = (statusF, timeF, pingSubF = pingSubFilter) => {
-    const isStabilityMode = statusF !== "all" && statusF !== "ping";
-
     return enrichedLinks.filter((link) => {
       // Status filter
       if (statusF === "up" && link.normalizedStatus !== "up") return false;
@@ -724,7 +759,7 @@ export default function NetworkLinksSideDrawer({
         if (pingSubF === "healthy" && hasLoss) return false;
       }
 
-      // Time filter
+      // Time filter (<= 24h, <= 1 week, <= 1 month)
       if (timeF && statusF !== "ping") {
         if (timeF === "72h_ospf") {
           return (link.ospf_drops_last_24h ?? 0) > 0 || link.rawLink?.ospf_drops_last_24h > 0 || (link.ospf_state && link.ospf_state.toLowerCase() !== "full");
@@ -734,17 +769,10 @@ export default function NetworkLinksSideDrawer({
           const diffHours =
             (Date.now() - targetDate.getTime()) / (1000 * 60 * 60);
           
-          if (isStabilityMode) {
-            // >= X time filter
-            if (timeF === "24h" && diffHours < 24) return false;
-            if (timeF === "7d" && diffHours < 24 * 7) return false;
-            if (timeF === "30d" && diffHours < 24 * 30) return false;
-          } else {
-            // < X time filter
-            if (timeF === "24h" && diffHours > 24) return false;
-            if (timeF === "7d" && diffHours > 24 * 7) return false;
-            if (timeF === "30d" && diffHours > 24 * 30) return false;
-          }
+          // <= X time filter: all lines with status changed within the last X duration
+          if (timeF === "24h" && diffHours > 24) return false;
+          if (timeF === "7d" && diffHours > 24 * 7) return false;
+          if (timeF === "30d" && diffHours > 24 * 30) return false;
         }
       }
       return true;
@@ -1274,17 +1302,16 @@ export default function NetworkLinksSideDrawer({
               </span>
               <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none flex-1">
                 {[
-                  { id: "24h", labelAll: "< 24h", labelStability: "≥ 24h" },
-                  { id: "7d", labelAll: "< 1 Week", labelStability: "≥ 1 Week" },
-                  { id: "30d", labelAll: "< 1 Month", labelStability: "≥ 1 Month" },
+                  { id: "24h", label: "≤ 24h" },
+                  { id: "7d", label: "≤ 1 Week" },
+                  { id: "30d", label: "≤ 1 Month" },
                   ...(activeFilter === "all"
-                    ? [{ id: "72h_ospf", labelAll: "OSPF Drops (72h)", labelStability: "OSPF Drops (72h)" }]
+                    ? [{ id: "72h_ospf", label: "OSPF Drops (72h)" }]
                     : []),
                 ].map((opt) => {
                   const isSelected = timeFilter === opt.id;
                   const isOspf = opt.id === "72h_ospf";
-                  const isStabilityMode = activeFilter !== "all";
-                  const displayLabel = isStabilityMode ? opt.labelStability : opt.labelAll;
+                  const displayLabel = opt.label;
                   
                   return (
                     <button
@@ -1362,6 +1389,7 @@ export default function NetworkLinksSideDrawer({
                 <option value="link_up">Link Up</option>
                 <option value="link_down">Link Down</option>
                 <option value="ospf_full">OSPF Full</option>
+                <option value="ospf_recovery">OSPF Recovery</option>
                 <option value="ospf_drop">OSPF Drop</option>
               </select>
               <select
@@ -1425,6 +1453,59 @@ export default function NetworkLinksSideDrawer({
               </div>
             ) : (
               (() => {
+                // Helper to match an event to its unified canonical link in enrichedLinks
+                const findCanonicalLinkForEvent = (event) => {
+                  if (event.link_id != null) {
+                    const directMatch = enrichedLinks.find(
+                      (l) => l.id === event.link_id || (Array.isArray(l.allIds) && l.allIds.includes(event.link_id))
+                    );
+                    if (directMatch) return directMatch;
+                  }
+
+                  const evDev1 = cleanDeviceKey(event.local_device_name);
+                  const evDev2 = cleanDeviceKey(event.remote_device_name);
+                  if (!evDev1 || !evDev2) return null;
+
+                  const evIf1 = normalizeInterfaceName(event.local_interface);
+                  const evIf2 = normalizeInterfaceName(event.remote_interface);
+
+                  // 1. Device names + interface match in either direction
+                  const candidate = enrichedLinks.find((l) => {
+                    const lSrc = cleanDeviceKey(l.sourceName);
+                    const lTgt = cleanDeviceKey(l.targetName);
+                    const sameDir = lSrc === evDev1 && lTgt === evDev2;
+                    const revDir = lSrc === evDev2 && lTgt === evDev1;
+                    if (!sameDir && !revDir) return false;
+
+                    const lIf1 = normalizeInterfaceName(l.local_interface);
+                    const lIf2 = normalizeInterfaceName(l.remote_interface);
+                    const lAllLocal = (l.allLocalInterfaces || []).map(normalizeInterfaceName);
+                    const lAllRemote = (l.allRemoteInterfaces || []).map(normalizeInterfaceName);
+
+                    if (evIf1) {
+                      if (sameDir && lIf1 !== evIf1 && !lAllLocal.includes(evIf1)) return false;
+                      if (revDir && lIf2 !== evIf1 && !lAllRemote.includes(evIf1) && lIf1 !== evIf1) return false;
+                    }
+                    if (evIf2) {
+                      if (sameDir && lIf2 !== evIf2 && !lAllRemote.includes(evIf2)) return false;
+                      if (revDir && lIf1 !== evIf2 && !lAllLocal.includes(evIf2) && lIf2 !== evIf2) return false;
+                    }
+                    return true;
+                  });
+
+                  if (candidate) return candidate;
+
+                  // 2. Device pair fallback if there's only 1 link between these devices
+                  const pairMatches = enrichedLinks.filter((l) => {
+                    const lSrc = cleanDeviceKey(l.sourceName);
+                    const lTgt = cleanDeviceKey(l.targetName);
+                    return (lSrc === evDev1 && lTgt === evDev2) || (lSrc === evDev2 && lTgt === evDev1);
+                  });
+                  if (pairMatches.length === 1) return pairMatches[0];
+
+                  return null;
+                };
+
                 const filteredEvents = statusEvents.filter((event) => {
                   if (!searchQuery.trim()) return true;
                   const queryWords = searchQuery.toLowerCase().trim().split(/\s+/).filter(Boolean);
@@ -1436,12 +1517,7 @@ export default function NetworkLinksSideDrawer({
                     (event.remote_device_name ? deviceIpMap.get(String(event.remote_device_name).toLowerCase()) : null) ||
                     (event.remote_device_id != null ? deviceIpMap.get(String(event.remote_device_id)) : null);
 
-                  const relatedLink = enrichedLinks.find((l) =>
-                    l.id === event.link_id ||
-                    (l.allIds && l.allIds.includes(event.link_id)) ||
-                    (l.sourceName === event.local_device_name && l.targetName === event.remote_device_name) ||
-                    (l.targetName === event.local_device_name && l.sourceName === event.remote_device_name)
-                  );
+                  const relatedLink = findCanonicalLinkForEvent(event);
 
                   const searchableEventText = [
                     event.local_device_name,
@@ -1453,7 +1529,16 @@ export default function NetworkLinksSideDrawer({
                     // Device IP addresses
                     localDevIp,
                     remoteDevIp,
-                    // Link IP addresses from related link
+                    // Canonical link metadata
+                    relatedLink?.sourceName,
+                    relatedLink?.targetName,
+                    relatedLink?.sourceZone,
+                    relatedLink?.targetZone,
+                    relatedLink?.description,
+                    relatedLink?.local_interface_description,
+                    relatedLink?.local_interface,
+                    relatedLink?.remote_interface,
+                    ...(relatedLink?.allInterfaces || []),
                     relatedLink?.local_link_ip,
                     relatedLink?.local_ip,
                     relatedLink?.remote_link_ip,
@@ -1469,65 +1554,146 @@ export default function NetworkLinksSideDrawer({
                   return queryWords.every((word) => searchableEventText.includes(word));
                 });
 
-                const eventsByLink = filteredEvents.reduce((acc, event) => {
-                  const id = event.link_id ?? `${event.local_device_name || ""}-${event.remote_device_name || ""}-${event.local_interface || ""}`;
-                  if (!acc[id]) {
-                    const localDevIp =
-                      (event.local_device_name ? deviceIpMap.get(String(event.local_device_name).toLowerCase()) : null) ||
-                      (event.local_device_id != null ? deviceIpMap.get(String(event.local_device_id)) : null);
-                    const remoteDevIp =
-                      (event.remote_device_name ? deviceIpMap.get(String(event.remote_device_name).toLowerCase()) : null) ||
-                      (event.remote_device_id != null ? deviceIpMap.get(String(event.remote_device_id)) : null);
+                // Group all events by unified canonical link to prevent duplicate & inconsistent entries
+                const groupsById = {};
 
-                    acc[id] = {
-                      linkId: id,
-                      deviceName: event.local_device_name,
-                      remoteDeviceName: event.remote_device_name,
-                      localDeviceIp: localDevIp,
-                      remoteDeviceIp: remoteDevIp,
-                      interface: event.local_interface,
-                      events: []
-                    };
+                filteredEvents.forEach((event) => {
+                  const canonicalLink = findCanonicalLinkForEvent(event);
+
+                  let groupId;
+                  let deviceName;
+                  let remoteDeviceName;
+                  let localDeviceIp;
+                  let remoteDeviceIp;
+                  let iface;
+                  let remoteIface;
+                  let isVisibleOnMap;
+                  let fullLink = canonicalLink || null;
+
+                  if (canonicalLink) {
+                    groupId = `link-${canonicalLink.id}`;
+                    deviceName = canonicalLink.sourceName;
+                    remoteDeviceName = canonicalLink.targetName;
+                    localDeviceIp = canonicalLink.local_device_ip || getDeviceIp(canonicalLink.sourceName);
+                    remoteDeviceIp = canonicalLink.remote_device_ip || getDeviceIp(canonicalLink.targetName);
+                    iface = canonicalLink.local_interface;
+                    remoteIface = canonicalLink.remote_interface;
+                    isVisibleOnMap = Boolean(canonicalLink.isVisibleOnMap);
+                  } else {
+                    // Unmapped link (not present in current chart's topology)
+                    const d1 = event.local_device_name || "";
+                    const d2 = event.remote_device_name || "";
+                    const isSorted = d1.localeCompare(d2) <= 0;
+                    const canD1 = isSorted ? d1 : d2;
+                    const canD2 = isSorted ? d2 : d1;
+                    const if1 = isSorted ? event.local_interface : event.remote_interface;
+                    const if2 = isSorted ? event.remote_interface : event.local_interface;
+
+                    const normIf1 = normalizeInterfaceName(if1);
+                    const normIf2 = normalizeInterfaceName(if2);
+                    // If both interfaces are specified, include them; otherwise key by device pair to avoid directional splits
+                    const ifSuffix = (normIf1 && normIf2) ? `-${normIf1}-${normIf2}` : "";
+                    groupId = `unmapped-${canD1.toLowerCase()}---${canD2.toLowerCase()}${ifSuffix}`;
+                    deviceName = canD1;
+                    remoteDeviceName = canD2;
+                    localDeviceIp = getDeviceIp(canD1);
+                    remoteDeviceIp = getDeviceIp(canD2);
+                    iface = if1;
+                    remoteIface = if2;
+                    isVisibleOnMap = false;
                   }
-                  acc[id].events.push(event);
-                  return acc;
-                }, {});
+                  if (!groupsById[groupId]) {
+                    groupsById[groupId] = {
+                      linkId: canonicalLink?.id || groupId,
+                      groupId,
+                      deviceName,
+                      remoteDeviceName,
+                      localDeviceIp,
+                      remoteDeviceIp,
+                      interface: iface,
+                      remoteInterface: remoteIface,
+                      isVisibleOnMap,
+                      fullLink,
+                      rawEvents: [],
+                    };
+                  } else {
+                    // Update interface / remoteInterface if newly discovered from reciprocal event
+                    if (!groupsById[groupId].interface && iface) {
+                      groupsById[groupId].interface = iface;
+                    }
+                    if (!groupsById[groupId].remoteInterface && remoteIface) {
+                      groupsById[groupId].remoteInterface = remoteIface;
+                    }
+                  }
 
-                const findLinkForGroup = (group) => {
-                  const normGroupIf = normalizeInterfaceName(group.interface);
-                  return enrichedLinks.find((l) => {
-                    if (l.id === group.linkId || (l.allIds && l.allIds.includes(group.linkId))) return true;
-                    const normLocalIf = normalizeInterfaceName(l.local_interface);
-                    const normRemoteIf = normalizeInterfaceName(l.remote_interface);
-                    const matchSameDir =
-                      (l.sourceName === group.deviceName && l.targetName === group.remoteDeviceName) &&
-                      (normLocalIf === normGroupIf ||
-                        (l.allLocalInterfaces && l.allLocalInterfaces.some((i) => normalizeInterfaceName(i) === normGroupIf)));
-                    const matchRevDir =
-                      (l.targetName === group.deviceName && l.sourceName === group.remoteDeviceName) &&
-                      (normRemoteIf === normGroupIf ||
-                        normLocalIf === normGroupIf ||
-                        (l.allRemoteInterfaces && l.allRemoteInterfaces.some((i) => normalizeInterfaceName(i) === normGroupIf)));
-                    return matchSameDir || matchRevDir;
-                  });
+                  groupsById[groupId].rawEvents.push(event);
+                });
+
+                const getEventTimestamp = (e) => {
+                  const t = e.created_at || e.changed_at;
+                  if (!t) return 0;
+                  const d = new Date(t);
+                  return isNaN(d.getTime()) ? 0 : d.getTime();
                 };
 
-                const visibleGroupedEvents = Object.values(eventsByLink).filter(group => {
-                    const fullLink = findLinkForGroup(group);
-                    return fullLink && fullLink.isVisibleOnMap;
+                // Deduplicate and sort events within each canonical group
+                const allGroups = Object.values(groupsById).map((group) => {
+                  const sortedEvents = [...group.rawEvents].sort(
+                    (a, b) => getEventTimestamp(b) - getEventTimestamp(a)
+                  );
+
+                  const deduplicatedEvents = [];
+
+                  sortedEvents.forEach((ev) => {
+                    const evTime = getEventTimestamp(ev);
+                    const evType = (ev.event_type || "").toLowerCase();
+
+                    // Check for duplicate event (e.g. reciprocal endpoint logging the same transition at same time)
+                    const existingIndex = deduplicatedEvents.findIndex((existing) => {
+                      if (ev.id != null && existing.id != null && ev.id === existing.id) {
+                        return true;
+                      }
+
+                      const existingTime = getEventTimestamp(existing);
+                      const existingType = (existing.event_type || "").toLowerCase();
+
+                      // Same event type within 60s
+                      if (evType === existingType && Math.abs(evTime - existingTime) <= 60000) {
+                        if (evType.startsWith("ospf")) {
+                          const evState = ev.new_ospf_state || ev.old_ospf_state;
+                          const exState = existing.new_ospf_state || existing.old_ospf_state;
+                          return !evState || !exState || evState === exState;
+                        }
+                        return true;
+                      }
+                      return false;
+                    });
+
+                    if (existingIndex >= 0) {
+                      // Enrich existing with any extra details from this reciprocal event
+                      const existing = deduplicatedEvents[existingIndex];
+                      if (!existing.details && ev.details) existing.details = ev.details;
+                      if (!existing.old_ospf_state && ev.old_ospf_state) existing.old_ospf_state = ev.old_ospf_state;
+                      if (!existing.new_ospf_state && ev.new_ospf_state) existing.new_ospf_state = ev.new_ospf_state;
+                    } else {
+                      deduplicatedEvents.push(ev);
+                    }
                   });
-                const notVisibleGroupedEvents = Object.values(eventsByLink).filter(group => {
-                    const fullLink = findLinkForGroup(group);
-                    return !fullLink || !fullLink.isVisibleOnMap;
-                  });
-                  
+
+                  return {
+                    ...group,
+                    events: deduplicatedEvents,
+                  };
+                });
+
+                const visibleGroupedEvents = allGroups.filter((group) => group.isVisibleOnMap);
+                const notVisibleGroupedEvents = allGroups.filter((group) => !group.isVisibleOnMap);
+
                 const handleInspectGroup = (group) => {
-                  const fullLink = findLinkForGroup(group);
-                  if (fullLink) {
-                    const payload = createLinkPopupPayload(fullLink) || fullLink;
+                  if (group.fullLink) {
+                    const payload = createLinkPopupPayload(group.fullLink) || group.fullLink;
                     onLinkClick?.(payload);
                   } else {
-                    // Fallback
                     const fallbackData = {
                       id: group.linkId,
                       sourceName: group.deviceName,
@@ -1535,6 +1701,7 @@ export default function NetworkLinksSideDrawer({
                       sourceNode: group.deviceName,
                       targetNode: group.remoteDeviceName,
                       local_interface: group.interface,
+                      remote_interface: group.remoteInterface,
                       statusChangedAt: group.events[0]?.created_at,
                       category: "issue",
                       status: "issue",
@@ -1553,14 +1720,15 @@ export default function NetworkLinksSideDrawer({
                         </h4>
                         {visibleGroupedEvents.map((group) => (
                           <EventLinkCard
-                            key={group.linkId}
+                            key={group.groupId || group.linkId}
                             group={group}
-                            isExpanded={expandedEventLinks.has(group.linkId)}
+                            isExpanded={expandedEventLinks.has(group.groupId || group.linkId)}
                             onToggle={() => {
                               setExpandedEventLinks((prev) => {
                                 const next = new Set(prev);
-                                if (next.has(group.linkId)) next.delete(group.linkId);
-                                else next.add(group.linkId);
+                                const gId = group.groupId || group.linkId;
+                                if (next.has(gId)) next.delete(gId);
+                                else next.add(gId);
                                 return next;
                               });
                             }}
@@ -1582,14 +1750,15 @@ export default function NetworkLinksSideDrawer({
                         </h4>
                         {notVisibleGroupedEvents.map((group) => (
                           <EventLinkCard
-                            key={group.linkId}
+                            key={group.groupId || group.linkId}
                             group={group}
-                            isExpanded={expandedEventLinks.has(group.linkId)}
+                            isExpanded={expandedEventLinks.has(group.groupId || group.linkId)}
                             onToggle={() => {
                               setExpandedEventLinks((prev) => {
                                 const next = new Set(prev);
-                                if (next.has(group.linkId)) next.delete(group.linkId);
-                                else next.add(group.linkId);
+                                const gId = group.groupId || group.linkId;
+                                if (next.has(gId)) next.delete(gId);
+                                else next.add(gId);
                                 return next;
                               });
                             }}
