@@ -162,8 +162,12 @@ async def get_core_topology_events(
         if ev_dt < cutoff:
             continue
 
-        if effective_event_type and ev.get("event_type") != effective_event_type:
-            continue
+        if effective_event_type:
+            ev_type = ev.get("event_type")
+            if ev_type != effective_event_type:
+                # Treat ospf_full and ospf_recovery interchangeably for compatibility
+                if not (effective_event_type in ("ospf_full", "ospf_recovery") and ev_type in ("ospf_full", "ospf_recovery")):
+                    continue
 
         if local_device_id is not None and ev.get("local_device_id") != local_device_id:
             continue

@@ -235,13 +235,17 @@ function EventLinkCard({ group, isExpanded, onToggle, onInspect, isDark }) {
                   issue: { bg: "bg-amber-500", text: "text-amber-600 dark:text-amber-400" },
                 };
 
-                const isOspfEvent =
-                  event.event_type === "ospf_drop" || event.event_type === "ospf_full";
+                const isOspfEvent = Boolean(
+                  event.old_ospf_state ||
+                  event.new_ospf_state ||
+                  String(event.event_type || "").toLowerCase().startsWith("ospf")
+                );
+                const isDrop = event.event_type === "ospf_drop";
                 const oldStatusStr = isOspfEvent
-                  ? event.old_ospf_state || (event.event_type === "ospf_drop" ? "Full" : "Down")
+                  ? event.old_ospf_state || (isDrop ? "Full" : "Down")
                   : event.old_oper_status;
                 const newStatusStr = isOspfEvent
-                  ? event.new_ospf_state || (event.event_type === "ospf_drop" ? "Down" : "Full")
+                  ? event.new_ospf_state || (isDrop ? "Down" : "Full")
                   : event.new_oper_status;
 
                 const getStatusColor = (statusStr) => {
@@ -1385,6 +1389,7 @@ export default function NetworkLinksSideDrawer({
                 <option value="link_up">Link Up</option>
                 <option value="link_down">Link Down</option>
                 <option value="ospf_full">OSPF Full</option>
+                <option value="ospf_recovery">OSPF Recovery</option>
                 <option value="ospf_drop">OSPF Drop</option>
               </select>
               <select
