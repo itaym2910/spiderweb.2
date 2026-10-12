@@ -109,6 +109,11 @@ const LinkDetailTabs = ({
         statusDate: fetchedDetails.statusDate || itemData.statusDate,
       } : {})
     };
+
+    delete itemData.ospf_up_time_seconds;
+    delete itemData.ospf_state_duration_seconds;
+    delete itemData.ospfUpTimeSeconds;
+    delete itemData.ospfStateDurationSeconds;
   }
 
   const isDark = theme === "dark";

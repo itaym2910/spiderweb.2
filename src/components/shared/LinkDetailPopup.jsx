@@ -236,6 +236,18 @@ const LinkDetailPopup = ({
     } : {}),
   };
 
+  if (itemData.rawLink) {
+    itemData.rawLink = { ...itemData.rawLink };
+    delete itemData.rawLink.ospf_up_time_seconds;
+    delete itemData.rawLink.ospf_state_duration_seconds;
+    delete itemData.rawLink.ospfUpTimeSeconds;
+    delete itemData.rawLink.ospfStateDurationSeconds;
+  }
+  delete itemData.ospf_up_time_seconds;
+  delete itemData.ospf_state_duration_seconds;
+  delete itemData.ospfUpTimeSeconds;
+  delete itemData.ospfStateDurationSeconds;
+
   const rawPingRate =
     itemData?.ping_success_rate ??
     itemData?.rawLink?.ping_success_rate ??
@@ -509,8 +521,15 @@ const LinkDetailPopup = ({
               if (key.endsWith("_at")) return;
               if (typeof value === "string" && value.match(/^\d{4}-\d{2}-\d{2}T/)) return;
 
-              if (key === "is_ospf_full" || key === "link_drops_last_24h" || key === "ospf_drops_last_24h") return;
-              if (key === "ospf_up_time_seconds" || key === "ospf_state_duration_seconds") return;
+              if (
+                key === "is_ospf_full" ||
+                key === "link_drops_last_24h" ||
+                key === "ospf_drops_last_24h" ||
+                key === "ospf_up_time_seconds" ||
+                key === "ospf_state_duration_seconds" ||
+                key.endsWith("_seconds") ||
+                /seconds/i.test(key)
+              ) return;
 
               if (
                 key === "in_bps" ||

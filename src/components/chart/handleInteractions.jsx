@@ -134,10 +134,16 @@ export function createLinkPopupPayload(linkDataObject) {
     linkDataObject.bytesOut ??
     null;
 
-  return {
-    ...raw,
+  const cleanRaw = { ...raw };
+  delete cleanRaw.ospf_up_time_seconds;
+  delete cleanRaw.ospf_state_duration_seconds;
+  delete cleanRaw.ospfUpTimeSeconds;
+  delete cleanRaw.ospfStateDurationSeconds;
+
+  const payload = {
+    ...cleanRaw,
     ...linkDataObject,
-    rawLink: raw,
+    rawLink: cleanRaw,
     in_bps,
     out_bps,
     input_rate: raw.input_rate ?? linkDataObject.input_rate ?? in_bps,
@@ -182,6 +188,13 @@ export function createLinkPopupPayload(linkDataObject) {
     last_ospf_down_at: linkDataObject.last_ospf_down_at ?? raw.last_ospf_down_at,
     ip,
   };
+
+  delete payload.ospf_up_time_seconds;
+  delete payload.ospf_state_duration_seconds;
+  delete payload.ospfUpTimeSeconds;
+  delete payload.ospfStateDurationSeconds;
+
+  return payload;
 }
 
 // ===================================================================
