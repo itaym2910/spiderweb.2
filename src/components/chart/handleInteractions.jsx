@@ -1,5 +1,5 @@
 // src/chart/handleInteractions.jsx
-import { linkPositionFromEdges, normalizeLinkStatus } from "./drawHelpers";
+import { linkPositionFromEdges, normalizeLinkStatus, getLinkStatusAndDate } from "./drawHelpers";
 import { formatPingRateWithPackets } from "../shared/pingHelpers";
 import * as d3 from "d3";
 
@@ -19,7 +19,7 @@ export function createLinkPopupPayload(linkDataObject) {
       ? linkDataObject.target.id || linkDataObject.target.hostname || linkDataObject.target.name
       : (linkDataObject.targetNode || linkDataObject.targetName || linkDataObject.target);
 
-  const status = normalizeLinkStatus(linkDataObject);
+  const { status, statusDate } = getLinkStatusAndDate(linkDataObject);
   const physicalStatus =
     raw.physical_status ||
     raw.physicalStatus ||
@@ -156,6 +156,8 @@ export function createLinkPopupPayload(linkDataObject) {
     name: `Link ${sourceId} ⟷ ${targetId}`,
     status,
     normalizedStatus: status,
+    statusDate,
+    statusChangedAt: statusDate || linkDataObject.statusChangedAt || linkDataObject.last_state_change_at,
     physicalStatus,
     protocolStatus,
     mpls,
@@ -173,6 +175,13 @@ export function createLinkPopupPayload(linkDataObject) {
     total_pings,
     ping_total: total_pings,
     last_ping_at,
+    ospf_up_time_seconds: linkDataObject.ospf_up_time_seconds ?? raw.ospf_up_time_seconds,
+    ospf_up_time: linkDataObject.ospf_up_time ?? raw.ospf_up_time,
+    ospf_state_duration_seconds: linkDataObject.ospf_state_duration_seconds ?? raw.ospf_state_duration_seconds,
+    ospf_state_duration: linkDataObject.ospf_state_duration ?? raw.ospf_state_duration,
+    last_up_at: linkDataObject.last_up_at ?? raw.last_up_at,
+    last_down_at: linkDataObject.last_down_at ?? raw.last_down_at,
+    last_ospf_down_at: linkDataObject.last_ospf_down_at ?? raw.last_ospf_down_at,
     ip,
   };
 }

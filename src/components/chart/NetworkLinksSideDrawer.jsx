@@ -31,6 +31,35 @@ import { normalizeInterfaceName, cleanDeviceKey } from "./drawHelpers";
  */
 export function formatDuration(timestamp) {
   if (!timestamp) return "N/A";
+
+  // If it's a duration string like "4d21h" or "4d 21h"
+  if (typeof timestamp === "string") {
+    const s = timestamp.trim();
+    if (/^\d+\s*[wdhms]/i.test(s)) {
+      return s.replace(/([a-zA-Z])(?=\d)/g, "$1 ").trim();
+    }
+  }
+
+  // If it's a numeric duration in seconds (e.g. 424720)
+  if (typeof timestamp === "number" && timestamp >= 0 && timestamp < 100000000) {
+    const diffSec = Math.floor(timestamp);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHours = Math.floor(diffMin / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays > 0) {
+      const remHours = diffHours % 24;
+      return remHours > 0 ? `${diffDays}d ${remHours}h` : `${diffDays}d`;
+    }
+    if (diffHours > 0) {
+      const remMin = diffMin % 60;
+      return remMin > 0 ? `${diffHours}h ${remMin}m` : `${diffHours}h`;
+    }
+    if (diffMin > 0) {
+      return `${diffMin}m`;
+    }
+    return "< 1m";
+  }
+
   const date = new Date(timestamp);
   if (isNaN(date.getTime())) return "N/A";
 

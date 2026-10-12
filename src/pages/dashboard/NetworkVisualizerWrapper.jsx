@@ -477,6 +477,21 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           if ((existing.last_ping_at == null) && (link.last_ping_at != null || link.lastPingAt != null)) {
             existing.last_ping_at = link.last_ping_at ?? link.lastPingAt;
           }
+          if (existing.ospf_up_time_seconds == null && link.ospf_up_time_seconds != null) {
+            existing.ospf_up_time_seconds = link.ospf_up_time_seconds;
+          }
+          if (existing.ospf_up_time == null && link.ospf_up_time != null) {
+            existing.ospf_up_time = link.ospf_up_time;
+          }
+          if (existing.ospf_state_duration_seconds == null && link.ospf_state_duration_seconds != null) {
+            existing.ospf_state_duration_seconds = link.ospf_state_duration_seconds;
+          }
+          if (existing.ospf_state_duration == null && link.ospf_state_duration != null) {
+            existing.ospf_state_duration = link.ospf_state_duration;
+          }
+          if (existing.last_ospf_down_at == null && link.last_ospf_down_at != null) {
+            existing.last_ospf_down_at = link.last_ospf_down_at;
+          }
 
           const currentInBps = link.in_bps ?? link.input_rate ?? link.inBps ?? link.bytes_in_rate ?? link.bytesIn ?? null;
           const currentOutBps = link.out_bps ?? link.output_rate ?? link.outBps ?? link.bytes_out_rate ?? link.bytesOut ?? null;
@@ -559,8 +574,13 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           destinationIp: link.remote_link_ip || remoteDevIp || link.remote_ip,
           ospf_state: link.ospf_state,
           is_ospf_full: link.is_ospf_full !== undefined ? Boolean(link.is_ospf_full) : (String(link.ospf_state || "").toUpperCase() === "FULL"),
+          ospf_up_time_seconds: link.ospf_up_time_seconds ?? link.rawLink?.ospf_up_time_seconds,
+          ospf_up_time: link.ospf_up_time ?? link.rawLink?.ospf_up_time,
+          ospf_state_duration_seconds: link.ospf_state_duration_seconds ?? link.rawLink?.ospf_state_duration_seconds,
+          ospf_state_duration: link.ospf_state_duration ?? link.rawLink?.ospf_state_duration,
           last_up_at: link.last_up_at,
           last_down_at: link.last_down_at,
+          last_ospf_down_at: link.last_ospf_down_at ?? link.rawLink?.last_ospf_down_at,
           last_ospf_full_at: link.last_ospf_full_at,
           last_seen_at: link.last_seen_at,
           link_drops_last_24h: link.link_drops_last_24h ?? 0,

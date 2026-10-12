@@ -227,6 +227,14 @@ const LinkDetailPopup = ({
       total_pings: fetchedDetails?.total_pings ?? linkData?.total_pings,
       ping_total: fetchedDetails?.ping_total ?? linkData?.ping_total,
       last_ping_at: fetchedDetails?.last_ping_at || linkData?.last_ping_at,
+      ospf_up_time_seconds: fetchedDetails?.ospf_up_time_seconds ?? linkData?.ospf_up_time_seconds,
+      ospf_up_time: fetchedDetails?.ospf_up_time ?? linkData?.ospf_up_time,
+      ospf_state_duration_seconds: fetchedDetails?.ospf_state_duration_seconds ?? linkData?.ospf_state_duration_seconds,
+      ospf_state_duration: fetchedDetails?.ospf_state_duration ?? linkData?.ospf_state_duration,
+      last_up_at: fetchedDetails?.last_up_at || linkData?.last_up_at,
+      last_down_at: fetchedDetails?.last_down_at || linkData?.last_down_at,
+      last_ospf_down_at: fetchedDetails?.last_ospf_down_at || linkData?.last_ospf_down_at,
+      statusDate: fetchedDetails?.statusDate || linkData?.statusDate,
     } : {}),
   };
 
