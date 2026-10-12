@@ -6,12 +6,28 @@ export function renderCoreDevices(
   nodes,
   links,
   NODE_GROUPS,
-  palette, // palette will be passed from NetworkVisualizer.js / NetworkVisualizer5.js
+  palette,
   onZoneClick,
   onNodeClick,
-  trafficByZone = {}
+  trafficByZone = {},
+  zoneRanks = {}
 ) {
-  // Helper function to convert bits to GB and format for display
+  // =========================================================
+  // Helper: Calculate traffic intensity (0-1 normalized score)
+  // =========================================================
+  const calculateTrafficIntensity = (zoneTraffic) => {
+    if (!zoneTraffic?.traffic) return 0;
+
+    const inVal = parseFloat(zoneTraffic.traffic.in) || 0;
+    const outVal = parseFloat(zoneTraffic.traffic.out) || 0;
+    const total = inVal + outVal;
+
+    return Math.min(1, total / 10_000_000_000);
+  };
+
+  // =========================================================
+  // Helper: Convert bits to GB/MB/KB and format for display
+  // =========================================================
   const formatTrafficValue = (bits) => {
     // Handle null, undefined, or non-numeric values
     if (bits === undefined || bits === null || bits === "") {
@@ -46,13 +62,23 @@ export function renderCoreDevices(
     }
   };
 
-  // Define default zone fill and opacity (can be overridden by palette if provided)
+  // Define default zone fill and opacity
   const defaultZoneFill = palette.zone?.fill || "#38bdf8";
   const defaultZoneOpacity = palette.zone?.opacity || 0.12;
-  const hoverZoneFill = palette.zone?.hoverFill || defaultZoneFill; // Use same fill if not specified
+  const hoverZoneFill = palette.zone?.hoverFill || defaultZoneFill;
   const hoverZoneOpacity =
-    palette.zone?.hoverOpacity || defaultZoneOpacity + 0.15; // Slightly more opaque
+    palette.zone?.hoverOpacity || defaultZoneOpacity + 0.15;
 
+  // Rank badge colors
+  const rankColors = {
+    1: "#ffbf24",
+    2: "#94a3b8",
+    3: "#cd7f32"
+  };
+
+  // ----------------------------------------------------------------
+  // Render Zone Groups
+  // ----------------------------------------------------------------
   zoomLayer
     .append("g")
     .selectAll("g.zone-group")
@@ -60,11 +86,13 @@ export function renderCoreDevices(
     .join("g")
     .attr("class", "zone-group")
     .each(function (d_zone_group_data) {
-      // Renamed 'd' to be more specific
       const screenCenterY = window.innerHeight / 2;
 
       const isDarkTheme = palette.bg !== "#f8fafc" && palette.bg !== "#ffffff";
       const isTopZone = d_zone_group_data.cy < screenCenterY;
+
+      // Get zone rank (1 = highest traffic)
+      const zoneRank = zoneRanks[d_zone_group_data.id] || 0;
 
       // Resolve live traffic for this zone
       const zoneTraffic =
@@ -99,19 +127,27 @@ export function renderCoreDevices(
         isValidTrafficRate(zoneTraffic.traffic.out)
       );
 
-      // Sizing and positioning:
-      // When traffic is present, use standard 184px width for the 2-line layout.
-      // When traffic is unavailable, collapse gracefully to a sleek single-line pill sized to the site name.
+      // Calculate traffic intensity for visual modifications
+      const trafficIntensity = calculateTrafficIntensity(zoneTraffic);
+      const isHighTraffic = trafficIntensity > 0.5;
+
+      // Sizing and positioning
       const nameLength = (d_zone_group_data.id || "").length;
       const cardWidth = hasTraffic
-        ? 184
+        ? 180
         : Math.max(124, Math.min(168, nameLength * 8.5 + 32));
-      const cardHeight = hasTraffic ? 46 : 30;
+      const cardHeight = hasTraffic ? 50 : 30;
       const cardRadius = hasTraffic ? 12 : 10;
       const cardX = d_zone_group_data.cx - cardWidth / 2;
       const cardY = isTopZone
-        ? d_zone_group_data.cy - 150 - cardHeight - 8
-        : d_zone_group_data.cy + 150 + 8;
+        ? d_zone_group_data.cy - 140 - cardHeight - 6
+        : d_zone_group_data.cy + 140 + 6;
+
+      // Zone name label dimensions
+      const zoneNameY = isTopZone
+        ? d_zone_group_data.cy - 140 - cardHeight - 22
+        : d_zone_group_data.cy + 140 + cardHeight + 22;
+      const zoneNameFontSize = 16;
 
       // Group for the unified zone header capsule
       const headerGroup = d3
@@ -120,7 +156,7 @@ export function renderCoreDevices(
         .attr("class", "zone-header-capsule")
         .style("cursor", "pointer");
 
-      // Capsule background
+      // Capsule background - thicker border for high traffic zones
       const cardRect = headerGroup
         .append("rect")
         .attr("x", cardX)
@@ -131,26 +167,41 @@ export function renderCoreDevices(
         .attr("ry", cardRadius)
         .attr(
           "fill",
-          isDarkTheme ? "rgba(15, 23, 42, 0.88)" : "rgba(255, 255, 255, 0.95)"
+          isDarkTheme ? "rgba(15, 23, 42, 0.92)" : "rgba(255, 255, 255, 0.97)"
         )
         .attr(
           "stroke",
-          isDarkTheme ? "rgba(56, 189, 248, 0.35)" : "rgba(186, 230, 253, 0.9)"
+          isHighTraffic
+            ? isDarkTheme
+              ? "rgba(34, 197, 94, 0.8)"
+              : "rgba(22, 163, 74, 0.8)"
+            : isDarkTheme
+              ? "rgba(56, 189, 248, 0.35)"
+              : "rgba(186, 230, 253, 0.9)"
         )
-        .attr("stroke-width", 1.2)
-        .style("transition", "all 0.18s ease-in-out");
+        .attr("stroke-width", isHighTraffic ? 2.5 : 1.2)
+        .style("transition", "all 0.18s ease-in-out")
+        .style(
+          "filter",
+          isHighTraffic
+            ? "drop-shadow(0 0 8px rgba(34, 197, 94, 0.4))"
+            : "none"
+        );
 
       // Draw the zone circle
+      const circleRadius = 150 + trafficIntensity * 50;
+
       const circleSelection = d3
         .select(this)
         .append("circle")
         .attr("class", "zone")
-        .attr("r", 150)
+        .attr("r", circleRadius)
         .attr("cx", d_zone_group_data.cx)
         .attr("cy", d_zone_group_data.cy)
         .attr("fill", defaultZoneFill)
         .attr("fill-opacity", defaultZoneOpacity)
-        .style("cursor", "pointer");
+        .style("cursor", "pointer")
+        .style("transition", "all 0.15s ease-in-out");
 
       // Synchronized click interaction
       const handleZoneNavigate = () => {
@@ -162,105 +213,165 @@ export function renderCoreDevices(
       circleSelection.on("click", handleZoneNavigate);
       headerGroup.on("click", handleZoneNavigate);
 
+      // ----------------------------------------------------------------
+      // Zone Name (Title) - BIGGER and SEPARATED
+      // ----------------------------------------------------------------
+      const zonePrefix =
+        zoneRank === 1 ? "🥇 " : zoneRank === 2 ? "🥈 " : zoneRank === 3 ? "🥉 " : "";
+      const zoneNameText = zonePrefix + d_zone_group_data.id;
+
+      headerGroup
+        .append("text")
+        .attr("x", d_zone_group_data.cx)
+        .attr("y", zoneNameY)
+        .attr("text-anchor", "middle")
+        .attr("font-size", `${zoneNameFontSize}px`)
+        .attr("font-family", "system-ui, -apple-system, sans-serif")
+        .attr("font-weight", "800")
+        .attr("fill", isDarkTheme ? "#f1f5f9" : "#0f172a")
+        .attr("letter-spacing", "0.03em")
+        .style("pointer-events", "none")
+        .style("user-select", "none")
+        .style(
+          "filter",
+          isDarkTheme
+            ? "drop-shadow(0 1px 2px rgba(0,0,0,0.8))"
+            : "drop-shadow(0 1px 2px rgba(0,0,0,0.15))"
+        )
+        .text(zoneNameText);
+
+      // ----------------------------------------------------------------
+      // Live Traffic - in separate card below
+      // ----------------------------------------------------------------
+      if (hasTraffic) {
+        const trafficInGB = formatTrafficValue(zoneTraffic.traffic.in);
+        const trafficOutGB = formatTrafficValue(zoneTraffic.traffic.out);
+
+        const inBits = parseFloat(zoneTraffic.traffic.in) || 0;
+        const outBits = parseFloat(zoneTraffic.traffic.out) || 0;
+        const totalTrafficGB = formatTrafficValue(inBits + outBits);
+
+        const trafficY = cardY + cardHeight / 2 + 4;
+        const trafficX = d_zone_group_data.cx;
+
+        const textColor = isDarkTheme ? "#94a3b8" : "#64748b";
+        const valueColor = isDarkTheme ? "#f8fafc" : "#0f172a";
+
+        const trafficGroup = headerGroup
+          .append("g")
+          .style("pointer-events", "none");
+
+        // Total on top
+        trafficGroup
+          .append("text")
+          .attr("x", trafficX)
+          .attr("y", trafficY - 8)
+          .attr("text-anchor", "middle")
+          .attr("font-size", "12px")
+          .attr("font-weight", "700")
+          .attr("fill", valueColor)
+          .text(totalTrafficGB);
+
+        // IN and OUT below
+        trafficGroup
+          .append("text")
+          .attr("x", trafficX - 22)
+          .attr("y", trafficY + 6)
+          .attr("text-anchor", "end")
+          .attr("font-size", "10px")
+          .attr("font-weight", "500")
+          .attr("fill", textColor)
+          .text(`↓ ${trafficInGB}`);
+
+        trafficGroup
+          .append("text")
+          .attr("x", trafficX + 22)
+          .attr("y", trafficY + 6)
+          .attr("text-anchor", "start")
+          .attr("font-size", "10px")
+          .attr("font-weight", "500")
+          .attr("fill", textColor)
+          .text(`↑ ${trafficOutGB}`);
+      }
+
+      // ----------------------------------------------------------------
+      // Rank Badge for Top 3 Traffic Zones
+      // ----------------------------------------------------------------
+      if (hasTraffic && zoneRank >= 1 && zoneRank <= 3) {
+        const rankColor = rankColors[zoneRank];
+
+        headerGroup
+          .append("circle")
+          .attr("cx", cardX + cardWidth - 16)
+          .attr("cy", cardY + 12)
+          .attr("r", 11)
+          .attr("fill", rankColor)
+          .attr("stroke", isDarkTheme ? "#0f172a" : "#ffffff")
+          .attr("stroke-width", 2);
+
+        const medalEmojis = { 1: "🥇", 2: "🥈", 3: "🥉" };
+
+        headerGroup
+          .append("text")
+          .attr("x", cardX + cardWidth - 16)
+          .attr("y", cardY + 16)
+          .attr("text-anchor", "middle")
+          .attr("font-size", "12px")
+          .text(medalEmojis[zoneRank]);
+      }
+
       // Synchronized hover interaction
       const setHoverState = (hovered) => {
         circleSelection
           .transition()
           .duration(150)
           .attr("fill", hovered ? hoverZoneFill : defaultZoneFill)
-          .attr("fill-opacity", hovered ? hoverZoneOpacity : defaultZoneOpacity);
+          .attr(
+            "fill-opacity",
+            hovered ? hoverZoneOpacity : defaultZoneOpacity
+          );
 
         cardRect
+          .transition()
+          .duration(150)
+          .attr("stroke-width", hovered ? 2.5 : isHighTraffic ? 2.5 : 1.2)
           .attr(
             "stroke",
             hovered
               ? isDarkTheme
-                ? "rgba(56, 189, 248, 0.95)"
-                : "rgba(2, 132, 199, 0.95)"
-              : isDarkTheme
-              ? "rgba(56, 189, 248, 0.35)"
-              : "rgba(186, 230, 253, 0.9)"
+                ? "rgba(56, 189, 248, 1)"
+                : "rgba(2, 132, 199, 1)"
+              : isHighTraffic
+                ? isDarkTheme
+                  ? "rgba(34, 197, 94, 0.8)"
+                  : "rgba(22, 163, 74, 0.8)"
+                : isDarkTheme
+                  ? "rgba(56, 189, 248, 0.35)"
+                  : "rgba(186, 230, 253, 0.9)"
           )
-          .attr("stroke-width", hovered ? 1.8 : 1.2)
           .attr(
             "fill",
             hovered
               ? isDarkTheme
-                ? "rgba(30, 41, 59, 0.95)"
-                : "rgba(240, 249, 255, 0.98)"
+                ? "rgba(30, 41, 59, 0.98)"
+                : "rgba(240, 249, 255, 0.99)"
               : isDarkTheme
-              ? "rgba(15, 23, 42, 0.88)"
-              : "rgba(255, 255, 255, 0.95)"
+                ? "rgba(15, 23, 42, 0.92)"
+                : "rgba(255, 255, 255, 0.97)"
           );
       };
 
-      circleSelection
-        .on("mouseover", () => setHoverState(true))
-        .on("mouseout", () => setHoverState(false));
-
       headerGroup
         .on("mouseover", () => setHoverState(true))
         .on("mouseout", () => setHoverState(false));
-
-      // Zone Name (Title) - always on top inside the capsule
-      const titleY = hasTraffic ? cardY + 18 : cardY + cardHeight / 2 + 4;
-      headerGroup
-        .append("text")
-        .attr("x", d_zone_group_data.cx)
-        .attr("y", titleY)
-        .text(d_zone_group_data.id)
-        .attr("fill", isDarkTheme ? "#f8fafc" : "#0f172a")
-        .attr("font-size", "13.5px")
-        .attr("font-family", "system-ui, -apple-system, sans-serif")
-        .attr("font-weight", "700")
-        .attr("letter-spacing", "0.02em")
-        .attr("text-anchor", "middle")
-        .style("pointer-events", "none")
-        .style("user-select", "none");
-
-      // Live Traffic Row (Subtitle) - always below the title inside the capsule
-      if (hasTraffic) {
-        const trafficY = cardY + 34;
-        const textNode = headerGroup
-          .append("text")
-          .attr("x", d_zone_group_data.cx)
-          .attr("y", trafficY)
-          .attr("text-anchor", "middle")
-          .attr("font-size", "11px")
-          .attr("font-family", "system-ui, -apple-system, sans-serif")
-          .attr("font-weight", "600")
-          .style("pointer-events", "none")
-          .style("user-select", "none");
-
-        // Format traffic values in GB
-        const trafficInGB = formatTrafficValue(zoneTraffic.traffic.in);
-        const trafficOutGB = formatTrafficValue(zoneTraffic.traffic.out);
-
-        // Inbound traffic (emerald)
-        textNode
-          .append("tspan")
-          .attr("fill", isDarkTheme ? "#34d399" : "#059669")
-          .text(`↓ ${trafficInGB}`);
-
-        // Subtle bullet separator
-        textNode
-          .append("tspan")
-          .attr("fill", isDarkTheme ? "#64748b" : "#94a3b8")
-          .attr("font-weight", "400")
-          .text("   •   ");
-
-        // Outbound traffic (amber)
-        textNode
-          .append("tspan")
-          .attr("fill", isDarkTheme ? "#fbbf24" : "#d97706")
-          .text(`↑ ${trafficOutGB}`);
-      }
     });
 
+  // ----------------------------------------------------------------
+  // Render Links
+  // ----------------------------------------------------------------
   const filteredLinks = links;
   const linkGroup = zoomLayer.append("g");
 
-  // ... (rest of the link, node, label rendering remains the same) ...
   const link = linkGroup
     .selectAll("line.visible-link")
     .data(filteredLinks)
@@ -280,6 +391,9 @@ export function renderCoreDevices(
     .attr("stroke-width", 20)
     .style("cursor", "pointer");
 
+  // ----------------------------------------------------------------
+  // Render Nodes
+  // ----------------------------------------------------------------
   const node = zoomLayer
     .append("g")
     .selectAll("circle.node")
@@ -293,10 +407,9 @@ export function renderCoreDevices(
     .style("opacity", 0.9)
     .style("cursor", "pointer")
     .on("click", function (event, d_node) {
-      // console.log("Node clicked:", d_node.id, "Zone:", d_node.zone);
       event.stopPropagation();
       if (onNodeClick) {
-        onNodeClick(d_node); // d_node should have id and zone
+        onNodeClick(d_node);
       }
     });
 
@@ -304,6 +417,9 @@ export function renderCoreDevices(
     .append("title")
     .text((d) => `Click to open ${d.shortName || d.id} links & interfaces`);
 
+  // ----------------------------------------------------------------
+  // Render Labels
+  // ----------------------------------------------------------------
   const label = zoomLayer
     .append("g")
     .selectAll("text.label")
@@ -313,7 +429,6 @@ export function renderCoreDevices(
     .text((d) => d.shortName || d.id)
     .attr("fill", palette.label)
     .attr("font-size", "18px")
-    //.attr("font-weight", "bold") // Adds boldness
     .attr("text-anchor", "middle")
     .attr("dy", ".35em")
     .style("pointer-events", "none")
@@ -321,4 +436,22 @@ export function renderCoreDevices(
     .style("cursor", "default");
 
   return { link, linkHover, node, label, filteredLinks };
+}
+
+// ----------------------------------------------------------------
+// Helper function to calculate zone ranks
+// ----------------------------------------------------------------
+export function calculateZoneRanks(trafficByZone) {
+  const sortedZones = Object.entries(trafficByZone)
+    .map(([id, data]) => ({
+      id,
+      total:
+        (parseFloat(data?.traffic?.in) || 0) +
+        (parseFloat(data?.traffic?.out) || 0)
+    }))
+    .filter((z) => z.total > 0)
+    .sort((a, b) => b.total - a.total)
+    .map((z, i) => ({ ...z, rank: i + 1 }));
+
+  return Object.fromEntries(sortedZones.map((z) => [z.id, z.rank]));
 }
