@@ -51,11 +51,11 @@ function selectTopTwoDevices(devices) {
 const NetworkVisualizer5Wrapper = ({ theme }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  // Poll core topology every 30 seconds
+  // Poll core topology every 5 seconds
   React.useEffect(() => {
     const interval = setInterval(() => {
       dispatch(fetchCoreTopology());
-    }, 30000);
+    }, 5000);
     return () => clearInterval(interval);
   }, [dispatch]);
 
