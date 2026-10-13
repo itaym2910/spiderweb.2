@@ -22,6 +22,7 @@ import {
 import { api } from "../../services/apiServices";
 import { formatPingRateWithPackets, calculatePingSummary } from "../shared/pingHelpers";
 import PingSummaryModal from "../shared/PingSummaryModal";
+import FrequentLinkDropsModal from "../shared/FrequentLinkDropsModal";
 import { createLinkPopupPayload } from "./handleInteractions";
 import { normalizeInterfaceName, cleanDeviceKey } from "./drawHelpers";
 
@@ -401,6 +402,11 @@ export default function NetworkLinksSideDrawer({
   const [apiLocalDevice, setApiLocalDevice] = useState("");
   const [apiRemoteDevice, setApiRemoteDevice] = useState("");
 
+  // State for Frequent Link Drops (>= 10 link down events in last 24h)
+  const [frequentDropLinks, setFrequentDropLinks] = useState([]);
+  const [isDropsModalOpen, setIsDropsModalOpen] = useState(false);
+  const [lastDropsCheckTime, setLastDropsCheckTime] = useState(null);
+
   const allDevices = useSelector(selectAllDevices);
   const topologyDevices = useSelector(selectTopologyDevices);
 
@@ -617,6 +623,216 @@ export default function NetworkLinksSideDrawer({
       };
     });
   }, [links, deviceIpMap, getDeviceIp]);
+
+  // Helper to match an event to its unified canonical link in enrichedLinks
+  const findCanonicalLinkForEvent = useCallback(
+    (event) => {
+      if (!event) return null;
+      if (event.link_id != null) {
+        const directMatch = enrichedLinks.find(
+          (l) =>
+            l.id === event.link_id ||
+            (Array.isArray(l.allIds) && l.allIds.includes(event.link_id))
+        );
+        if (directMatch) return directMatch;
+      }
+
+      const evDev1 = cleanDeviceKey(event.local_device_name);
+      const evDev2 = cleanDeviceKey(event.remote_device_name);
+      if (!evDev1 || !evDev2) return null;
+
+      const evIf1 = normalizeInterfaceName(event.local_interface);
+      const evIf2 = normalizeInterfaceName(event.remote_interface);
+
+      // 1. Device names + interface match in either direction
+      const candidate = enrichedLinks.find((l) => {
+        const lSrc = cleanDeviceKey(l.sourceName);
+        const lTgt = cleanDeviceKey(l.targetName);
+        const sameDir = lSrc === evDev1 && lTgt === evDev2;
+        const revDir = lSrc === evDev2 && lTgt === evDev1;
+        if (!sameDir && !revDir) return false;
+
+        const lIf1 = normalizeInterfaceName(l.local_interface);
+        const lIf2 = normalizeInterfaceName(l.remote_interface);
+        const lAllLocal = (l.allLocalInterfaces || []).map(normalizeInterfaceName);
+        const lAllRemote = (l.allRemoteInterfaces || []).map(normalizeInterfaceName);
+
+        if (evIf1) {
+          if (sameDir && lIf1 !== evIf1 && !lAllLocal.includes(evIf1)) return false;
+          if (revDir && lIf2 !== evIf1 && !lAllRemote.includes(evIf1) && lIf1 !== evIf1) return false;
+        }
+        if (evIf2) {
+          if (sameDir && lIf2 !== evIf2 && !lAllRemote.includes(evIf2)) return false;
+          if (revDir && lIf1 !== evIf2 && !lAllLocal.includes(evIf2) && lIf2 !== evIf2) return false;
+        }
+        return true;
+      });
+
+      if (candidate) return candidate;
+
+      // 2. Device pair fallback if there's only 1 link between these devices
+      const pairMatches = enrichedLinks.filter((l) => {
+        const lSrc = cleanDeviceKey(l.sourceName);
+        const lTgt = cleanDeviceKey(l.targetName);
+        return (lSrc === evDev1 && lTgt === evDev2) || (lSrc === evDev2 && lTgt === evDev1);
+      });
+      if (pairMatches.length === 1) return pairMatches[0];
+
+      return null;
+    },
+    [enrichedLinks]
+  );
+
+  // Poll api/core-topology-events?days=1&event_type=link_down every 5 minutes.
+  // If any line has at least 10 link down events in the last 24 hours, show a popup listing all of those links.
+  const checkFrequentLinkDrops = useCallback(async () => {
+    try {
+      const data = await api.getCoreTopologyEvents({
+        days: 1,
+        event_type: "link_down",
+      });
+
+      const rawEvents = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.events)
+        ? data.events
+        : Array.isArray(data?.data?.events)
+        ? data.data.events
+        : Array.isArray(data?.data)
+        ? data.data
+        : [];
+
+      const now = Date.now();
+      const cutoff24h = now - 24 * 60 * 60 * 1000;
+
+      // Filter strictly to link_down events within last 24 hours
+      const downEvents = rawEvents.filter((ev) => {
+        const type = String(ev?.event_type || "").toLowerCase();
+        if (type !== "link_down") return false;
+        const tStr = ev.created_at || ev.changed_at;
+        if (!tStr) return true;
+        const t = new Date(tStr).getTime();
+        return isNaN(t) || t >= cutoff24h;
+      });
+
+      // Group events by line / canonical link
+      const groupsByLink = new Map();
+
+      downEvents.forEach((ev) => {
+        const canonicalLink = findCanonicalLinkForEvent(ev);
+
+        let groupKey;
+        let linkId;
+        let sourceName;
+        let targetName;
+        let localInterface;
+        let remoteInterface;
+        let localDeviceIp;
+        let remoteDeviceIp;
+        let isVisibleOnMap = false;
+
+        if (canonicalLink) {
+          groupKey = `canonical-${canonicalLink.id}`;
+          linkId = canonicalLink.id;
+          sourceName = canonicalLink.sourceName;
+          targetName = canonicalLink.targetName;
+          localInterface = canonicalLink.local_interface;
+          remoteInterface = canonicalLink.remote_interface;
+          localDeviceIp = canonicalLink.local_device_ip || getDeviceIp(canonicalLink.sourceName);
+          remoteDeviceIp = canonicalLink.remote_device_ip || getDeviceIp(canonicalLink.targetName);
+          isVisibleOnMap = Boolean(canonicalLink.isVisibleOnMap);
+        } else {
+          const d1 = ev.local_device_name || `Device-${ev.local_device_id || "A"}`;
+          const d2 = ev.remote_device_name || `Device-${ev.remote_device_id || "B"}`;
+          const isSorted = d1.localeCompare(d2) <= 0;
+          const canD1 = isSorted ? d1 : d2;
+          const canD2 = isSorted ? d2 : d1;
+          const if1 = isSorted ? ev.local_interface : ev.remote_interface;
+          const if2 = isSorted ? ev.remote_interface : ev.local_interface;
+          const normIf1 = normalizeInterfaceName(if1);
+          const normIf2 = normalizeInterfaceName(if2);
+          const ifSuffix = (normIf1 && normIf2) ? `-${normIf1}-${normIf2}` : "";
+
+          linkId = ev.link_id != null ? ev.link_id : `unmapped-${canD1}---${canD2}`;
+          groupKey = ev.link_id != null
+            ? `linkid-${ev.link_id}`
+            : `endpoints-${canD1.toLowerCase()}---${canD2.toLowerCase()}${ifSuffix}`;
+
+          sourceName = canD1;
+          targetName = canD2;
+          localInterface = if1;
+          remoteInterface = if2;
+          localDeviceIp = getDeviceIp(canD1);
+          remoteDeviceIp = getDeviceIp(canD2);
+          isVisibleOnMap = false;
+        }
+
+        if (!groupsByLink.has(groupKey)) {
+          groupsByLink.set(groupKey, {
+            key: groupKey,
+            linkId,
+            canonicalLink: canonicalLink || null,
+            sourceName,
+            targetName,
+            localInterface,
+            remoteInterface,
+            localDeviceIp,
+            remoteDeviceIp,
+            isVisibleOnMap,
+            events: [],
+          });
+        }
+
+        const grp = groupsByLink.get(groupKey);
+        grp.events.push(ev);
+      });
+
+      // Filter to lines having at least 10 link down events in the last 24h
+      const qualifyingLinks = [];
+
+      groupsByLink.forEach((group) => {
+        group.events.sort((a, b) => {
+          const ta = new Date(a.created_at || a.changed_at || 0).getTime();
+          const tb = new Date(b.created_at || b.changed_at || 0).getTime();
+          return tb - ta;
+        });
+
+        const dropCount = group.events.length;
+        if (dropCount >= 10) {
+          qualifyingLinks.push({
+            ...group,
+            dropCount,
+            lastDropTime: group.events[0]?.created_at || group.events[0]?.changed_at,
+          });
+        }
+      });
+
+      qualifyingLinks.sort((a, b) => b.dropCount - a.dropCount);
+
+      setFrequentDropLinks(qualifyingLinks);
+      setLastDropsCheckTime(new Date());
+
+      // If at least one line has at least 10 link down events in the last 24h, show the popup
+      if (qualifyingLinks.length > 0) {
+        setIsDropsModalOpen(true);
+      }
+    } catch (err) {
+      console.error("Failed to check frequent link down events:", err);
+    }
+  }, [findCanonicalLinkForEvent, getDeviceIp]);
+
+  // Periodic 5-minute poll
+  useEffect(() => {
+    // Initial call on mount
+    checkFrequentLinkDrops();
+
+    const FIVE_MINUTES_MS = 5 * 60 * 1000;
+    const interval = setInterval(() => {
+      checkFrequentLinkDrops();
+    }, FIVE_MINUTES_MS);
+
+    return () => clearInterval(interval);
+  }, [checkFrequentLinkDrops]);
 
   // Counts
   const upCount = useMemo(
@@ -1032,6 +1248,28 @@ export default function NetworkLinksSideDrawer({
             </span>
           )}
         </button>
+
+        {/* FREQUENT DROPS (10+ IN 24H) ALERT BUTTON */}
+        {frequentDropLinks.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setIsDropsModalOpen(true)}
+            title={`${frequentDropLinks.length} line(s) have experienced ≥10 link down events in the last 24 hours. Click to view alert.`}
+            className={`group flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold shadow-lg transition-all duration-200 border animate-pulse ${
+              isDark
+                ? "bg-rose-950/80 hover:bg-rose-900 text-rose-300 border-rose-700/80 backdrop-blur-md shadow-rose-950/40"
+                : "bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300 backdrop-blur-md shadow-rose-100/50"
+            }`}
+          >
+            <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-rose-500/20 text-rose-600 dark:text-rose-400 group-hover:bg-rose-500 group-hover:text-white transition-colors">
+              <AlertTriangle className="w-3.5 h-3.5 stroke-[2.5]" />
+            </div>
+            <span>10+ Drops</span>
+            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-rose-600 text-white shadow-xs">
+              {frequentDropLinks.length}
+            </span>
+          </button>
+        )}
       </div>
 
       {/* ========================================================= */}
@@ -1111,6 +1349,31 @@ export default function NetworkLinksSideDrawer({
             isDark ? "border-gray-800" : "border-gray-100"
           }`}
         >
+          {/* Frequent Drop Warning Banner */}
+          {frequentDropLinks.length > 0 && (
+            <div
+              className={`p-2.5 px-3 rounded-xl border flex items-center justify-between text-xs gap-2 ${
+                isDark
+                  ? "bg-rose-950/30 border-rose-800/40 text-rose-300"
+                  : "bg-rose-50 border-rose-200 text-rose-800"
+              }`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+                <span className="truncate">
+                  <strong>{frequentDropLinks.length} line{frequentDropLinks.length === 1 ? "" : "s"}</strong> experienced ≥10 link down events in 24h
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDropsModalOpen(true)}
+                className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-rose-600 hover:bg-rose-500 text-white transition-colors shrink-0 shadow-xs"
+              >
+                View Popup
+              </button>
+            </div>
+          )}
+
           {/* Status Tabs switch */}
           <div className="grid grid-cols-5 gap-1 p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl">
             <button
@@ -1453,59 +1716,6 @@ export default function NetworkLinksSideDrawer({
               </div>
             ) : (
               (() => {
-                // Helper to match an event to its unified canonical link in enrichedLinks
-                const findCanonicalLinkForEvent = (event) => {
-                  if (event.link_id != null) {
-                    const directMatch = enrichedLinks.find(
-                      (l) => l.id === event.link_id || (Array.isArray(l.allIds) && l.allIds.includes(event.link_id))
-                    );
-                    if (directMatch) return directMatch;
-                  }
-
-                  const evDev1 = cleanDeviceKey(event.local_device_name);
-                  const evDev2 = cleanDeviceKey(event.remote_device_name);
-                  if (!evDev1 || !evDev2) return null;
-
-                  const evIf1 = normalizeInterfaceName(event.local_interface);
-                  const evIf2 = normalizeInterfaceName(event.remote_interface);
-
-                  // 1. Device names + interface match in either direction
-                  const candidate = enrichedLinks.find((l) => {
-                    const lSrc = cleanDeviceKey(l.sourceName);
-                    const lTgt = cleanDeviceKey(l.targetName);
-                    const sameDir = lSrc === evDev1 && lTgt === evDev2;
-                    const revDir = lSrc === evDev2 && lTgt === evDev1;
-                    if (!sameDir && !revDir) return false;
-
-                    const lIf1 = normalizeInterfaceName(l.local_interface);
-                    const lIf2 = normalizeInterfaceName(l.remote_interface);
-                    const lAllLocal = (l.allLocalInterfaces || []).map(normalizeInterfaceName);
-                    const lAllRemote = (l.allRemoteInterfaces || []).map(normalizeInterfaceName);
-
-                    if (evIf1) {
-                      if (sameDir && lIf1 !== evIf1 && !lAllLocal.includes(evIf1)) return false;
-                      if (revDir && lIf2 !== evIf1 && !lAllRemote.includes(evIf1) && lIf1 !== evIf1) return false;
-                    }
-                    if (evIf2) {
-                      if (sameDir && lIf2 !== evIf2 && !lAllRemote.includes(evIf2)) return false;
-                      if (revDir && lIf1 !== evIf2 && !lAllLocal.includes(evIf2) && lIf2 !== evIf2) return false;
-                    }
-                    return true;
-                  });
-
-                  if (candidate) return candidate;
-
-                  // 2. Device pair fallback if there's only 1 link between these devices
-                  const pairMatches = enrichedLinks.filter((l) => {
-                    const lSrc = cleanDeviceKey(l.sourceName);
-                    const lTgt = cleanDeviceKey(l.targetName);
-                    return (lSrc === evDev1 && lTgt === evDev2) || (lSrc === evDev2 && lTgt === evDev1);
-                  });
-                  if (pairMatches.length === 1) return pairMatches[0];
-
-                  return null;
-                };
-
                 const filteredEvents = statusEvents.filter((event) => {
                   if (!searchQuery.trim()) return true;
                   const queryWords = searchQuery.toLowerCase().trim().split(/\s+/).filter(Boolean);
@@ -2095,6 +2305,26 @@ export default function NetworkLinksSideDrawer({
           onMarkAll?.(matching.map((l) => l.id));
         }}
         theme={theme}
+      />
+
+      {/* Frequent Link Drops (>= 10 link down in 24h) Popup Modal */}
+      <FrequentLinkDropsModal
+        isOpen={isDropsModalOpen}
+        onClose={() => setIsDropsModalOpen(false)}
+        frequentDropLinks={frequentDropLinks}
+        lastChecked={lastDropsCheckTime}
+        theme={theme}
+        onInspectLink={(linkData) => {
+          setIsDropsModalOpen(false);
+          if (onLinkClick) {
+            const payload = createLinkPopupPayload(linkData) || linkData;
+            onLinkClick(payload);
+          }
+        }}
+        onOpenDrawer={() => {
+          setIsOpen(true);
+          setActiveFilter("all");
+        }}
       />
     </>
   );

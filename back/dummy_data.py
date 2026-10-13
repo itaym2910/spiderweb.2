@@ -698,6 +698,45 @@ def generate_dummy_data():
             })
             event_id_counter += 1
 
+    # Ensure at least one core line has at least 10 link_down events in the last 24h for periodic drop alert
+    if core_links:
+        flapping_link = core_links[0]
+        flapping_dev = next((d for d in core_devices if d["id"] == flapping_link["coredevice_id"]), None)
+        flapping_nbr = next((d for d in core_devices if d["id"] == flapping_link["neighbor_coredevice_id"]), None)
+        if flapping_dev and flapping_nbr:
+            flapping_site = next((cs for cs in core_sites if cs["id"] == flapping_dev["coresite_id"]), None)
+            flapping_net = next((n for n in networks if n["id"] == flapping_dev.get("network_type_id", 1)), None)
+            for drop_idx in range(12):
+                drop_time = now - timedelta(hours=random.uniform(0.5, 23.0))
+                link_status_events.append({
+                    "id": event_id_counter,
+                    "link_id": flapping_link["id"],
+                    "local_device_id": flapping_dev["id"],
+                    "local_device_name": flapping_dev["name"],
+                    "remote_device_id": flapping_nbr["id"],
+                    "remote_device_name": flapping_nbr["name"],
+                    "local_interface": flapping_link["local_interface"],
+                    "remote_interface": flapping_link["remote_interface"],
+                    "event_type": "link_down",
+                    "old_oper_status": "Up",
+                    "new_oper_status": "Down",
+                    "old_ospf_state": "Full",
+                    "new_ospf_state": "Down",
+                    "old_status": "up",
+                    "new_status": "down",
+                    "created_at": drop_time.isoformat(),
+                    "changed_at": drop_time.isoformat(),
+                    "device_name": flapping_dev["name"],
+                    "coresite_name": flapping_site["name"] if flapping_site else "Unknown",
+                    "network_name": flapping_net["name"] if flapping_net else "Unknown",
+                    "network_type_id": flapping_dev.get("network_type_id", 1),
+                    "details": {
+                        "reason": "Interface link down (carrier lost)",
+                        "description": f"{flapping_dev['name']} {flapping_link['local_interface']} -> {flapping_nbr['name']} {flapping_link['remote_interface']} [LINK_DOWN]",
+                    },
+                })
+                event_id_counter += 1
+
     # Sort events newest first
     link_status_events.sort(key=lambda e: e["created_at"], reverse=True)
 
