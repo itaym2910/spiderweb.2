@@ -1,7 +1,7 @@
-// LinkTable.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import LinkDetailPopup from "../shared/LinkDetailPopup";
+import { createLinkPopupPayload } from "../chart/handleInteractions";
 import {
   ArrowLeft,
   Server,
@@ -263,6 +263,48 @@ const LinkTable = ({
     navigate(`${basePath}/zone/${coreSiteName}`);
   };
 
+  const handleLinkSelect = (link) => {
+    if (window.getSelection && window.getSelection().toString().trim().length > 0) return;
+
+    const isCoreLink = link.isCoreLink ?? (link.type !== "core-to-site");
+
+    if (isCoreLink) {
+      // Connection to a core device: use the same popup as in the chart pages
+      const rawLinkData = link.rawLink || link;
+      const payload = createLinkPopupPayload(rawLinkData) || rawLinkData;
+      const src =
+        typeof payload.source === "object"
+          ? payload.source?.id || payload.source?.hostname || payload.source?.name
+          : payload.sourceNode || payload.sourceName || payload.source || coreDeviceName;
+      const tgt =
+        typeof payload.target === "object"
+          ? payload.target?.id || payload.target?.hostname || payload.target?.name
+          : payload.targetNode || payload.targetName || payload.target || link.name;
+
+      setPopupItem({
+        data: {
+          ...payload,
+          rawLink: payload.rawLink || rawLinkData,
+          skipFetch: true,
+          isCoreTopology: true,
+        },
+        type: "link",
+        title: `${src || "Device A"} ⟷ ${tgt || "Device B"}`,
+      });
+    } else {
+      // Connection to an end site: use current popup
+      setPopupItem({
+        data: {
+          ...link,
+          skipFetch: false,
+          isCoreTopology: false,
+        },
+        type: "link",
+        title: link.name || "Link Details",
+      });
+    }
+  };
+
 
 
   return (
@@ -451,10 +493,7 @@ const LinkTable = ({
                       return (
                         <tr
                           key={link.id}
-                          onClick={() => {
-                            if (window.getSelection && window.getSelection().toString().trim().length > 0) return;
-                            setPopupItem({ data: link, type: "link" });
-                          }}
+                          onClick={() => handleLinkSelect(link)}
                           className="hover:bg-purple-50/60 dark:hover:bg-purple-500/10 cursor-pointer transition-colors duration-150"
                           title="Click for full details popup"
                         >
@@ -512,6 +551,7 @@ const LinkTable = ({
       <LinkDetailPopup
         linkData={popupItem?.data || null}
         linkType={popupItem?.type || "link"}
+        linkTitle={popupItem?.title || ""}
         onClose={() => setPopupItem(null)}
         theme={theme}
       />

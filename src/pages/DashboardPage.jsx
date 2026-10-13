@@ -1,5 +1,5 @@
 import React from "react";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import {
   Routes,
   Route,
@@ -22,8 +22,8 @@ import LinkTable from "../components/CoreDevice/LinkTable";
 import { useRelatedDevices } from "../hooks/useRelatedDevices";
 import { selectAllDevices, selectDeviceInfo } from "../redux/slices/devicesSlice";
 import { selectAllSites } from "../redux/slices/sitesSlice";
-import { selectTopologyDevices } from "../redux/slices/coreTopologySlice";
-import { getLinkStatusAndDate } from "../components/chart/drawHelpers";
+import { selectTopologyDevices, fetchCoreTopology } from "../redux/slices/coreTopologySlice";
+import { getLinkStatusAndDate, normalizeInterfaceName, cleanDeviceKey } from "../components/chart/drawHelpers";
 import { api } from "../services/apiServices";
 
 // This helper component can be used by other pages like FavoritesPage
@@ -49,15 +49,48 @@ function StatusIndicator({ status }) {
 // This component now correctly receives the theme prop to pass down.
 function NodeDetailView({ chartType, theme }) {
   const { nodeId: deviceHostname, zoneId } = useParams();
+  const dispatch = useDispatch();
   const allDevices = useSelector(selectAllDevices);
   const allTopologyDevices = useSelector(selectTopologyDevices);
   const allSites = useSelector(selectAllSites);
   const deviceInfo = useSelector(selectDeviceInfo);
   const otherDevicesInZone = useRelatedDevices(deviceHostname, zoneId);
 
-  const [apiDeviceLinks, setApiDeviceLinks] = React.useState([]);
+  const [directCoreTopology, setDirectCoreTopology] = React.useState(null);
+  const [endSiteLinks, setEndSiteLinks] = React.useState([]);
 
-  // Find the current device object and its interfaces
+  // Fetch core topology (Redux thunk + direct fallback) and poll every 5s
+  React.useEffect(() => {
+    dispatch(fetchCoreTopology());
+    api.getCoreTopology()
+      .then((data) => {
+        const devs = Array.isArray(data?.devices)
+          ? data.devices
+          : Array.isArray(data?.data?.devices)
+          ? data.data.devices
+          : Array.isArray(data)
+          ? data
+          : [];
+        if (devs.length > 0) {
+          setDirectCoreTopology(devs);
+        }
+      })
+      .catch((err) => console.error("Failed to fetch direct core topology:", err));
+
+    const interval = setInterval(() => {
+      dispatch(fetchCoreTopology());
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [dispatch]);
+
+  const topologyDevicesToUse = React.useMemo(() => {
+    if (allTopologyDevices && allTopologyDevices.length > 0) {
+      return allTopologyDevices;
+    }
+    return directCoreTopology || [];
+  }, [allTopologyDevices, directCoreTopology]);
+
+  // Find the current device object
   const currentDevice = React.useMemo(() => {
     return (
       allDevices.find((d) => 
@@ -65,121 +98,350 @@ function NodeDetailView({ chartType, theme }) {
         d.name === deviceHostname || 
         String(d.id) === String(deviceHostname)
       ) ||
-      allTopologyDevices.find((d) =>
+      topologyDevicesToUse.find((d) =>
         d.name === deviceHostname ||
         d.hostname === deviceHostname ||
         String(d.id) === String(deviceHostname)
       ) ||
       null
     );
-  }, [allDevices, allTopologyDevices, deviceHostname]);
+  }, [allDevices, topologyDevicesToUse, deviceHostname]);
 
+  // Helper sets to reliably identify core devices
+  const coreDeviceIds = React.useMemo(() => {
+    const ids = new Set();
+    allDevices.forEach((d) => {
+      if (d.id != null) ids.add(String(d.id));
+    });
+    topologyDevicesToUse.forEach((d) => {
+      if (d.id != null) ids.add(String(d.id));
+    });
+    return ids;
+  }, [allDevices, topologyDevicesToUse]);
+
+  const coreDeviceNames = React.useMemo(() => {
+    const names = new Set();
+    allDevices.forEach((d) => {
+      if (d.hostname) names.add(d.hostname.toLowerCase());
+      if (d.name) names.add(d.name.toLowerCase());
+    });
+    topologyDevicesToUse.forEach((d) => {
+      if (d.name) names.add(d.name.toLowerCase());
+      if (d.hostname) names.add(d.hostname.toLowerCase());
+    });
+    return names;
+  }, [allDevices, topologyDevicesToUse]);
+
+  // For every connection to a core device, use info from the core-topology endpoint
+  const coreDeviceLinks = React.useMemo(() => {
+    if (!currentDevice || !topologyDevicesToUse || topologyDevicesToUse.length === 0) return [];
+
+    const currentDevId = currentDevice.id != null ? String(currentDevice.id) : null;
+    const currentDevName = (currentDevice.name || currentDevice.hostname || deviceHostname || "").toLowerCase();
+
+    const result = [];
+    const seenLinkIds = new Set();
+    const seenSignatures = new Set();
+    const seenLocalIfs = new Set();
+
+    const makeSignature = (devA, ifA, devB, ifB) => {
+      const normDevA = cleanDeviceKey(devA || "");
+      const normIfA = normalizeInterfaceName(ifA || "");
+      const normDevB = cleanDeviceKey(devB || "");
+      const normIfB = normalizeInterfaceName(ifB || "");
+      if (!normDevA || !normDevB) return null;
+      const epA = `${normDevA}::${normIfA}`;
+      const epB = `${normDevB}::${normIfB}`;
+      return [epA, epB].sort().join("---");
+    };
+
+    // Find current device in topology devices
+    const topoDevice = topologyDevicesToUse.find((d) =>
+      (currentDevId != null && d.id != null && String(d.id) === currentDevId) ||
+      (d.name && d.name.toLowerCase() === currentDevName) ||
+      (d.hostname && d.hostname.toLowerCase() === currentDevName)
+    );
+
+    // 1. First, process links originating from currentDevice in core-topology
+    if (topoDevice && Array.isArray(topoDevice.links)) {
+      topoDevice.links.forEach((link) => {
+        if (!link) return;
+        const linkIdStr = link.id != null ? String(link.id) : null;
+        if (linkIdStr && seenLinkIds.has(linkIdStr)) return;
+
+        const rawLocalIf = link.local_interface || "";
+        const rawRemoteIf = link.remote_interface || "";
+        const normLocalIf = normalizeInterfaceName(rawLocalIf);
+
+        const remoteDevice =
+          topologyDevicesToUse.find((d) =>
+            (link.remote_device_id != null && (d.id === link.remote_device_id || String(d.id) === String(link.remote_device_id))) ||
+            (link.remote_device_name && (d.name === link.remote_device_name || d.hostname === link.remote_device_name))
+          ) ||
+          allDevices.find((d) =>
+            (link.remote_device_id != null && (d.id === link.remote_device_id || String(d.id) === String(link.remote_device_id))) ||
+            (link.remote_device_name && (d.name === link.remote_device_name || d.hostname === link.remote_device_name))
+          );
+
+        const remoteName = remoteDevice?.name || remoteDevice?.hostname || link.remote_device_name || `Device-${link.remote_device_id || "Unknown"}`;
+        const sig = makeSignature(
+          currentDevice.name || currentDevice.hostname || deviceHostname,
+          rawLocalIf,
+          remoteName,
+          rawRemoteIf
+        );
+
+        if (sig && seenSignatures.has(sig)) return;
+        if (normLocalIf && seenLocalIfs.has(normLocalIf)) return;
+
+        if (linkIdStr) seenLinkIds.add(linkIdStr);
+        if (sig) seenSignatures.add(sig);
+        if (normLocalIf) seenLocalIfs.add(normLocalIf);
+
+        const currentSite = topoDevice.coresite_name || currentDevice.coresite_name || zoneId;
+        const remoteSite = remoteDevice?.coresite_name || remoteDevice?.zoneName || link.remote_coresite_name;
+        const isSameSite = Boolean(currentSite && remoteSite && currentSite.toLowerCase() === remoteSite.toLowerCase());
+
+        result.push({
+          ...link,
+          isCoreLink: true,
+          isCoreDeviceConnection: true,
+          sourceDevice: topoDevice,
+          remoteDevice: remoteDevice || { id: link.remote_device_id, name: remoteName },
+          neighbor_coredevice: remoteDevice || { id: link.remote_device_id, name: remoteName },
+          source: topoDevice.name || topoDevice.hostname || currentDevice.name,
+          target: remoteName,
+          name: remoteName,
+          destinationIp: link.remote_link_ip || link.remote_device_ip || link.remote_ip || "N/A",
+          description: link.local_interface_description || link.description || `Link to ${remoteName}`,
+          local_interface_description: link.local_interface_description || link.description || `Link to ${remoteName}`,
+          linkType: isSameSite ? "inter-core-same-site" : "inter-core-different-site",
+          rawLink: link,
+        });
+      });
+    }
+
+    // 2. Only check other core devices for links where currentDevice is the target (if not already recorded)
+    topologyDevicesToUse.forEach((dev) => {
+      if (!dev.links || !Array.isArray(dev.links) || dev === topoDevice || (currentDevId != null && String(dev.id) === currentDevId)) return;
+
+      dev.links.forEach((link) => {
+        if (!link) return;
+        const isRemoteCurrent =
+          (currentDevId != null && link.remote_device_id != null && String(link.remote_device_id) === currentDevId) ||
+          (link.remote_device_name && link.remote_device_name.toLowerCase() === currentDevName);
+
+        if (!isRemoteCurrent) return;
+
+        const linkIdStr = link.id != null ? String(link.id) : null;
+        if (linkIdStr && seenLinkIds.has(linkIdStr)) return;
+
+        const rawLocalIf = link.remote_interface || link.local_interface || "";
+        const rawRemoteIf = link.local_interface || link.remote_interface || "";
+        const normLocalIf = normalizeInterfaceName(rawLocalIf);
+        const remoteName = dev.name || dev.hostname || `Device-${dev.id || "Unknown"}`;
+
+        const sig = makeSignature(
+          currentDevice.name || currentDevice.hostname || deviceHostname,
+          rawLocalIf,
+          remoteName,
+          rawRemoteIf
+        );
+
+        if (sig && seenSignatures.has(sig)) return;
+        if (normLocalIf && seenLocalIfs.has(normLocalIf)) return;
+
+        if (linkIdStr) seenLinkIds.add(linkIdStr);
+        if (sig) seenSignatures.add(sig);
+        if (normLocalIf) seenLocalIfs.add(normLocalIf);
+
+        const currentSite = currentDevice.coresite_name || zoneId;
+        const remoteSite = dev.coresite_name;
+        const isSameSite = Boolean(currentSite && remoteSite && currentSite.toLowerCase() === remoteSite.toLowerCase());
+
+        const normalizedRawLink = {
+          ...link,
+          local_interface: rawLocalIf,
+          remote_interface: rawRemoteIf,
+          local_link_ip: link.remote_link_ip || link.remote_ip,
+          remote_link_ip: link.local_link_ip || link.local_ip,
+          remote_device_name: remoteName,
+          remote_device_id: dev.id,
+          in_bps: link.out_bps ?? link.output_rate,
+          out_bps: link.in_bps ?? link.input_rate,
+        };
+
+        result.push({
+          ...link,
+          isCoreLink: true,
+          isCoreDeviceConnection: true,
+          sourceDevice: currentDevice,
+          remoteDevice: dev,
+          neighbor_coredevice: dev,
+          source: currentDevice.name || currentDevice.hostname || deviceHostname,
+          target: remoteName,
+          name: remoteName,
+          local_interface: rawLocalIf,
+          remote_interface: rawRemoteIf,
+          local_link_ip: link.remote_link_ip || link.remote_ip,
+          remote_link_ip: link.local_link_ip || link.local_ip,
+          destinationIp: link.local_link_ip || link.local_ip || dev.ip || "N/A",
+          description: link.local_interface_description || link.description || `Link to ${remoteName}`,
+          local_interface_description: link.local_interface_description || link.description || `Link to ${remoteName}`,
+          in_bps: link.out_bps ?? link.output_rate,
+          out_bps: link.in_bps ?? link.input_rate,
+          linkType: isSameSite ? "inter-core-same-site" : "inter-core-different-site",
+          rawLink: normalizedRawLink,
+        });
+      });
+    });
+
+    return result;
+  }, [currentDevice, topologyDevicesToUse, allDevices, deviceHostname, zoneId]);
+
+  // Fetch links from link/topology/{core_device_id} ONLY for connections to end sites
   React.useEffect(() => {
     if (currentDevice?.id) {
       api.getLinksTopologyByDevice(currentDevice.id)
         .then((data) => {
           const links = Array.isArray(data) ? data : data.links || [];
-          if (links.length > 0) {
-            setApiDeviceLinks(links);
-          } else if (currentDevice.links && currentDevice.links.length > 0) {
-            setApiDeviceLinks(currentDevice.links);
-          } else {
-            setApiDeviceLinks([]);
-          }
+
+          // Create sets of already included core link IDs and interfaces for deduplication
+          const coreIds = new Set(coreDeviceLinks.map((l) => String(l.id)));
+          const coreIfs = new Set(
+            coreDeviceLinks
+              .map((l) => normalizeInterfaceName(l.local_interface))
+              .filter(Boolean)
+          );
+
+          // Keep strictly connections to end sites:
+          const endSitesOnly = links.filter((link) => {
+            if (!link) return false;
+
+            // Skip if ID or local interface is already in coreDeviceLinks
+            if (link.id != null && coreIds.has(String(link.id))) return false;
+            const normIf = normalizeInterfaceName(link.local_interface || "");
+            if (normIf && coreIfs.has(normIf)) return false;
+
+            // Skip if explicitly core or inter-core link
+            if (link.neighbor_is_core === true) return false;
+            if (link.type === "inter-core-same-site" || link.type === "inter-core-different-site") return false;
+
+            // Skip if neighbor is any known core device
+            if (link.neighbor_coredevice && (link.neighbor_coredevice.id != null || link.neighbor_coredevice.name)) {
+              return false;
+            }
+            if (link.neighbor_coredevice_id != null && coreDeviceIds.has(String(link.neighbor_coredevice_id))) {
+              return false;
+            }
+            if (link.remote_device_id != null && coreDeviceIds.has(String(link.remote_device_id))) {
+              return false;
+            }
+            if (link.remote_device_name && coreDeviceNames.has(link.remote_device_name.toLowerCase())) {
+              return false;
+            }
+
+            // Must be an end site connection:
+            if (link.neighbor_is_core === false) return true;
+            if (link.neighbor_site || link.neighbor_site_id) return true;
+            if (link.type === "core-to-site") return true;
+            if (!link.neighbor_coredevice && !link.neighbor_coredevice_id) return true;
+
+            return false;
+          });
+          setEndSiteLinks(endSitesOnly);
         })
         .catch((err) => {
-          console.error("Failed to fetch device links:", err);
-          if (currentDevice.links && currentDevice.links.length > 0) {
-            setApiDeviceLinks(currentDevice.links);
-          }
+          console.error("Failed to fetch end site links:", err);
+          setEndSiteLinks([]);
         });
-    } else if (currentDevice?.links && currentDevice.links.length > 0) {
-      setApiDeviceLinks(currentDevice.links);
+    } else {
+      setEndSiteLinks([]);
     }
-  }, [currentDevice]);
+  }, [currentDevice?.id, coreDeviceLinks, coreDeviceIds, coreDeviceNames]);
 
-  const deviceInterfaces = React.useMemo(() => {
-    if (!currentDevice) return [];
+  // Format end site links and deduplicate
+  const formattedEndSiteLinks = React.useMemo(() => {
+    if (!endSiteLinks || endSiteLinks.length === 0) return [];
 
-    // 1. Map API topology links to interfaces format
-    if (apiDeviceLinks && apiDeviceLinks.length > 0) {
-      return apiDeviceLinks.map((link) => {
-        const remoteName = link.remote_device_name || link.neighbor_coredevice?.name || link.neighbor_site?.name || link.target || "Unknown Device";
-        const operStatus = String(link.oper_status || link.status || link.physicalStatus || "down").toLowerCase() === "up" ? "Up" : "Down";
-        const ospfStatus = String(link.ospf_state || link.ospfStatus || link.protocolStatus || "down").toLowerCase() === "full" ? "Up" : "Down";
-        
-        return {
-          id: link.id || Math.random().toString(),
-          name: link.local_interface || link.name || "Unknown Interface",
-          description: link.local_interface_description || link.description || `Link to ${typeof remoteName === "object" ? remoteName.name || remoteName.hostname : remoteName}`,
-          local_interface_description: link.local_interface_description || link.description || "",
-          physical_status: operStatus,
-          protocol_status: ospfStatus,
-          bandwidth: link.bandwidth || link.bw || (link.bandwidth_mbps ? (link.bandwidth_mbps >= 1000 ? `${link.bandwidth_mbps / 1000} Gbps` : `${link.bandwidth_mbps} Mbps`) : 10000),
-          bandwidth_mbps: link.bandwidth_mbps,
-          mtu: link.mtu || 9000,
-          ping_success_rate: link.ping_success_rate,
-          ping_success_attempts: link.ping_success_attempts,
-          ping_packets_success: link.ping_packets_success ?? link.ping_success_attempts,
-          ping_packets_total: link.ping_packets_total,
-          ping_ratio: link.ping_ratio,
-          total_pings: link.total_pings ?? link.ping_total,
-          ping_total: link.ping_total ?? link.total_pings,
-          last_ping_at: link.last_ping_at,
-          local_link_ip: link.local_link_ip || link.local_ip,
-          remote_link_ip: link.remote_link_ip || link.remote_ip,
-          remote_device_ip: link.remote_device_ip,
-          destinationIp: link.remote_link_ip || link.remote_device_ip || link.neighbor_ip || link.remote_ip || "N/A",
-          media_type: link.media_type || link.MediaType || "Fiber Optic",
-          cdp: typeof remoteName === "object" ? remoteName.name || remoteName.hostname : remoteName,
-          ospf: ospfStatus,
-          mpls: link.mpls || "Enabled",
-          is_ospf_full: link.is_ospf_full !== undefined ? Boolean(link.is_ospf_full) : ospfStatus === "Up",
-          last_state_change_at: link.last_state_change_at,
-          tx: link.tx !== undefined ? link.tx : (link.tx_power !== undefined ? link.tx_power : (link.TX !== undefined ? link.TX : "N/A")),
-          rx: link.rx !== undefined ? link.rx : (link.rx_power !== undefined ? link.rx_power : (link.RX !== undefined ? link.RX : "N/A")),
-          crc: link.crc || 0,
-        };
+    const result = [];
+    const seenEndSiteIds = new Set();
+    const seenEndSiteIfs = new Set();
+
+    endSiteLinks.forEach((link) => {
+      if (!link) return;
+      const linkIdStr = link.id != null ? String(link.id) : null;
+      if (linkIdStr && seenEndSiteIds.has(linkIdStr)) return;
+
+      const normIf = normalizeInterfaceName(link.local_interface || "");
+      if (normIf && seenEndSiteIfs.has(normIf)) return;
+
+      if (linkIdStr) seenEndSiteIds.add(linkIdStr);
+      if (normIf) seenEndSiteIfs.add(normIf);
+
+      const neighborSite =
+        link.neighbor_site ||
+        (link.neighbor_site_id != null ? allSites.find((s) => s.id === link.neighbor_site_id || String(s.id) === String(link.neighbor_site_id)) : null);
+
+      const siteName =
+        (typeof neighborSite === "object" ? neighborSite?.name : neighborSite) ||
+        link.neighbor_site_name ||
+        link.remote_device_name ||
+        link.target ||
+        "End Site";
+
+      result.push({
+        ...link,
+        isCoreLink: false,
+        isCoreDeviceConnection: false,
+        name: siteName,
+        destinationIp: link.remote_link_ip || link.remote_device_ip || link.neighbor_ip || link.remote_ip || "N/A",
+        description: link.local_interface_description || link.description || `Link to ${siteName}`,
+        local_interface_description: link.local_interface_description || link.description || `Link to ${siteName}`,
+        linkType: "core-to-site",
+        rawLink: link,
       });
-    }
+    });
 
-    // 2. Try finding in deviceInfo store by id (number or string) or hostname
-    if (deviceInfo) {
-      const found =
-        deviceInfo[currentDevice.id] ||
-        deviceInfo[String(currentDevice.id)] ||
-        deviceInfo[currentDevice.hostname];
-      if (Array.isArray(found) && found.length > 0) {
-        return found;
-      }
-    }
+    return result;
+  }, [endSiteLinks, allSites]);
 
-    return [];
-  }, [currentDevice, deviceInfo, apiDeviceLinks]);
+  // Combined links for the device, strictly deduplicated
+  const combinedRawLinks = React.useMemo(() => {
+    const combined = [];
+    const seenIds = new Set();
+    const seenIfs = new Set();
+
+    // Core device links take precedence
+    coreDeviceLinks.forEach((link) => {
+      if (link.id != null) seenIds.add(String(link.id));
+      const normIf = normalizeInterfaceName(link.local_interface || "");
+      if (normIf) seenIfs.add(normIf);
+      combined.push(link);
+    });
+
+    // Add end site links without duplicate IDs or local interfaces
+    formattedEndSiteLinks.forEach((link) => {
+      if (link.id != null && seenIds.has(String(link.id))) return;
+      const normIf = normalizeInterfaceName(link.local_interface || "");
+      if (normIf && seenIfs.has(normIf)) return;
+
+      if (link.id != null) seenIds.add(String(link.id));
+      if (normIf) seenIfs.add(normIf);
+      combined.push(link);
+    });
+
+    return combined;
+  }, [coreDeviceLinks, formattedEndSiteLinks]);
 
   const linksForTable = React.useMemo(() => {
     if (!currentDevice) return [];
 
-    const deviceMapByHostname = new Map(allDevices.map((d) => [d.hostname, d]));
-    const deviceMapById = new Map(allDevices.map((d) => [d.id, d]));
     const typeId = chartType === "P" ? 2 : 1;
+    const seenResultIds = new Set();
+    const seenResultIfs = new Set();
 
-    // Helper to get hostname string from string, number, or node object
-    const getHostname = (val, linkObj, isSource) => {
-      if (val && typeof val === "object") return val.hostname || val.name || "";
-      if (val && typeof val === "string") return val;
-      if (val) return String(val);
-      
-      // Fallback to coredevice/neighbor_coredevice structure if val is undefined
-      if (linkObj) {
-        if (isSource && linkObj.coredevice) return linkObj.coredevice.name || linkObj.coredevice.hostname || "";
-        if (!isSource && linkObj.neighbor_coredevice) return linkObj.neighbor_coredevice.name || linkObj.neighbor_coredevice.hostname || "";
-        if (!isSource && linkObj.neighbor_site) return linkObj.neighbor_site.name || "";
-      }
-      return "";
-    };
-
-    const interCoreLinks = apiDeviceLinks
+    return combinedRawLinks
       .filter((link) => {
         // Match network type if present
         const linkTypeId = link.network_type_id ?? link.type_id;
@@ -191,63 +453,18 @@ function NodeDetailView({ chartType, theme }) {
           return false;
         }
 
-        const sourceHost = getHostname(link.source, link, true);
-        const targetHost = getHostname(link.target, link, false);
+        const linkIdStr = link.id != null ? String(link.id) : null;
+        if (linkIdStr && seenResultIds.has(linkIdStr)) return false;
 
-        const isSource =
-          sourceHost === deviceHostname ||
-          link.coredevice_id === currentDevice.id ||
-          link.source === currentDevice.id ||
-          link.coredevice?.id === currentDevice.id;
+        const normIf = normalizeInterfaceName(link.local_interface || "");
+        if (normIf && seenResultIfs.has(normIf)) return false;
 
-        const isTarget =
-          targetHost === deviceHostname ||
-          link.neighbor_coredevice_id === currentDevice.id ||
-          link.target === currentDevice.id ||
-          link.neighbor_coredevice?.id === currentDevice.id ||
-          link.neighbor_site?.id === currentDevice.id;
+        if (linkIdStr) seenResultIds.add(linkIdStr);
+        if (normIf) seenResultIfs.add(normIf);
 
-        return isSource || isTarget || true; // Since the API only returns links for this device, we can just return true.
+        return true;
       })
       .map((link) => {
-        const sourceHost = getHostname(link.source, link, true);
-        const targetHost = getHostname(link.target, link, false);
-
-        const isSource =
-          sourceHost === deviceHostname ||
-          link.coredevice_id === currentDevice.id ||
-          link.source === currentDevice.id ||
-          link.coredevice?.id === currentDevice.id;
-
-        const otherDeviceHostname = isSource ? targetHost : sourceHost;
-        const otherDeviceId = isSource
-          ? link.neighbor_coredevice_id || link.target || link.neighbor_coredevice?.id || link.neighbor_site?.id
-          : link.coredevice_id || link.source || link.coredevice?.id;
-
-        const otherDevice =
-          deviceMapByHostname.get(otherDeviceHostname) ||
-          (typeof otherDeviceId === "object"
-            ? otherDeviceId
-            : deviceMapById.get(otherDeviceId));
-
-        const finalOtherHost =
-          otherDevice?.hostname ||
-          (typeof otherDeviceHostname === "string" && otherDeviceHostname
-            ? otherDeviceHostname
-            : `Device-${otherDeviceId || "Unknown"}`);
-
-        let linkType = "inter-core-different-site";
-        if (!link.neighbor_coredevice) {
-          linkType = "core-to-site";
-        } else if (
-          link.coredevice &&
-          link.coredevice.coresite_id === link.neighbor_coredevice.coresite_id
-        ) {
-          linkType = "inter-core-same-site";
-        } else {
-          linkType = "inter-core-different-site";
-        }
-
         const { status: normalizedStatus, statusDate: linkStatusDate } = getLinkStatusAndDate(link);
 
         const bw = link.bandwidth || link.Bandwidth || link.bw;
@@ -256,13 +473,13 @@ function NodeDetailView({ chartType, theme }) {
             ? bw >= 1000
               ? `${bw / 1000} Gbps`
               : `${bw} Mbps`
-            : bw || "10 Gbps";
+            : bw || (link.bandwidth_mbps ? (link.bandwidth_mbps >= 1000 ? `${link.bandwidth_mbps / 1000} Gbps` : `${link.bandwidth_mbps} Mbps`) : "10 Gbps");
 
         return {
           ...link,
           id: link.id || `link-${Math.random()}`,
-          name: finalOtherHost,
-          destinationIp: link.remote_link_ip || link.remote_device_ip || link.neighbor_ip || link.remote_ip || "N/A",
+          name: link.name,
+          destinationIp: link.destinationIp || link.remote_link_ip || link.remote_device_ip || link.neighbor_ip || link.remote_ip || "N/A",
           description: link.local_interface_description || link.description || "N/A",
           local_interface_description: link.local_interface_description || link.description || "N/A",
           local_link_ip: link.local_link_ip || link.local_ip,
@@ -291,10 +508,10 @@ function NodeDetailView({ chartType, theme }) {
           last_ping_at: link.last_ping_at,
           ospfStatus: link.OSPF || link.ospfStatus || link.ospf_state || "Enabled",
           mplsStatus: link.MPLS || link.mplsStatus || "Enabled",
-          type: linkType,
+          type: link.linkType || link.type || (link.isCoreLink ? "inter-core-different-site" : "core-to-site"),
           additionalDetails: {
             mediaType: link.MediaType || link.media_type || "Fiber",
-            cdpNeighbors: link.CDP || link.cdp || finalOtherHost,
+            cdpNeighbors: link.CDP || link.cdp || link.name,
             containerName: link.containerName || "Core Backbone",
             mtu: link.mtu || 9000,
             ping_success_rate: link.ping_success_rate,
@@ -308,25 +525,73 @@ function NodeDetailView({ chartType, theme }) {
             crcErrors: link.crc ?? link.crcErrors ?? 0,
             inputDataRate: link.input_data
               ? `${link.input_data} Mbps`
-              : link.input_rate || "N/A",
+              : link.input_rate || (link.in_bps ? `${(link.in_bps / 1000000).toFixed(1)} Mbps` : "N/A"),
             outputDataRate: link.output_data
               ? `${link.output_data} Mbps`
-              : link.output_rate || "N/A",
+              : link.output_rate || (link.out_bps ? `${(link.out_bps / 1000000).toFixed(1)} Mbps` : "N/A"),
             txPower: link.tx !== undefined ? `${link.tx} dBm` : (link.TX ? `${link.TX} dBm` : link.txPower || "N/A"),
             rxPower: link.rx !== undefined ? `${link.rx} dBm` : (link.RX ? `${link.RX} dBm` : link.rxPower || "N/A"),
           },
         };
       });
+  }, [currentDevice, chartType, combinedRawLinks]);
 
-      return interCoreLinks;
-  }, [
-    deviceHostname,
-    chartType,
-    allDevices,
-    allSites,
-    apiDeviceLinks,
-    currentDevice,
-  ]);
+  const deviceInterfaces = React.useMemo(() => {
+    if (!currentDevice) return [];
+
+    if (linksForTable && linksForTable.length > 0) {
+      return linksForTable.map((link) => {
+        const remoteName = link.name || "Unknown Device";
+        const operStatus = String(link.oper_status || link.status || link.physicalStatus || "down").toLowerCase() === "up" ? "Up" : "Down";
+        const ospfStatus = String(link.ospf_state || link.ospfStatus || link.protocolStatus || "down").toLowerCase() === "full" ? "Up" : "Down";
+
+        return {
+          id: link.id || Math.random().toString(),
+          name: link.local_interface || link.name || "Unknown Interface",
+          description: link.local_interface_description || link.description || `Link to ${remoteName}`,
+          local_interface_description: link.local_interface_description || link.description || "",
+          physical_status: operStatus,
+          protocol_status: ospfStatus,
+          bandwidth: link.bandwidth || (link.bandwidth_mbps ? (link.bandwidth_mbps >= 1000 ? `${link.bandwidth_mbps / 1000} Gbps` : `${link.bandwidth_mbps} Mbps`) : 10000),
+          bandwidth_mbps: link.bandwidth_mbps,
+          mtu: link.mtu || 9000,
+          ping_success_rate: link.ping_success_rate,
+          ping_success_attempts: link.ping_success_attempts,
+          ping_packets_success: link.ping_packets_success ?? link.ping_success_attempts,
+          ping_packets_total: link.ping_packets_total,
+          ping_ratio: link.ping_ratio,
+          total_pings: link.total_pings ?? link.ping_total,
+          ping_total: link.ping_total ?? link.total_pings,
+          last_ping_at: link.last_ping_at,
+          local_link_ip: link.local_link_ip || link.local_ip,
+          remote_link_ip: link.remote_link_ip || link.remote_ip,
+          remote_device_ip: link.remote_device_ip,
+          destinationIp: link.destinationIp || "N/A",
+          media_type: link.media_type || link.MediaType || "Fiber Optic",
+          cdp: remoteName,
+          ospf: ospfStatus,
+          mpls: link.mpls || "Enabled",
+          is_ospf_full: link.is_ospf_full !== undefined ? Boolean(link.is_ospf_full) : ospfStatus === "Up",
+          last_state_change_at: link.last_state_change_at,
+          tx: link.tx !== undefined ? link.tx : (link.tx_power !== undefined ? link.tx_power : (link.TX !== undefined ? link.TX : "N/A")),
+          rx: link.rx !== undefined ? link.rx : (link.rx_power !== undefined ? link.rx_power : (link.RX !== undefined ? link.RX : "N/A")),
+          crc: link.crc || 0,
+        };
+      });
+    }
+
+    if (deviceInfo) {
+      const found =
+        deviceInfo[currentDevice.id] ||
+        deviceInfo[String(currentDevice.id)] ||
+        deviceInfo[currentDevice.hostname];
+      if (Array.isArray(found) && found.length > 0) {
+        return found;
+      }
+    }
+
+    return [];
+  }, [currentDevice, deviceInfo, linksForTable]);
 
   return (
     <div className="w-full h-full overflow-hidden flex flex-col min-h-0 p-2 sm:p-3">
