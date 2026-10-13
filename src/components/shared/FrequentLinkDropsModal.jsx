@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from "react";
 import {
   X,
   AlertTriangle,
-  Activity,
   Clock,
   ArrowRight,
   Search,
@@ -191,38 +190,13 @@ export default function FrequentLinkDropsModal({
           </button>
         </div>
 
-        {/* Info & Search Bar */}
-        <div
-          className={`p-3 sm:px-5 border-b flex-shrink-0 space-y-2.5 ${
-            isDark ? "border-gray-800 bg-gray-900/50" : "border-gray-100 bg-gray-50/50"
-          }`}
-        >
-          {/* Subtitle Banner */}
+        {/* Search Bar (when multiple links are flagged) */}
+        {frequentDropLinks.length > 1 && (
           <div
-            className={`p-2.5 rounded-xl border flex items-center justify-between text-xs gap-2 ${
-              isDark
-                ? "bg-rose-950/20 border-rose-800/30 text-rose-300"
-                : "bg-rose-50 border-rose-200 text-rose-800"
+            className={`p-3 sm:px-5 border-b flex-shrink-0 ${
+              isDark ? "border-gray-800 bg-gray-900/50" : "border-gray-100 bg-gray-50/50"
             }`}
           >
-            <div className="flex items-center gap-2 min-w-0">
-              <Activity className="w-4 h-4 shrink-0 text-rose-500" />
-              <span className="truncate">
-                Auto-checked every 5 minutes from{" "}
-                <code className="text-[11px] font-mono px-1 py-0.5 rounded bg-black/10 dark:bg-white/10">
-                  api/core-topology-events?days=1&event_type=link_down
-                </code>
-              </span>
-            </div>
-            {lastChecked && (
-              <span className="text-[11px] font-mono opacity-80 shrink-0">
-                Checked: {formatExactTime(lastChecked)}
-              </span>
-            )}
-          </div>
-
-          {/* Search bar */}
-          {frequentDropLinks.length > 1 && (
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
@@ -246,8 +220,8 @@ export default function FrequentLinkDropsModal({
                 </button>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Scrollable Link List */}
         <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-3">
