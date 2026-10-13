@@ -41,8 +41,11 @@ const coreTopologySlice = createSlice({
           ? payload.devices
           : Array.isArray(payload.data?.devices)
           ? payload.data.devices
+          : Array.isArray(payload)
+          ? payload
           : [];
         state.generatedAt = payload.generated_at || payload.data?.generated_at || null;
+        state.lastUpdated = Date.now();
       })
       .addCase(fetchCoreTopology.rejected, (state, action) => {
         state.status = "failed";
@@ -56,6 +59,7 @@ export const selectTopologyDevices = (state) => state.coreTopology.devices;
 export const selectTopologyGeneratedAt = (state) => state.coreTopology.generatedAt;
 export const selectTopologyStatus = (state) => state.coreTopology.status;
 export const selectTopologyError = (state) => state.coreTopology.error;
+export const selectTopologyLastUpdated = (state) => state.coreTopology.lastUpdated;
 
 // --- Export Reducer ---
 export default coreTopologySlice.reducer;

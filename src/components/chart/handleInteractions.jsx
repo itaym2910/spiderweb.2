@@ -324,9 +324,20 @@ export function applyMarkedState({
   if (!hasMarked) {
     svg
       .selectAll("line.visible-link")
-      .attr("stroke", defaultLinkColor)
-      .attr("stroke-opacity", 0.6)
-      .attr("stroke-width", 2)
+      .attr("stroke", (d) => {
+        const s = normalizeLinkStatus(d);
+        if (s === "down") return palette?.status?.down || "#ef4444";
+        if (s === "issue") return palette?.status?.issue || "#f59e0b";
+        return defaultLinkColor;
+      })
+      .attr("stroke-opacity", (d) => {
+        const s = normalizeLinkStatus(d);
+        return s === "down" || s === "issue" ? 1.0 : 0.6;
+      })
+      .attr("stroke-width", (d) => {
+        const s = normalizeLinkStatus(d);
+        return s === "down" ? 3 : s === "issue" ? 2.5 : 2;
+      })
       .style("opacity", 1);
 
     svg
@@ -341,9 +352,20 @@ export function applyMarkedState({
 
     svg
       .selectAll("path.duplicate-link")
-      .attr("stroke", defaultLinkColor)
-      .attr("stroke-opacity", 0.6)
-      .attr("stroke-width", 2);
+      .attr("stroke", (d) => {
+        const s = normalizeLinkStatus(d);
+        if (s === "down") return palette?.status?.down || "#ef4444";
+        if (s === "issue") return palette?.status?.issue || "#f59e0b";
+        return defaultLinkColor;
+      })
+      .attr("stroke-opacity", (d) => {
+        const s = normalizeLinkStatus(d);
+        return s === "down" || s === "issue" ? 1.0 : 0.6;
+      })
+      .attr("stroke-width", (d) => {
+        const s = normalizeLinkStatus(d);
+        return s === "down" ? 3 : s === "issue" ? 2.5 : 2;
+      });
 
     svg
       .selectAll("line.link-hover, path.duplicate-link-hover")
@@ -761,15 +783,26 @@ export function drawAllParallelLinks({
 
       const { d: pathD, startX, startY, endX, endY, ux, uy, perpX, perpY } = pathInfo;
 
+      const linkStatus = normalizeLinkStatus(linkData);
+      const isDown = linkStatus === "down";
+      const isIssue = linkStatus === "issue";
+      const initialStroke = isDown
+        ? (palette?.status?.down || "#ef4444")
+        : isIssue
+        ? (palette?.status?.issue || "#f59e0b")
+        : palette.link;
+      const initialStrokeWidth = isDown ? 3 : isIssue ? 2.5 : 2;
+      const initialOpacity = isDown || isIssue ? 1.0 : 0.6;
+
       zoomLayer
         .append("path")
         .datum(linkData)
         .attr("class", "duplicate-link")
         .attr("d", pathD)
         .attr("fill", "none")
-        .attr("stroke", palette.link)
-        .attr("stroke-opacity", 0.6)
-        .attr("stroke-width", 2)
+        .attr("stroke", initialStroke)
+        .attr("stroke-opacity", initialOpacity)
+        .attr("stroke-width", initialStrokeWidth)
         .attr("vector-effect", "non-scaling-stroke")
         .style("pointer-events", "none");
 
@@ -903,9 +936,20 @@ export function drawAllParallelLinks({
 
           svg
             .selectAll("path.duplicate-link")
-            .attr("stroke", palette.link)
-            .attr("stroke-opacity", 0.6)
-            .attr("stroke-width", 2);
+            .attr("stroke", (d) => {
+              const s = normalizeLinkStatus(d);
+              if (s === "down") return palette?.status?.down || "#ef4444";
+              if (s === "issue") return palette?.status?.issue || "#f59e0b";
+              return palette.link;
+            })
+            .attr("stroke-opacity", (d) => {
+              const s = normalizeLinkStatus(d);
+              return s === "down" || s === "issue" ? 1.0 : 0.6;
+            })
+            .attr("stroke-width", (d) => {
+              const s = normalizeLinkStatus(d);
+              return s === "down" ? 3 : s === "issue" ? 2.5 : 2;
+            });
         })
         .on("click", function (event, d_clicked) {
           if (onLinkClick) {
@@ -1096,16 +1140,38 @@ export function handleNodeMouseOut(
   // Restore everything instantly
   svg
     .selectAll("line.visible-link")
-    .attr("stroke", palette.link)
-    .attr("stroke-opacity", 0.6)
-    .attr("stroke-width", 2)
+    .attr("stroke", (d) => {
+      const s = normalizeLinkStatus(d);
+      if (s === "down") return palette?.status?.down || "#ef4444";
+      if (s === "issue") return palette?.status?.issue || "#f59e0b";
+      return palette.link;
+    })
+    .attr("stroke-opacity", (d) => {
+      const s = normalizeLinkStatus(d);
+      return s === "down" || s === "issue" ? 1.0 : 0.6;
+    })
+    .attr("stroke-width", (d) => {
+      const s = normalizeLinkStatus(d);
+      return s === "down" ? 3 : s === "issue" ? 2.5 : 2;
+    })
     .style("opacity", 1);
 
   svg
     .selectAll("path.duplicate-link")
-    .attr("stroke", palette.link)
-    .attr("stroke-opacity", 0.6)
-    .attr("stroke-width", 2);
+    .attr("stroke", (d) => {
+      const s = normalizeLinkStatus(d);
+      if (s === "down") return palette?.status?.down || "#ef4444";
+      if (s === "issue") return palette?.status?.issue || "#f59e0b";
+      return palette.link;
+    })
+    .attr("stroke-opacity", (d) => {
+      const s = normalizeLinkStatus(d);
+      return s === "down" || s === "issue" ? 1.0 : 0.6;
+    })
+    .attr("stroke-width", (d) => {
+      const s = normalizeLinkStatus(d);
+      return s === "down" ? 3 : s === "issue" ? 2.5 : 2;
+    });
 
   svg
     .selectAll("circle.node")
@@ -1414,9 +1480,20 @@ function handleMouseOut(
 
   svg
     .selectAll("line.visible-link")
-    .attr("stroke", palette.link)
-    .attr("stroke-opacity", 0.6)
-    .attr("stroke-width", 2)
+    .attr("stroke", (d) => {
+      const s = normalizeLinkStatus(d);
+      if (s === "down") return palette?.status?.down || "#ef4444";
+      if (s === "issue") return palette?.status?.issue || "#f59e0b";
+      return palette.link;
+    })
+    .attr("stroke-opacity", (d) => {
+      const s = normalizeLinkStatus(d);
+      return s === "down" || s === "issue" ? 1.0 : 0.6;
+    })
+    .attr("stroke-width", (d) => {
+      const s = normalizeLinkStatus(d);
+      return s === "down" ? 3 : s === "issue" ? 2.5 : 2;
+    })
     .style("opacity", 1);
 
   svg

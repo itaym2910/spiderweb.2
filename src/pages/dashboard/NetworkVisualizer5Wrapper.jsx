@@ -51,8 +51,9 @@ function selectTopTwoDevices(devices) {
 const NetworkVisualizer5Wrapper = ({ theme }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  // Poll core topology every 5 seconds
+  // Poll core topology immediately on mount and then every 5 seconds
   React.useEffect(() => {
+    dispatch(fetchCoreTopology());
     const interval = setInterval(() => {
       dispatch(fetchCoreTopology());
     }, 5000);
@@ -659,6 +660,26 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
       title: `${src || "Device A"} ⟷ ${tgt || "Device B"}`,
     });
   }, []);
+
+  // Keep open popup updated in real-time when polling updates graph data
+  React.useEffect(() => {
+    if (!popupLink?.data) return;
+    const currentId = popupLink.data.id || popupLink.data.linkId;
+    if (!currentId) return;
+    const updated = graphData.drawerLinks.find(
+      (l) => l.id === currentId || (l.allIds && l.allIds.includes(currentId))
+    );
+    if (updated) {
+      const payload = createLinkPopupPayload(updated) || updated;
+      setPopupLink((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          data: { ...payload, skipFetch: true, isCoreTopology: true },
+        };
+      });
+    }
+  }, [graphData.drawerLinks]);
 
   const handleClosePopup = useCallback(() => {
     setPopupLink(null);

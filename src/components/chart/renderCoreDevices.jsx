@@ -1,5 +1,6 @@
 // src/renderCoreDevices.js
 import * as d3 from "d3";
+import { normalizeLinkStatus } from "./drawHelpers";
 
 export function renderCoreDevices(
   zoomLayer,
@@ -377,9 +378,20 @@ export function renderCoreDevices(
     .data(filteredLinks)
     .join("line")
     .attr("class", "visible-link")
-    .attr("stroke", palette.link)
-    .attr("stroke-opacity", 0.6)
-    .attr("stroke-width", 2)
+    .attr("stroke", (d) => {
+      const s = normalizeLinkStatus(d);
+      if (s === "down") return palette?.status?.down || "#ef4444";
+      if (s === "issue") return palette?.status?.issue || "#f59e0b";
+      return palette.link;
+    })
+    .attr("stroke-opacity", (d) => {
+      const s = normalizeLinkStatus(d);
+      return s === "down" || s === "issue" ? 1.0 : 0.6;
+    })
+    .attr("stroke-width", (d) => {
+      const s = normalizeLinkStatus(d);
+      return s === "down" ? 3 : s === "issue" ? 2.5 : 2;
+    })
     .attr("vector-effect", "non-scaling-stroke");
 
   const linkHover = linkGroup
