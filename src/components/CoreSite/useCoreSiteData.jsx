@@ -198,7 +198,7 @@ export function useCoreSiteData(chartType) {
           return match ? parseInt(match[1], 10) : 99;
         };
 
-        const priorityOrder = [4, 5, 1, 2, 7, 8];
+        const priorityOrder = [1, 2, 4, 5, 7, 8];
         const sortedDevices = [...devices].sort((a, b) => {
           const a_ending = getEnding(a.hostname || a.name);
           const b_ending = getEnding(b.hostname || b.name);
@@ -804,23 +804,67 @@ export function useCoreSiteData(chartType) {
   };
 
   const handleLinkClick = (linkData) => {
-    const rawLinkData = linkData.rawLink || linkData;
-    const payload = createLinkPopupPayload(rawLinkData) || rawLinkData;
-    const src =
-      typeof payload.source === "object"
-        ? payload.source?.id || payload.source?.hostname || payload.source?.name
-        : payload.sourceNode || payload.sourceName || payload.source || (linkData.coredevice && (linkData.coredevice.hostname || linkData.coredevice.name)) || linkData.source;
-    const tgt =
-      typeof payload.target === "object"
-        ? payload.target?.id || payload.target?.hostname || payload.target?.name
-        : payload.targetNode || payload.targetName || payload.target || (linkData.neighbor_coredevice && (linkData.neighbor_coredevice.hostname || linkData.neighbor_coredevice.name)) || linkData.target;
+    if (!linkData) return;
+    const raw = linkData.rawLink || linkData;
+    const srcName =
+      (typeof linkData.source === "object"
+        ? linkData.source?.hostname || linkData.source?.name || linkData.source?.id
+        : linkData.source) ||
+      linkData.sourceNode ||
+      (linkData.coredevice && (linkData.coredevice.hostname || linkData.coredevice.name)) ||
+      "Device A";
+
+    const tgtName =
+      (typeof linkData.target === "object"
+        ? linkData.target?.hostname || linkData.target?.name || linkData.target?.id
+        : linkData.target) ||
+      linkData.targetNode ||
+      (linkData.neighbor_coredevice && (linkData.neighbor_coredevice.hostname || linkData.neighbor_coredevice.name)) ||
+      linkData.name ||
+      "Device B";
+
+    const srcZone =
+      linkData.sourceZone ||
+      linkData.coredevice?.coresite_name ||
+      zoneId ||
+      "N/A";
+
+    const tgtZone =
+      linkData.targetZone ||
+      linkData.neighbor_coredevice?.coresite_name ||
+      raw.remote_coresite_name ||
+      zoneId ||
+      "N/A";
+
+    const fullLinkObject = {
+      ...raw,
+      ...linkData,
+      rawLink: raw,
+      source: srcName,
+      target: tgtName,
+      sourceNode: srcName,
+      targetNode: tgtName,
+      sourceZone: srcZone,
+      targetZone: tgtZone,
+      sourceDevice: linkData.sourceDevice || linkData.coredevice,
+      remoteDevice: linkData.remoteDevice || linkData.neighbor_coredevice,
+      name: tgtName,
+    };
+
+    const payload = createLinkPopupPayload(fullLinkObject) || fullLinkObject;
 
     setPopupDetail({
       type: "link",
-      title: `${src || "Device A"} ⟷ ${tgt || "Device B"}`,
+      title: `${srcName} ⟷ ${tgtName}`,
       data: {
         ...payload,
-        rawLink: payload.rawLink || rawLinkData,
+        source: srcName,
+        target: tgtName,
+        sourceNode: srcName,
+        targetNode: tgtName,
+        sourceZone: srcZone,
+        targetZone: tgtZone,
+        rawLink: raw,
         skipFetch: true,
         isCoreTopology: true,
       },
