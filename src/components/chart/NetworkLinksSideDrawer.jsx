@@ -49,6 +49,11 @@ export function formatDuration(timestamp) {
     const diffMin = Math.floor(diffSec / 60);
     const diffHours = Math.floor(diffMin / 60);
     const diffDays = Math.floor(diffHours / 24);
+    const diffWeeks = Math.floor(diffDays / 7);
+    if (diffWeeks > 0) {
+      const remDays = diffDays % 7;
+      return remDays > 0 ? `${diffWeeks}w ${remDays}d` : `${diffWeeks}w`;
+    }
     if (diffDays > 0) {
       const remHours = diffHours % 24;
       return remHours > 0 ? `${diffDays}d ${remHours}h` : `${diffDays}d`;
@@ -72,7 +77,12 @@ export function formatDuration(timestamp) {
   const diffMin = Math.floor(diffSec / 60);
   const diffHours = Math.floor(diffMin / 60);
   const diffDays = Math.floor(diffHours / 24);
+  const diffWeeks = Math.floor(diffDays / 7);
 
+  if (diffWeeks > 0) {
+    const remDays = diffDays % 7;
+    return remDays > 0 ? `${diffWeeks}w ${remDays}d` : `${diffWeeks}w`;
+  }
   if (diffDays > 0) {
     const remHours = diffHours % 24;
     return remHours > 0 ? `${diffDays}d ${remHours}h` : `${diffDays}d`;

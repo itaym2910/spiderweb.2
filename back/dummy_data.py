@@ -313,6 +313,8 @@ def generate_dummy_data():
             "last_down_at": rec_last_down,
             "last_ospf_down_at": rec_last_ospf_down,
             "last_ospf_full_at": rec_last_ospf_full,
+            "ospf_uptime_seconds": rec_ospf_up_time_sec,
+            "ospf_uptime": rec_ospf_up_time,
             "ospf_up_time_seconds": rec_ospf_up_time_sec,
             "ospf_up_time": rec_ospf_up_time,
             "ospf_state_duration_seconds": rec_ospf_state_dur_sec,
@@ -760,6 +762,8 @@ def generate_dummy_data():
                 link["last_up_at"] = latest["created_at"]
             if latest["new_ospf_state"] == "Full":
                 link["last_ospf_full_at"] = latest["created_at"]
+                link["ospf_uptime_seconds"] = diff_sec
+                link["ospf_uptime"] = dur_str
                 link["ospf_up_time_seconds"] = diff_sec
                 link["ospf_up_time"] = dur_str
                 link["ospf_state_duration_seconds"] = None
@@ -769,6 +773,8 @@ def generate_dummy_data():
                 link["last_ospf_down_at"] = latest["created_at"]
                 link["ospf_state_duration_seconds"] = diff_sec
                 link["ospf_state_duration"] = dur_str
+                link["ospf_uptime_seconds"] = None
+                link["ospf_uptime"] = None
                 link["ospf_up_time_seconds"] = None
                 link["ospf_up_time"] = None
             if latest["old_ospf_state"] == "Full" and not link.get("last_ospf_full_at"):

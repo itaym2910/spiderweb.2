@@ -135,6 +135,7 @@ export function createLinkPopupPayload(linkDataObject) {
     null;
 
   const cleanRaw = { ...raw };
+  delete cleanRaw.ospf_uptime_seconds;
   delete cleanRaw.ospf_up_time_seconds;
   delete cleanRaw.ospf_state_duration_seconds;
   delete cleanRaw.ospfUpTimeSeconds;
@@ -181,7 +182,8 @@ export function createLinkPopupPayload(linkDataObject) {
     total_pings,
     ping_total: total_pings,
     last_ping_at,
-    ospf_up_time: linkDataObject.ospf_up_time ?? raw.ospf_up_time,
+    ospf_uptime: linkDataObject.ospf_uptime ?? raw.ospf_uptime ?? linkDataObject.ospf_up_time ?? raw.ospf_up_time,
+    ospf_up_time: linkDataObject.ospf_uptime ?? raw.ospf_uptime ?? linkDataObject.ospf_up_time ?? raw.ospf_up_time,
     ospf_state_duration: linkDataObject.ospf_state_duration ?? raw.ospf_state_duration,
     last_up_at: linkDataObject.last_up_at ?? raw.last_up_at,
     last_down_at: linkDataObject.last_down_at ?? raw.last_down_at,
@@ -189,6 +191,7 @@ export function createLinkPopupPayload(linkDataObject) {
     ip,
   };
 
+  delete payload.ospf_uptime_seconds;
   delete payload.ospf_up_time_seconds;
   delete payload.ospf_state_duration_seconds;
   delete payload.ospfUpTimeSeconds;

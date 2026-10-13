@@ -227,7 +227,8 @@ const LinkDetailPopup = ({
       total_pings: fetchedDetails?.total_pings ?? linkData?.total_pings,
       ping_total: fetchedDetails?.ping_total ?? linkData?.ping_total,
       last_ping_at: fetchedDetails?.last_ping_at || linkData?.last_ping_at,
-      ospf_up_time: fetchedDetails?.ospf_up_time ?? linkData?.ospf_up_time,
+      ospf_uptime: fetchedDetails?.ospf_uptime ?? linkData?.ospf_uptime ?? fetchedDetails?.ospf_up_time ?? linkData?.ospf_up_time,
+      ospf_up_time: fetchedDetails?.ospf_uptime ?? linkData?.ospf_uptime ?? fetchedDetails?.ospf_up_time ?? linkData?.ospf_up_time,
       ospf_state_duration: fetchedDetails?.ospf_state_duration ?? linkData?.ospf_state_duration,
       last_up_at: fetchedDetails?.last_up_at || linkData?.last_up_at,
       last_down_at: fetchedDetails?.last_down_at || linkData?.last_down_at,
@@ -238,11 +239,13 @@ const LinkDetailPopup = ({
 
   if (itemData.rawLink) {
     itemData.rawLink = { ...itemData.rawLink };
+    delete itemData.rawLink.ospf_uptime_seconds;
     delete itemData.rawLink.ospf_up_time_seconds;
     delete itemData.rawLink.ospf_state_duration_seconds;
     delete itemData.rawLink.ospfUpTimeSeconds;
     delete itemData.rawLink.ospfStateDurationSeconds;
   }
+  delete itemData.ospf_uptime_seconds;
   delete itemData.ospf_up_time_seconds;
   delete itemData.ospf_state_duration_seconds;
   delete itemData.ospfUpTimeSeconds;
