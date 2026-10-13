@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSelector } from "react-redux";
 import { selectAllDevices } from "../../redux/slices/devicesSlice";
 import { selectTopologyDevices } from "../../redux/slices/coreTopologySlice";
@@ -821,18 +821,24 @@ export default function NetworkLinksSideDrawer({
     }
   }, [findCanonicalLinkForEvent, getDeviceIp]);
 
+  // Store latest checkFrequentLinkDrops in a ref to decouple the 5-minute timer from re-renders
+  const checkFrequentLinkDropsRef = useRef(checkFrequentLinkDrops);
+  useEffect(() => {
+    checkFrequentLinkDropsRef.current = checkFrequentLinkDrops;
+  });
+
   // Periodic 5-minute poll
   useEffect(() => {
     // Initial call on mount
-    checkFrequentLinkDrops();
+    checkFrequentLinkDropsRef.current();
 
     const FIVE_MINUTES_MS = 5 * 60 * 1000;
     const interval = setInterval(() => {
-      checkFrequentLinkDrops();
+      checkFrequentLinkDropsRef.current();
     }, FIVE_MINUTES_MS);
 
     return () => clearInterval(interval);
-  }, [checkFrequentLinkDrops]);
+  }, []);
 
   // Counts
   const upCount = useMemo(
