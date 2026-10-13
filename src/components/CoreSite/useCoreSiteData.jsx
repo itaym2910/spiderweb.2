@@ -7,7 +7,7 @@ import {
   useMemo,
 } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useNodeLayout } from "./useNodeLayout";
 import { api } from "../../services/apiServices";
 import { createLinkPopupPayload } from "../chart/handleInteractions";
@@ -23,6 +23,7 @@ import {
 export function useCoreSiteData(chartType) {
   const { zoneId, nodeId: nodeIdFromUrl } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch();
   const containerRef = useRef(null);
 
@@ -33,7 +34,14 @@ export function useCoreSiteData(chartType) {
   const [directCoreTopology, setDirectCoreTopology] = useState(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [selectedNodeId, setSelectedNodeId] = useState(null);
-  const [showExtendedNodes, setShowExtendedNodes] = useState(false);
+  const [showExtendedNodes, setShowExtendedNodes] = useState(() => {
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      return sp.get("showExtended") === "true" || sp.get("extended") === "true";
+    } catch {
+      return false;
+    }
+  });
   const [animateExtendedLayoutUp, setAnimateExtendedLayoutUp] = useState(false);
   const [previousSelectedNodeId, setPreviousSelectedNodeId] = useState(null);
   const [popupDetail, setPopupDetail] = useState(null);
@@ -235,11 +243,39 @@ export function useCoreSiteData(chartType) {
   // Set the initially selected node once devices are loaded
   useEffect(() => {
     if (localDevices.length > 0 && !selectedNodeId) {
-      const initialNodeId = nodeIdFromUrl || localDevices[0].hostname;
-      setSelectedNodeId(initialNodeId);
-      setPreviousSelectedNodeId(initialNodeId);
+      const searchParams = new URLSearchParams(location.search);
+      const shouldExtend =
+        location.state?.showExtendedNodes === true ||
+        searchParams.get("showExtended") === "true" ||
+        searchParams.get("extended") === "true";
+
+      const preferredNode = location.state?.targetNodeId || location.state?.focusedNode;
+      const initialNodeId =
+        nodeIdFromUrl ||
+        (preferredNode && localDevices.some((d) => d.hostname === preferredNode || d.name === preferredNode)
+          ? preferredNode
+          : null) ||
+        (shouldExtend
+          ? (localDevices[4]?.hostname || localDevices[2]?.hostname || localDevices[0]?.hostname)
+          : localDevices[0]?.hostname);
+
+      if (initialNodeId) {
+        setSelectedNodeId(initialNodeId);
+        setPreviousSelectedNodeId(initialNodeId);
+      }
     }
-  }, [localDevices, nodeIdFromUrl, selectedNodeId]);
+  }, [localDevices, nodeIdFromUrl, selectedNodeId, location.state, location.search]);
+
+  // Synchronize selectedNodeId if targetNodeId is updated via navigation state
+  useEffect(() => {
+    const target = location.state?.targetNodeId || location.state?.focusedNode;
+    if (target && localDevices.length > 0) {
+      const match = localDevices.find((d) => d.hostname === target || d.name === target);
+      if (match) {
+        setSelectedNodeId(match.hostname || match.name);
+      }
+    }
+  }, [location.state?.targetNodeId, location.state?.focusedNode, localDevices]);
 
   // 3. For every connection between core devices: use the info from the core-topology endpoint
   // Deduplicated by ID, bidirectional signatures, and device interface
@@ -711,8 +747,14 @@ export function useCoreSiteData(chartType) {
   }, [showExtendedNodes]);
 
   useLayoutEffect(() => {
-    setShowExtendedNodes(false);
-  }, [zoneId]);
+    const searchParams = new URLSearchParams(location.search);
+    const shouldExtend =
+      location.state?.showExtendedNodes === true ||
+      searchParams.get("showExtended") === "true" ||
+      searchParams.get("extended") === "true";
+
+    setShowExtendedNodes(shouldExtend);
+  }, [zoneId, location.state, location.search]);
 
   useLayoutEffect(() => {
     const updateDimensions = () => {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { selectAllDevices } from "../../redux/slices/devicesSlice";
 import { selectTopologyDevices } from "../../redux/slices/coreTopologySlice";
@@ -18,6 +19,7 @@ import {
   AlertTriangle,
   ArrowRight,
   ChevronDown,
+  Compass,
 } from "lucide-react";
 import { api } from "../../services/apiServices";
 import { formatPingRateWithPackets, calculatePingSummary } from "../shared/pingHelpers";
@@ -109,8 +111,15 @@ import { getLinkStatusAndDate } from "./drawHelpers";
  * - A chevron arrow indicator that shows it can be opened, rotating smoothly when expanded
  * - A lightweight CSS grid-template-rows & opacity animation on expand/collapse
  */
-function EventLinkCard({ group, isExpanded, onToggle, onInspect, isDark }) {
+function EventLinkCard({ group, isExpanded, onToggle, onInspect, onShowInZone, isDark }) {
   const eventCount = group.events.length;
+  const isGroupDown =
+    group.fullLink?.normalizedStatus === "down" ||
+    group.fullLink?.status === "down" ||
+    group.fullLink?.category === "down" ||
+    (group.events &&
+      group.events[0] &&
+      (group.events[0].new_oper_status || group.events[0].new_status || "").toLowerCase() === "down");
 
   return (
     <div
@@ -170,6 +179,25 @@ function EventLinkCard({ group, isExpanded, onToggle, onInspect, isDark }) {
           <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold">
             {eventCount} {eventCount === 1 ? "event" : "events"}
           </span>
+
+          {isGroupDown && !group.isVisibleOnMap && onShowInZone && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onShowInZone();
+              }}
+              title="Show in zone"
+              className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${
+                isDark
+                  ? "bg-sky-900/40 hover:bg-sky-800/60 text-sky-300 border border-sky-800/50"
+                  : "bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200"
+              }`}
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span className="text-[10px] font-semibold hidden sm:inline">Show in zone</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -350,6 +378,7 @@ export default function NetworkLinksSideDrawer({
   onClearMarks,
   onHoverLink,
   onHoverFilter,
+  onShowInZone: propOnShowInZone,
 }) {
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
@@ -464,6 +493,191 @@ export default function NetworkLinksSideDrawer({
       return null;
     },
     [deviceIpMap]
+  );
+
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const getZoneDeviceList = useCallback(
+    (zoneName) => {
+      if (!zoneName || zoneName === "Unknown") return [];
+      const norm = cleanDeviceKey(zoneName);
+      const set = new Map();
+      const addDev = (d) => {
+        if (!d) return;
+        const z = d.coresite_name || d.zoneName || d.core_site_name;
+        if (z && (cleanDeviceKey(z) === norm || z.toLowerCase() === zoneName.toLowerCase())) {
+          const key = d.hostname || d.name || d.id;
+          if (key && !set.has(key)) set.set(key, d);
+        }
+      };
+      if (Array.isArray(topologyDevices)) topologyDevices.forEach(addDev);
+      if (Array.isArray(allDevices)) allDevices.forEach(addDev);
+      return Array.from(set.values());
+    },
+    [topologyDevices, allDevices]
+  );
+
+  const getLinkZoneInfo = useCallback(
+    (link) => {
+      if (!link) return null;
+
+      const srcName = link.sourceName || link.source || link.local_device_name || link.deviceName;
+      const tgtName = link.targetName || link.target || link.remote_device_name || link.remoteDeviceName;
+
+      let srcZone = link.sourceZone;
+      let tgtZone = link.targetZone;
+
+      const findDev = (name, id) => {
+        if (!name && id == null) return null;
+        const clean = cleanDeviceKey(name || "");
+        return (
+          (Array.isArray(topologyDevices)
+            ? topologyDevices.find(
+                (d) =>
+                  (id != null && (String(d.id) === String(id) || d.id === id)) ||
+                  (d.name && cleanDeviceKey(d.name) === clean) ||
+                  (d.hostname && cleanDeviceKey(d.hostname) === clean)
+              )
+            : null) ||
+          (Array.isArray(allDevices)
+            ? allDevices.find(
+                (d) =>
+                  (id != null && (String(d.id) === String(id) || d.id === id)) ||
+                  (d.hostname && cleanDeviceKey(d.hostname) === clean) ||
+                  (d.name && cleanDeviceKey(d.name) === clean)
+              )
+            : null)
+        );
+      };
+
+      const srcDev = findDev(srcName, link.coredevice_id || link.local_device_id);
+      const tgtDev = findDev(tgtName, link.remote_device_id || link.neighbor_coredevice_id);
+
+      if (!srcZone || srcZone === "Unknown") {
+        srcZone = srcDev?.coresite_name || srcDev?.zoneName || srcDev?.core_site_name || null;
+      }
+      if (!tgtZone || tgtZone === "Unknown") {
+        tgtZone = tgtDev?.coresite_name || tgtDev?.zoneName || tgtDev?.core_site_name || null;
+      }
+
+      const srcDevList = srcZone ? getZoneDeviceList(srcZone) : [];
+      const tgtDevList = tgtZone ? getZoneDeviceList(tgtZone) : [];
+
+      let chosenZone = null;
+      let chosenDevList = [];
+
+      // Determine target zone:
+      // "opens the zone of the core site the line goes (if the downed line is in the zone with the six devices show the specific four that are relevent to the line)"
+      if (srcZone && tgtZone && srcZone.toLowerCase() === tgtZone.toLowerCase()) {
+        chosenZone = srcZone;
+        chosenDevList = srcDevList.length > 0 ? srcDevList : tgtDevList;
+      } else if (tgtDevList.length === 6) {
+        chosenZone = tgtZone;
+        chosenDevList = tgtDevList;
+      } else if (srcDevList.length === 6) {
+        chosenZone = srcZone;
+        chosenDevList = srcDevList;
+      } else if (tgtZone && tgtZone !== "Unknown") {
+        chosenZone = tgtZone;
+        chosenDevList = tgtDevList;
+      } else if (srcZone && srcZone !== "Unknown") {
+        chosenZone = srcZone;
+        chosenDevList = srcDevList;
+      }
+
+      if (!chosenZone) return null;
+
+      const priorityOrder = [1, 2, 4, 5, 7, 8];
+      const getEnding = (name) => {
+        if (!name) return 99;
+        const match = String(name).match(/(\d+)(?!.*\d)/);
+        return match ? parseInt(match[1], 10) : 99;
+      };
+
+      const sortedDevs = [...chosenDevList].sort((a, b) => {
+        const aEnd = getEnding(a.hostname || a.name);
+        const bEnd = getEnding(b.hostname || b.name);
+        const aP = priorityOrder.indexOf(aEnd) === -1 ? 99 : priorityOrder.indexOf(aEnd);
+        const bP = priorityOrder.indexOf(bEnd) === -1 ? 99 : priorityOrder.indexOf(bEnd);
+        return aP - bP;
+      });
+
+      const isSixDeviceZone = sortedDevs.length >= 6;
+      let shouldShowExtended = false;
+      let relevantDevice = null;
+
+      const srcClean = cleanDeviceKey(srcName || "");
+      const tgtClean = cleanDeviceKey(tgtName || "");
+
+      const connectedInZone = sortedDevs.filter(
+        (d) =>
+          cleanDeviceKey(d.name) === srcClean ||
+          cleanDeviceKey(d.hostname) === srcClean ||
+          cleanDeviceKey(d.name) === tgtClean ||
+          cleanDeviceKey(d.hostname) === tgtClean ||
+          (link.coredevice_id != null && String(d.id) === String(link.coredevice_id)) ||
+          (link.remote_device_id != null && String(d.id) === String(link.remote_device_id)) ||
+          (link.neighbor_coredevice_id != null && String(d.id) === String(link.neighbor_coredevice_id))
+      );
+
+      relevantDevice = connectedInZone[0]?.hostname || connectedInZone[0]?.name || null;
+
+      if (isSixDeviceZone) {
+        // If any connected device has ending 7 or 8 (or index 4 or 5 in sorted devices),
+        // we must show the extended 4 devices (slice(2, 6)), which are [4, 5, 7, 8].
+        // If neither has ending 7 or 8, we show the initial 4 devices (slice(0, 4)), which are [1, 2, 4, 5].
+        const hasExtendedEndpoint = connectedInZone.some((d) => {
+          const ending = getEnding(d.hostname || d.name);
+          const idx = sortedDevs.indexOf(d);
+          return ending === 7 || ending === 8 || idx >= 4;
+        });
+
+        const isExtendedFromDirectEnding = [getEnding(srcName), getEnding(tgtName)].some(
+          (end) => end === 7 || end === 8
+        );
+
+        shouldShowExtended = hasExtendedEndpoint || isExtendedFromDirectEnding;
+      }
+
+      return {
+        zone: chosenZone,
+        isSixDeviceZone,
+        shouldShowExtended,
+        relevantDevice,
+      };
+    },
+    [topologyDevices, allDevices, getZoneDeviceList]
+  );
+
+  const handleShowInZone = useCallback(
+    (link) => {
+      if (propOnShowInZone) {
+        propOnShowInZone(link);
+        return;
+      }
+
+      const zoneInfo = getLinkZoneInfo(link);
+      if (!zoneInfo || !zoneInfo.zone) return;
+
+      const isP =
+        location.pathname.startsWith("/p-chart") ||
+        (chartName && (chartName.toLowerCase().includes("p") || chartName.includes("5"))) ||
+        link.network_type_id === 2;
+
+      const basePath = isP ? "/p-chart" : "/l-chart";
+      const url = `${basePath}/zone/${encodeURIComponent(zoneInfo.zone)}?showExtended=${zoneInfo.shouldShowExtended}`;
+
+      navigate(url, {
+        state: {
+          showExtendedNodes: zoneInfo.shouldShowExtended,
+          targetNodeId: zoneInfo.relevantDevice,
+          focusedNode: zoneInfo.relevantDevice,
+          downedLinkId: link.id,
+        },
+      });
+    },
+    [propOnShowInZone, getLinkZoneInfo, location.pathname, chartName, navigate]
   );
 
   const deviceFilterOptions = useMemo(() => {
@@ -1949,6 +2163,7 @@ export default function NetworkLinksSideDrawer({
                               });
                             }}
                             onInspect={() => handleInspectGroup(group)}
+                            onShowInZone={() => handleShowInZone(group.fullLink || group)}
                             isDark={isDark}
                           />
                         ))}
@@ -1979,6 +2194,7 @@ export default function NetworkLinksSideDrawer({
                               });
                             }}
                             onInspect={() => handleInspectGroup(group)}
+                            onShowInZone={() => handleShowInZone(group.fullLink || group)}
                             isDark={isDark}
                           />
                         ))}
@@ -2051,6 +2267,11 @@ export default function NetworkLinksSideDrawer({
                 const renderStandardLinkCard = (link) => {
                   const isLinkUp = link.normalizedStatus === "up";
                   const isLinkIssue = link.normalizedStatus === "issue";
+                  const isLinkDown =
+                    link.normalizedStatus === "down" ||
+                    link.status === "down" ||
+                    link.category === "down";
+                  const isNotShownOnMap = !link.isVisibleOnMap;
                   const isLinkMarked = markedLinkIds && markedLinkIds.has(link.id);
 
                   return (
@@ -2242,24 +2463,42 @@ export default function NetworkLinksSideDrawer({
                           })()}
                         </div>
 
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (onLinkClick) {
-                              const payload = createLinkPopupPayload(link) || {
-                                ...link,
-                                sourceNode: link.sourceName,
-                                targetNode: link.targetName,
-                              };
-                              onLinkClick(payload);
-                            }
-                          }}
-                          className="flex items-center gap-1 text-blue-500 dark:text-blue-400 font-medium hover:underline cursor-pointer"
-                        >
-                          <span>Inspect</span>
-                          <ExternalLink className="w-3 h-3" />
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          {isLinkDown && isNotShownOnMap && (
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleShowInZone(link);
+                              }}
+                              title={`Show in ${link.targetZone || link.sourceZone || "zone"}`}
+                              className="flex items-center gap-1 text-sky-500 dark:text-sky-400 font-medium hover:underline cursor-pointer"
+                            >
+                              <Compass className="w-3 h-3" />
+                              <span>Show in zone</span>
+                            </div>
+                          )}
+
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onLinkClick) {
+                                const payload = createLinkPopupPayload(link) || {
+                                  ...link,
+                                  sourceNode: link.sourceName,
+                                  targetNode: link.targetName,
+                                };
+                                onLinkClick(payload);
+                              }
+                            }}
+                            className="flex items-center gap-1 text-blue-500 dark:text-blue-400 font-medium hover:underline cursor-pointer"
+                          >
+                            <span>Inspect</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </div>
                         </div>
                       </div>
                     </div>
