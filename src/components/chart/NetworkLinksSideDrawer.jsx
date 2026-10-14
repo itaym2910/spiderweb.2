@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { selectAllDevices } from "../../redux/slices/devicesSlice";
 import { selectTopologyDevices } from "../../redux/slices/coreTopologySlice";
@@ -18,10 +19,12 @@ import {
   AlertTriangle,
   ArrowRight,
   ChevronDown,
+  Compass,
 } from "lucide-react";
 import { api } from "../../services/apiServices";
 import { formatPingRateWithPackets, calculatePingSummary } from "../shared/pingHelpers";
 import PingSummaryModal from "../shared/PingSummaryModal";
+import FrequentLinkDropsModal from "../shared/FrequentLinkDropsModal";
 import { createLinkPopupPayload } from "./handleInteractions";
 import { normalizeInterfaceName, cleanDeviceKey } from "./drawHelpers";
 
@@ -46,6 +49,11 @@ export function formatDuration(timestamp) {
     const diffMin = Math.floor(diffSec / 60);
     const diffHours = Math.floor(diffMin / 60);
     const diffDays = Math.floor(diffHours / 24);
+    const diffWeeks = Math.floor(diffDays / 7);
+    if (diffWeeks > 0) {
+      const remDays = diffDays % 7;
+      return remDays > 0 ? `${diffWeeks}w ${remDays}d` : `${diffWeeks}w`;
+    }
     if (diffDays > 0) {
       const remHours = diffHours % 24;
       return remHours > 0 ? `${diffDays}d ${remHours}h` : `${diffDays}d`;
@@ -69,7 +77,12 @@ export function formatDuration(timestamp) {
   const diffMin = Math.floor(diffSec / 60);
   const diffHours = Math.floor(diffMin / 60);
   const diffDays = Math.floor(diffHours / 24);
+  const diffWeeks = Math.floor(diffDays / 7);
 
+  if (diffWeeks > 0) {
+    const remDays = diffDays % 7;
+    return remDays > 0 ? `${diffWeeks}w ${remDays}d` : `${diffWeeks}w`;
+  }
   if (diffDays > 0) {
     const remHours = diffHours % 24;
     return remHours > 0 ? `${diffDays}d ${remHours}h` : `${diffDays}d`;
@@ -108,8 +121,15 @@ import { getLinkStatusAndDate } from "./drawHelpers";
  * - A chevron arrow indicator that shows it can be opened, rotating smoothly when expanded
  * - A lightweight CSS grid-template-rows & opacity animation on expand/collapse
  */
-function EventLinkCard({ group, isExpanded, onToggle, onInspect, isDark }) {
+function EventLinkCard({ group, isExpanded, onToggle, onInspect, onShowInZone, isDark }) {
   const eventCount = group.events.length;
+  const isGroupDown =
+    group.fullLink?.normalizedStatus === "down" ||
+    group.fullLink?.status === "down" ||
+    group.fullLink?.category === "down" ||
+    (group.events &&
+      group.events[0] &&
+      (group.events[0].new_oper_status || group.events[0].new_status || "").toLowerCase() === "down");
 
   return (
     <div
@@ -169,6 +189,25 @@ function EventLinkCard({ group, isExpanded, onToggle, onInspect, isDark }) {
           <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold">
             {eventCount} {eventCount === 1 ? "event" : "events"}
           </span>
+
+          {isGroupDown && !group.isVisibleOnMap && onShowInZone && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onShowInZone();
+              }}
+              title="Show in zone"
+              className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${
+                isDark
+                  ? "bg-sky-900/40 hover:bg-sky-800/60 text-sky-300 border border-sky-800/50"
+                  : "bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200"
+              }`}
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span className="text-[10px] font-semibold hidden sm:inline">Show in zone</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -349,6 +388,7 @@ export default function NetworkLinksSideDrawer({
   onClearMarks,
   onHoverLink,
   onHoverFilter,
+  onShowInZone: propOnShowInZone,
 }) {
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
@@ -400,6 +440,11 @@ export default function NetworkLinksSideDrawer({
   const [apiEventType, setApiEventType] = useState("");
   const [apiLocalDevice, setApiLocalDevice] = useState("");
   const [apiRemoteDevice, setApiRemoteDevice] = useState("");
+
+  // State for Frequent Link Drops (>= 10 link down events in last 24h)
+  const [frequentDropLinks, setFrequentDropLinks] = useState([]);
+  const [isDropsModalOpen, setIsDropsModalOpen] = useState(false);
+  const [lastDropsCheckTime, setLastDropsCheckTime] = useState(null);
 
   const allDevices = useSelector(selectAllDevices);
   const topologyDevices = useSelector(selectTopologyDevices);
@@ -458,6 +503,191 @@ export default function NetworkLinksSideDrawer({
       return null;
     },
     [deviceIpMap]
+  );
+
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const getZoneDeviceList = useCallback(
+    (zoneName) => {
+      if (!zoneName || zoneName === "Unknown") return [];
+      const norm = cleanDeviceKey(zoneName);
+      const set = new Map();
+      const addDev = (d) => {
+        if (!d) return;
+        const z = d.coresite_name || d.zoneName || d.core_site_name;
+        if (z && (cleanDeviceKey(z) === norm || z.toLowerCase() === zoneName.toLowerCase())) {
+          const key = d.hostname || d.name || d.id;
+          if (key && !set.has(key)) set.set(key, d);
+        }
+      };
+      if (Array.isArray(topologyDevices)) topologyDevices.forEach(addDev);
+      if (Array.isArray(allDevices)) allDevices.forEach(addDev);
+      return Array.from(set.values());
+    },
+    [topologyDevices, allDevices]
+  );
+
+  const getLinkZoneInfo = useCallback(
+    (link) => {
+      if (!link) return null;
+
+      const srcName = link.sourceName || link.source || link.local_device_name || link.deviceName;
+      const tgtName = link.targetName || link.target || link.remote_device_name || link.remoteDeviceName;
+
+      let srcZone = link.sourceZone;
+      let tgtZone = link.targetZone;
+
+      const findDev = (name, id) => {
+        if (!name && id == null) return null;
+        const clean = cleanDeviceKey(name || "");
+        return (
+          (Array.isArray(topologyDevices)
+            ? topologyDevices.find(
+                (d) =>
+                  (id != null && (String(d.id) === String(id) || d.id === id)) ||
+                  (d.name && cleanDeviceKey(d.name) === clean) ||
+                  (d.hostname && cleanDeviceKey(d.hostname) === clean)
+              )
+            : null) ||
+          (Array.isArray(allDevices)
+            ? allDevices.find(
+                (d) =>
+                  (id != null && (String(d.id) === String(id) || d.id === id)) ||
+                  (d.hostname && cleanDeviceKey(d.hostname) === clean) ||
+                  (d.name && cleanDeviceKey(d.name) === clean)
+              )
+            : null)
+        );
+      };
+
+      const srcDev = findDev(srcName, link.coredevice_id || link.local_device_id);
+      const tgtDev = findDev(tgtName, link.remote_device_id || link.neighbor_coredevice_id);
+
+      if (!srcZone || srcZone === "Unknown") {
+        srcZone = srcDev?.coresite_name || srcDev?.zoneName || srcDev?.core_site_name || null;
+      }
+      if (!tgtZone || tgtZone === "Unknown") {
+        tgtZone = tgtDev?.coresite_name || tgtDev?.zoneName || tgtDev?.core_site_name || null;
+      }
+
+      const srcDevList = srcZone ? getZoneDeviceList(srcZone) : [];
+      const tgtDevList = tgtZone ? getZoneDeviceList(tgtZone) : [];
+
+      let chosenZone = null;
+      let chosenDevList = [];
+
+      // Determine target zone:
+      // "opens the zone of the core site the line goes (if the downed line is in the zone with the six devices show the specific four that are relevent to the line)"
+      if (srcZone && tgtZone && srcZone.toLowerCase() === tgtZone.toLowerCase()) {
+        chosenZone = srcZone;
+        chosenDevList = srcDevList.length > 0 ? srcDevList : tgtDevList;
+      } else if (tgtDevList.length === 6) {
+        chosenZone = tgtZone;
+        chosenDevList = tgtDevList;
+      } else if (srcDevList.length === 6) {
+        chosenZone = srcZone;
+        chosenDevList = srcDevList;
+      } else if (tgtZone && tgtZone !== "Unknown") {
+        chosenZone = tgtZone;
+        chosenDevList = tgtDevList;
+      } else if (srcZone && srcZone !== "Unknown") {
+        chosenZone = srcZone;
+        chosenDevList = srcDevList;
+      }
+
+      if (!chosenZone) return null;
+
+      const priorityOrder = [1, 2, 4, 5, 7, 8];
+      const getEnding = (name) => {
+        if (!name) return 99;
+        const match = String(name).match(/(\d+)(?!.*\d)/);
+        return match ? parseInt(match[1], 10) : 99;
+      };
+
+      const sortedDevs = [...chosenDevList].sort((a, b) => {
+        const aEnd = getEnding(a.hostname || a.name);
+        const bEnd = getEnding(b.hostname || b.name);
+        const aP = priorityOrder.indexOf(aEnd) === -1 ? 99 : priorityOrder.indexOf(aEnd);
+        const bP = priorityOrder.indexOf(bEnd) === -1 ? 99 : priorityOrder.indexOf(bEnd);
+        return aP - bP;
+      });
+
+      const isSixDeviceZone = sortedDevs.length >= 6;
+      let shouldShowExtended = false;
+      let relevantDevice = null;
+
+      const srcClean = cleanDeviceKey(srcName || "");
+      const tgtClean = cleanDeviceKey(tgtName || "");
+
+      const connectedInZone = sortedDevs.filter(
+        (d) =>
+          cleanDeviceKey(d.name) === srcClean ||
+          cleanDeviceKey(d.hostname) === srcClean ||
+          cleanDeviceKey(d.name) === tgtClean ||
+          cleanDeviceKey(d.hostname) === tgtClean ||
+          (link.coredevice_id != null && String(d.id) === String(link.coredevice_id)) ||
+          (link.remote_device_id != null && String(d.id) === String(link.remote_device_id)) ||
+          (link.neighbor_coredevice_id != null && String(d.id) === String(link.neighbor_coredevice_id))
+      );
+
+      relevantDevice = connectedInZone[0]?.hostname || connectedInZone[0]?.name || null;
+
+      if (isSixDeviceZone) {
+        // If any connected device has ending 7 or 8 (or index 4 or 5 in sorted devices),
+        // we must show the extended 4 devices (slice(2, 6)), which are [4, 5, 7, 8].
+        // If neither has ending 7 or 8, we show the initial 4 devices (slice(0, 4)), which are [1, 2, 4, 5].
+        const hasExtendedEndpoint = connectedInZone.some((d) => {
+          const ending = getEnding(d.hostname || d.name);
+          const idx = sortedDevs.indexOf(d);
+          return ending === 7 || ending === 8 || idx >= 4;
+        });
+
+        const isExtendedFromDirectEnding = [getEnding(srcName), getEnding(tgtName)].some(
+          (end) => end === 7 || end === 8
+        );
+
+        shouldShowExtended = hasExtendedEndpoint || isExtendedFromDirectEnding;
+      }
+
+      return {
+        zone: chosenZone,
+        isSixDeviceZone,
+        shouldShowExtended,
+        relevantDevice,
+      };
+    },
+    [topologyDevices, allDevices, getZoneDeviceList]
+  );
+
+  const handleShowInZone = useCallback(
+    (link) => {
+      if (propOnShowInZone) {
+        propOnShowInZone(link);
+        return;
+      }
+
+      const zoneInfo = getLinkZoneInfo(link);
+      if (!zoneInfo || !zoneInfo.zone) return;
+
+      const isP =
+        location.pathname.startsWith("/p-chart") ||
+        (chartName && (chartName.toLowerCase().includes("p") || chartName.includes("5"))) ||
+        link.network_type_id === 2;
+
+      const basePath = isP ? "/p-chart" : "/l-chart";
+      const url = `${basePath}/zone/${encodeURIComponent(zoneInfo.zone)}?showExtended=${zoneInfo.shouldShowExtended}`;
+
+      navigate(url, {
+        state: {
+          showExtendedNodes: zoneInfo.shouldShowExtended,
+          targetNodeId: zoneInfo.relevantDevice,
+          focusedNode: zoneInfo.relevantDevice,
+          downedLinkId: link.id,
+        },
+      });
+    },
+    [propOnShowInZone, getLinkZoneInfo, location.pathname, chartName, navigate]
   );
 
   const deviceFilterOptions = useMemo(() => {
@@ -617,6 +847,222 @@ export default function NetworkLinksSideDrawer({
       };
     });
   }, [links, deviceIpMap, getDeviceIp]);
+
+  // Helper to match an event to its unified canonical link in enrichedLinks
+  const findCanonicalLinkForEvent = useCallback(
+    (event) => {
+      if (!event) return null;
+      if (event.link_id != null) {
+        const directMatch = enrichedLinks.find(
+          (l) =>
+            l.id === event.link_id ||
+            (Array.isArray(l.allIds) && l.allIds.includes(event.link_id))
+        );
+        if (directMatch) return directMatch;
+      }
+
+      const evDev1 = cleanDeviceKey(event.local_device_name);
+      const evDev2 = cleanDeviceKey(event.remote_device_name);
+      if (!evDev1 || !evDev2) return null;
+
+      const evIf1 = normalizeInterfaceName(event.local_interface);
+      const evIf2 = normalizeInterfaceName(event.remote_interface);
+
+      // 1. Device names + interface match in either direction
+      const candidate = enrichedLinks.find((l) => {
+        const lSrc = cleanDeviceKey(l.sourceName);
+        const lTgt = cleanDeviceKey(l.targetName);
+        const sameDir = lSrc === evDev1 && lTgt === evDev2;
+        const revDir = lSrc === evDev2 && lTgt === evDev1;
+        if (!sameDir && !revDir) return false;
+
+        const lIf1 = normalizeInterfaceName(l.local_interface);
+        const lIf2 = normalizeInterfaceName(l.remote_interface);
+        const lAllLocal = (l.allLocalInterfaces || []).map(normalizeInterfaceName);
+        const lAllRemote = (l.allRemoteInterfaces || []).map(normalizeInterfaceName);
+
+        if (evIf1) {
+          if (sameDir && lIf1 !== evIf1 && !lAllLocal.includes(evIf1)) return false;
+          if (revDir && lIf2 !== evIf1 && !lAllRemote.includes(evIf1) && lIf1 !== evIf1) return false;
+        }
+        if (evIf2) {
+          if (sameDir && lIf2 !== evIf2 && !lAllRemote.includes(evIf2)) return false;
+          if (revDir && lIf1 !== evIf2 && !lAllLocal.includes(evIf2) && lIf2 !== evIf2) return false;
+        }
+        return true;
+      });
+
+      if (candidate) return candidate;
+
+      // 2. Device pair fallback if there's only 1 link between these devices
+      const pairMatches = enrichedLinks.filter((l) => {
+        const lSrc = cleanDeviceKey(l.sourceName);
+        const lTgt = cleanDeviceKey(l.targetName);
+        return (lSrc === evDev1 && lTgt === evDev2) || (lSrc === evDev2 && lTgt === evDev1);
+      });
+      if (pairMatches.length === 1) return pairMatches[0];
+
+      return null;
+    },
+    [enrichedLinks]
+  );
+
+  // Poll api/core-topology-events?days=1&event_type=link_down every 5 minutes.
+  // If any line has at least 10 link down events in the last 24 hours, show a popup listing all of those links.
+  const checkFrequentLinkDrops = useCallback(async () => {
+    try {
+      const data = await api.getCoreTopologyEvents({
+        days: 1,
+        event_type: "link_down",
+      });
+
+      const rawEvents = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.events)
+        ? data.events
+        : Array.isArray(data?.data?.events)
+        ? data.data.events
+        : Array.isArray(data?.data)
+        ? data.data
+        : [];
+
+      const now = Date.now();
+      const cutoff24h = now - 24 * 60 * 60 * 1000;
+
+      // Filter strictly to link_down events within last 24 hours
+      const downEvents = rawEvents.filter((ev) => {
+        const type = String(ev?.event_type || "").toLowerCase();
+        if (type !== "link_down") return false;
+        const tStr = ev.created_at || ev.changed_at;
+        if (!tStr) return true;
+        const t = new Date(tStr).getTime();
+        return isNaN(t) || t >= cutoff24h;
+      });
+
+      // Group events by line / canonical link
+      const groupsByLink = new Map();
+
+      downEvents.forEach((ev) => {
+        const canonicalLink = findCanonicalLinkForEvent(ev);
+
+        let groupKey;
+        let linkId;
+        let sourceName;
+        let targetName;
+        let localInterface;
+        let remoteInterface;
+        let localDeviceIp;
+        let remoteDeviceIp;
+        let isVisibleOnMap = false;
+
+        if (canonicalLink) {
+          groupKey = `canonical-${canonicalLink.id}`;
+          linkId = canonicalLink.id;
+          sourceName = canonicalLink.sourceName;
+          targetName = canonicalLink.targetName;
+          localInterface = canonicalLink.local_interface;
+          remoteInterface = canonicalLink.remote_interface;
+          localDeviceIp = canonicalLink.local_device_ip || getDeviceIp(canonicalLink.sourceName);
+          remoteDeviceIp = canonicalLink.remote_device_ip || getDeviceIp(canonicalLink.targetName);
+          isVisibleOnMap = Boolean(canonicalLink.isVisibleOnMap);
+        } else {
+          const d1 = ev.local_device_name || `Device-${ev.local_device_id || "A"}`;
+          const d2 = ev.remote_device_name || `Device-${ev.remote_device_id || "B"}`;
+          const isSorted = d1.localeCompare(d2) <= 0;
+          const canD1 = isSorted ? d1 : d2;
+          const canD2 = isSorted ? d2 : d1;
+          const if1 = isSorted ? ev.local_interface : ev.remote_interface;
+          const if2 = isSorted ? ev.remote_interface : ev.local_interface;
+          const normIf1 = normalizeInterfaceName(if1);
+          const normIf2 = normalizeInterfaceName(if2);
+          const ifSuffix = (normIf1 && normIf2) ? `-${normIf1}-${normIf2}` : "";
+
+          linkId = ev.link_id != null ? ev.link_id : `unmapped-${canD1}---${canD2}`;
+          groupKey = ev.link_id != null
+            ? `linkid-${ev.link_id}`
+            : `endpoints-${canD1.toLowerCase()}---${canD2.toLowerCase()}${ifSuffix}`;
+
+          sourceName = canD1;
+          targetName = canD2;
+          localInterface = if1;
+          remoteInterface = if2;
+          localDeviceIp = getDeviceIp(canD1);
+          remoteDeviceIp = getDeviceIp(canD2);
+          isVisibleOnMap = false;
+        }
+
+        if (!groupsByLink.has(groupKey)) {
+          groupsByLink.set(groupKey, {
+            key: groupKey,
+            linkId,
+            canonicalLink: canonicalLink || null,
+            sourceName,
+            targetName,
+            localInterface,
+            remoteInterface,
+            localDeviceIp,
+            remoteDeviceIp,
+            isVisibleOnMap,
+            events: [],
+          });
+        }
+
+        const grp = groupsByLink.get(groupKey);
+        grp.events.push(ev);
+      });
+
+      // Filter to lines having at least 10 link down events in the last 24h
+      const qualifyingLinks = [];
+
+      groupsByLink.forEach((group) => {
+        group.events.sort((a, b) => {
+          const ta = new Date(a.created_at || a.changed_at || 0).getTime();
+          const tb = new Date(b.created_at || b.changed_at || 0).getTime();
+          return tb - ta;
+        });
+
+        const dropCount = group.events.length;
+        if (dropCount >= 10) {
+          qualifyingLinks.push({
+            ...group,
+            dropCount,
+            lastDropTime: group.events[0]?.created_at || group.events[0]?.changed_at,
+          });
+        }
+      });
+
+      qualifyingLinks.sort((a, b) => b.dropCount - a.dropCount);
+
+      setFrequentDropLinks(qualifyingLinks);
+      setLastDropsCheckTime(new Date());
+
+      // If at least one line has at least 10 link down events in the last 24h, show the popup
+      if (qualifyingLinks.length > 0) {
+        setIsDropsModalOpen(true);
+      }
+    } catch (err) {
+      console.error("Failed to check frequent link down events:", err);
+    }
+  }, [findCanonicalLinkForEvent, getDeviceIp]);
+
+  // Store latest checkFrequentLinkDrops in a ref to decouple the 5-minute timer from re-renders
+  const checkFrequentLinkDropsRef = useRef(checkFrequentLinkDrops);
+  useEffect(() => {
+    checkFrequentLinkDropsRef.current = checkFrequentLinkDrops;
+  });
+
+  // Periodic 5-minute poll
+  useEffect(() => {
+    // Initial call on mount
+    checkFrequentLinkDropsRef.current();
+
+    const FIVE_MINUTES_MS = 5 * 60 * 1000;
+    const interval = setInterval(() => {
+      checkFrequentLinkDropsRef.current();
+    }, FIVE_MINUTES_MS);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Counts
   const upCount = useMemo(
@@ -1032,6 +1478,28 @@ export default function NetworkLinksSideDrawer({
             </span>
           )}
         </button>
+
+        {/* FREQUENT DROPS (10+ IN 24H) ALERT BUTTON */}
+        {frequentDropLinks.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setIsDropsModalOpen(true)}
+            title={`${frequentDropLinks.length} line(s) have experienced ≥10 link down events in the last 24 hours. Click to view alert.`}
+            className={`group flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold shadow-lg transition-all duration-200 border animate-pulse ${
+              isDark
+                ? "bg-rose-950/80 hover:bg-rose-900 text-rose-300 border-rose-700/80 backdrop-blur-md shadow-rose-950/40"
+                : "bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300 backdrop-blur-md shadow-rose-100/50"
+            }`}
+          >
+            <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-rose-500/20 text-rose-600 dark:text-rose-400 group-hover:bg-rose-500 group-hover:text-white transition-colors">
+              <AlertTriangle className="w-3.5 h-3.5 stroke-[2.5]" />
+            </div>
+            <span>10+ Drops</span>
+            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-rose-600 text-white shadow-xs">
+              {frequentDropLinks.length}
+            </span>
+          </button>
+        )}
       </div>
 
       {/* ========================================================= */}
@@ -1111,6 +1579,31 @@ export default function NetworkLinksSideDrawer({
             isDark ? "border-gray-800" : "border-gray-100"
           }`}
         >
+          {/* Frequent Drop Warning Banner */}
+          {frequentDropLinks.length > 0 && (
+            <div
+              className={`p-2.5 px-3 rounded-xl border flex items-center justify-between text-xs gap-2 ${
+                isDark
+                  ? "bg-rose-950/30 border-rose-800/40 text-rose-300"
+                  : "bg-rose-50 border-rose-200 text-rose-800"
+              }`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+                <span className="truncate">
+                  <strong>{frequentDropLinks.length} line{frequentDropLinks.length === 1 ? "" : "s"}</strong> experienced ≥10 link down events in 24h
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDropsModalOpen(true)}
+                className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-rose-600 hover:bg-rose-500 text-white transition-colors shrink-0 shadow-xs"
+              >
+                View Popup
+              </button>
+            </div>
+          )}
+
           {/* Status Tabs switch */}
           <div className="grid grid-cols-5 gap-1 p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl">
             <button
@@ -1453,59 +1946,6 @@ export default function NetworkLinksSideDrawer({
               </div>
             ) : (
               (() => {
-                // Helper to match an event to its unified canonical link in enrichedLinks
-                const findCanonicalLinkForEvent = (event) => {
-                  if (event.link_id != null) {
-                    const directMatch = enrichedLinks.find(
-                      (l) => l.id === event.link_id || (Array.isArray(l.allIds) && l.allIds.includes(event.link_id))
-                    );
-                    if (directMatch) return directMatch;
-                  }
-
-                  const evDev1 = cleanDeviceKey(event.local_device_name);
-                  const evDev2 = cleanDeviceKey(event.remote_device_name);
-                  if (!evDev1 || !evDev2) return null;
-
-                  const evIf1 = normalizeInterfaceName(event.local_interface);
-                  const evIf2 = normalizeInterfaceName(event.remote_interface);
-
-                  // 1. Device names + interface match in either direction
-                  const candidate = enrichedLinks.find((l) => {
-                    const lSrc = cleanDeviceKey(l.sourceName);
-                    const lTgt = cleanDeviceKey(l.targetName);
-                    const sameDir = lSrc === evDev1 && lTgt === evDev2;
-                    const revDir = lSrc === evDev2 && lTgt === evDev1;
-                    if (!sameDir && !revDir) return false;
-
-                    const lIf1 = normalizeInterfaceName(l.local_interface);
-                    const lIf2 = normalizeInterfaceName(l.remote_interface);
-                    const lAllLocal = (l.allLocalInterfaces || []).map(normalizeInterfaceName);
-                    const lAllRemote = (l.allRemoteInterfaces || []).map(normalizeInterfaceName);
-
-                    if (evIf1) {
-                      if (sameDir && lIf1 !== evIf1 && !lAllLocal.includes(evIf1)) return false;
-                      if (revDir && lIf2 !== evIf1 && !lAllRemote.includes(evIf1) && lIf1 !== evIf1) return false;
-                    }
-                    if (evIf2) {
-                      if (sameDir && lIf2 !== evIf2 && !lAllRemote.includes(evIf2)) return false;
-                      if (revDir && lIf1 !== evIf2 && !lAllLocal.includes(evIf2) && lIf2 !== evIf2) return false;
-                    }
-                    return true;
-                  });
-
-                  if (candidate) return candidate;
-
-                  // 2. Device pair fallback if there's only 1 link between these devices
-                  const pairMatches = enrichedLinks.filter((l) => {
-                    const lSrc = cleanDeviceKey(l.sourceName);
-                    const lTgt = cleanDeviceKey(l.targetName);
-                    return (lSrc === evDev1 && lTgt === evDev2) || (lSrc === evDev2 && lTgt === evDev1);
-                  });
-                  if (pairMatches.length === 1) return pairMatches[0];
-
-                  return null;
-                };
-
                 const filteredEvents = statusEvents.filter((event) => {
                   if (!searchQuery.trim()) return true;
                   const queryWords = searchQuery.toLowerCase().trim().split(/\s+/).filter(Boolean);
@@ -1733,6 +2173,7 @@ export default function NetworkLinksSideDrawer({
                               });
                             }}
                             onInspect={() => handleInspectGroup(group)}
+                            onShowInZone={() => handleShowInZone(group.fullLink || group)}
                             isDark={isDark}
                           />
                         ))}
@@ -1763,6 +2204,7 @@ export default function NetworkLinksSideDrawer({
                               });
                             }}
                             onInspect={() => handleInspectGroup(group)}
+                            onShowInZone={() => handleShowInZone(group.fullLink || group)}
                             isDark={isDark}
                           />
                         ))}
@@ -1835,6 +2277,11 @@ export default function NetworkLinksSideDrawer({
                 const renderStandardLinkCard = (link) => {
                   const isLinkUp = link.normalizedStatus === "up";
                   const isLinkIssue = link.normalizedStatus === "issue";
+                  const isLinkDown =
+                    link.normalizedStatus === "down" ||
+                    link.status === "down" ||
+                    link.category === "down";
+                  const isNotShownOnMap = !link.isVisibleOnMap;
                   const isLinkMarked = markedLinkIds && markedLinkIds.has(link.id);
 
                   return (
@@ -2026,24 +2473,42 @@ export default function NetworkLinksSideDrawer({
                           })()}
                         </div>
 
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (onLinkClick) {
-                              const payload = createLinkPopupPayload(link) || {
-                                ...link,
-                                sourceNode: link.sourceName,
-                                targetNode: link.targetName,
-                              };
-                              onLinkClick(payload);
-                            }
-                          }}
-                          className="flex items-center gap-1 text-blue-500 dark:text-blue-400 font-medium hover:underline cursor-pointer"
-                        >
-                          <span>Inspect</span>
-                          <ExternalLink className="w-3 h-3" />
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          {isLinkDown && isNotShownOnMap && (
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleShowInZone(link);
+                              }}
+                              title={`Show in ${link.targetZone || link.sourceZone || "zone"}`}
+                              className="flex items-center gap-1 text-sky-500 dark:text-sky-400 font-medium hover:underline cursor-pointer"
+                            >
+                              <Compass className="w-3 h-3" />
+                              <span>Show in zone</span>
+                            </div>
+                          )}
+
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onLinkClick) {
+                                const payload = createLinkPopupPayload(link) || {
+                                  ...link,
+                                  sourceNode: link.sourceName,
+                                  targetNode: link.targetName,
+                                };
+                                onLinkClick(payload);
+                              }
+                            }}
+                            className="flex items-center gap-1 text-blue-500 dark:text-blue-400 font-medium hover:underline cursor-pointer"
+                          >
+                            <span>Inspect</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2095,6 +2560,26 @@ export default function NetworkLinksSideDrawer({
           onMarkAll?.(matching.map((l) => l.id));
         }}
         theme={theme}
+      />
+
+      {/* Frequent Link Drops (>= 10 link down in 24h) Popup Modal */}
+      <FrequentLinkDropsModal
+        isOpen={isDropsModalOpen}
+        onClose={() => setIsDropsModalOpen(false)}
+        frequentDropLinks={frequentDropLinks}
+        lastChecked={lastDropsCheckTime}
+        theme={theme}
+        onInspectLink={(linkData) => {
+          setIsDropsModalOpen(false);
+          if (onLinkClick) {
+            const payload = createLinkPopupPayload(linkData) || linkData;
+            onLinkClick(payload);
+          }
+        }}
+        onOpenDrawer={() => {
+          setIsOpen(true);
+          setActiveFilter("all");
+        }}
       />
     </>
   );

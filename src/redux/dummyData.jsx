@@ -166,6 +166,8 @@ const createTenGigLink = (sourceDevice, targetDevice, sourceInterface) => {
     oper_status: status === "down" ? "down" : "up",
     ospf_state: status === "down" ? "Down" : "Full",
     is_ospf_full: status !== "down",
+    ospf_uptime_seconds: status === "up" ? durationSec : undefined,
+    ospf_uptime: status === "up" ? durationStr : undefined,
     ospf_up_time_seconds: status === "up" ? durationSec : undefined,
     ospf_up_time: status === "up" ? durationStr : undefined,
     ospf_state_duration_seconds: status === "down" ? durationSec : undefined,

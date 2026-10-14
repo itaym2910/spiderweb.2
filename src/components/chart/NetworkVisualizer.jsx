@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import * as d3 from "d3";
-import { linkPositionFromEdges, getNodeGroups } from "./drawHelpers";
+import { linkPositionFromEdges, getNodeGroups, normalizeLinkStatus } from "./drawHelpers";
 import { renderCoreDevices } from "./renderCoreDevices";
 import {
   setupInteractions,
@@ -158,33 +158,6 @@ const NetworkVisualizer = ({
       .attr("height", height)
       .style("background-color", palette.bg);
 
-    // If topology is unchanged, do a fast data update without tearing down the DOM
-    if (prevTopologyRef.current === currentTopology && !svg.select(".main-zoom-layer").empty()) {
-      const zoomLayer = svg.select(".main-zoom-layer");
-      zoomLayer.selectAll("line.visible-link").data(links, (d) => d.id);
-      zoomLayer.selectAll("line.link-hover").data(links, (d) => d.id);
-
-      applyMarkedState({
-        svg,
-        markedLinkIds: markedLinkIdsRef.current,
-        hoveredLinkId,
-        hoveredFilter,
-        activeFilter,
-        pingSubFilter,
-        palette,
-        theme,
-      });
-      return;
-    }
-
-    prevTopologyRef.current = currentTopology;
-    svg.selectAll("*").remove();
-
-    const zoomLayer = svg.append("g").attr("class", "main-zoom-layer");
-    const tooltipLayer = svg.append("g").attr("class", "tooltip-layer-group");
-
-    let parallelLinksAreVisible = false;
-
     // Calculate bounding box of diagram
     let minX = Infinity,
       maxX = -Infinity,
@@ -220,6 +193,103 @@ const NetworkVisualizer = ({
       width: dataWidth,
       height: dataHeight,
     };
+
+    // If topology layout is unchanged, do a fast data update without tearing down the DOM
+    if (prevTopologyRef.current === currentTopology && !svg.select(".main-zoom-layer").empty()) {
+      const zoomLayer = svg.select(".main-zoom-layer");
+      const tooltip = svg.select(".tooltip-layer-group text.svg-tooltip");
+
+      setGraphLayout({
+        nodes,
+        links,
+        nodeGroups: NODE_GROUPS,
+        bounds: boundsObj,
+        dimensions: { width, height },
+      });
+
+      const nodeSelection = zoomLayer.selectAll("circle.node").data(nodes, (d) => d.id);
+
+      const linkSelection = zoomLayer
+        .selectAll("line.visible-link")
+        .data(links, (d) => d.id)
+        .attr("stroke", (d) => {
+          const s = normalizeLinkStatus(d);
+          if (s === "down") return palette?.status?.down || "#ef4444";
+          if (s === "issue") return palette?.status?.issue || "#f59e0b";
+          return palette.link;
+        })
+        .attr("stroke-opacity", (d) => {
+          const s = normalizeLinkStatus(d);
+          return s === "down" || s === "issue" ? 1.0 : 0.6;
+        })
+        .attr("stroke-width", (d) => {
+          const s = normalizeLinkStatus(d);
+          return s === "down" ? 3 : s === "issue" ? 2.5 : 2;
+        });
+
+      const linkHoverSelection = zoomLayer
+        .selectAll("line.link-hover")
+        .data(links, (d) => d.id);
+
+      if (showDetailedLinks) {
+        linkSelection.style("display", "none");
+        linkHoverSelection.style("display", "none");
+        removeAllParallelLinks(zoomLayer);
+        drawAllParallelLinks({
+          zoomLayer,
+          allNodes: nodes,
+          filteredLinks: links,
+          tooltip,
+          palette,
+          onLinkClick,
+          linkSelection,
+          getMarkedLinkIds: () => markedLinkIdsRef.current,
+          getActiveFilter: () => activeFilterRef.current,
+          getPingSubFilter: () => pingSubFilterRef.current,
+          getTheme: () => themeRef.current,
+        });
+      } else {
+        removeAllParallelLinks(zoomLayer);
+        linkSelection.style("display", null);
+        linkHoverSelection.style("display", null);
+      }
+
+      setupInteractions({
+        link: linkSelection,
+        linkHover: linkHoverSelection,
+        filteredLinks: links,
+        node: nodeSelection,
+        tooltip,
+        tooltipLayer: svg.select(".tooltip-layer-group"),
+        palette,
+        zoomLayer,
+        onLinkClick,
+        getMarkedLinkIds: () => markedLinkIdsRef.current,
+        getActiveFilter: () => activeFilterRef.current,
+        getPingSubFilter: () => pingSubFilterRef.current,
+        getTheme: () => themeRef.current,
+      });
+
+      applyMarkedState({
+        svg,
+        markedLinkIds: markedLinkIdsRef.current,
+        hoveredLinkId,
+        hoveredFilter,
+        activeFilter,
+        pingSubFilter,
+        palette,
+        theme,
+      });
+      return;
+    }
+
+    prevTopologyRef.current = currentTopology;
+    svg.selectAll("*").remove();
+
+    const zoomLayer = svg.append("g").attr("class", "main-zoom-layer");
+    const tooltipLayer = svg.append("g").attr("class", "tooltip-layer-group");
+
+    let parallelLinksAreVisible = false;
 
     setGraphLayout({
       nodes,
@@ -349,11 +419,20 @@ const NetworkVisualizer = ({
       let ty = height / 2 - dataCenterY * k;
       const initialTransform = d3.zoomIdentity.translate(tx, ty).scale(k);
       initialTransformRef.current = initialTransform;
-      setCurrentTransform({ x: tx, y: ty, k });
 
-      svg.call(zoomBehavior.transform, initialTransform);
+      // Preserve active pan/zoom if diagram was already initialized
+      const existingTransform = d3.zoomTransform(svgElement);
+      const isCustomZoomed =
+        existingTransform &&
+        (existingTransform.k !== 1 || existingTransform.x !== 0 || existingTransform.y !== 0);
+      const targetTransform =
+        isCustomZoomed && prevTopologyRef.current ? existingTransform : initialTransform;
 
-      const event = { transform: initialTransform };
+      setCurrentTransform({ x: targetTransform.x, y: targetTransform.y, k: targetTransform.k });
+
+      svg.call(zoomBehavior.transform, targetTransform);
+
+      const event = { transform: targetTransform };
       zoomBehavior.on("zoom")(event);
     } else {
       svg.call(zoomBehavior.transform, d3.zoomIdentity);
