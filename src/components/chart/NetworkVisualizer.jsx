@@ -398,7 +398,7 @@ const NetworkVisualizer = ({
       const drawerOffset = isDrawerOpen && width > 768 ? 440 : 0;
       const visibleWidth = Math.max(200, width - drawerOffset);
 
-      const zoomOutFactor = 1.0;
+      const zoomOutFactor = 0.9;
       const paddingFactor = 0.03;
       const padding = Math.min(visibleWidth, height) * paddingFactor;
       const viewWidth = visibleWidth - 2 * padding;
@@ -416,7 +416,7 @@ const NetworkVisualizer = ({
       k = Math.max(minScale, Math.min(maxScale, k));
 
       let tx = visibleWidth / 2 - dataCenterX * k;
-      let ty = height / 2 - dataCenterY * k;
+      let ty = (height / 2 - dataCenterY * k) + (height * 0.03);
       const initialTransform = d3.zoomIdentity.translate(tx, ty).scale(k);
       initialTransformRef.current = initialTransform;
 

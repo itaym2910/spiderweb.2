@@ -16,17 +16,215 @@ const formatDate = (dateStr) => {
 };
 
 /**
- * Format bps value to human-readable format (bps, kbps, Mbps, Gbps)
+ * Parse bandwidth value to Mbps number
  */
-const formatBps = (value) => {
+const parseBandwidthToMbps = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value === "number") {
+    if (value >= 1000) {
+      return value;
+    } else {
+      return value * 1000;
+    }
+  }
+  if (typeof value === "string") {
+    const lowerValue = value.toLowerCase().trim();
+    if (lowerValue.includes('g')) {
+      const num = parseFloat(value);
+      if (!isNaN(num)) {
+        return num * 1000;
+      }
+    }
+    if (lowerValue.includes('m')) {
+      const num = parseFloat(value);
+      if (!isNaN(num)) {
+        return num;
+      }
+    }
+    const num = parseFloat(value);
+    if (!isNaN(num)) {
+      return num >= 1000 ? num : num * 1000;
+    }
+  }
+  return null;
+};
+
+/**
+ * Parse bps value to Mbps number
+ */
+const parseBpsToMbps = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  const num = typeof value === "number" ? value : parseFloat(value);
+  if (isNaN(num)) return null;
+  if (num >= 1e9) {
+    return num / 1e6;
+  } else if (num >= 1e6) {
+    return num / 1e6;
+  } else if (num >= 1e3) {
+    return num / 1e3;
+  } else {
+    return num / 1e6;
+  }
+};
+
+/**
+ * Format bps value to display with unit suffix
+ */
+const formatBpsDisplay = (value) => {
   if (value === undefined || value === null || value === "") return "N/A";
   if (typeof value === "string" && /[a-zA-Z]/.test(value)) return value;
   const num = typeof value === "number" ? value : parseFloat(value);
   if (isNaN(num)) return "N/A";
-  if (num >= 1e9) return `${(num / 1e9).toFixed(2)} Gbps`;
-  if (num >= 1e6) return `${(num / 1e6).toFixed(2)} Mbps`;
-  if (num >= 1e3) return `${(num / 1e3).toFixed(2)} kbps`;
-  return `${num.toFixed(0)} bps`;
+  if (num >= 1e9) {
+    return `${(num / 1e9).toFixed(2)} G`;
+  } else if (num >= 1e6) {
+    return `${(num / 1e6).toFixed(2)} M`;
+  } else if (num >= 1e3) {
+    return `${(num / 1e3).toFixed(2)} K`;
+  } else {
+    return `${num.toFixed(0)}`;
+  }
+};
+
+const formatBps = formatBpsDisplay;
+
+/** Format bandwidth to GB (from Mbps) */
+const formatBandwidthGB = (value) => {
+  const mbps = parseBandwidthToMbps(value);
+  if (mbps === null) return null;
+  const gbps = mbps / 1000;
+  return `${gbps.toFixed(1)} G`;
+};
+
+/**
+ * Get color for merged physical/oper status fields
+ * Red if any value is "down" or "admin down", otherwise green
+ */
+const getMergedPhysicalStatusColor = (value1, value2, isDark = false) => {
+  const val1Lower = String(value1 || "").toLowerCase();
+  const val2Lower = String(value2 || "").toLowerCase();
+
+  const isDown = (val) => {
+    return (
+      val === "down" ||
+      val.includes("admin down") ||
+      val.includes("admin_down") ||
+      val === "disabled" ||
+      val === "degraded"
+    );
+  };
+  if (isDown(val1Lower) || isDown(val2Lower)) {
+    return { textClass: "text-rose-600 dark:text-rose-400" };
+  }
+  const isUp = (val) => val === "up" || val === "enabled" || val === "ok";
+  if (isUp(val1Lower) || isUp(val2Lower)) {
+    return { textClass: "text-emerald-600 dark:text-emerald-400" };
+  }
+  return { textClass: isDark ? "text-gray-400" : "text-gray-600" };
+};
+
+/**
+ * Get color for status fields
+ */
+const getStatusColor = (status, isDark = false) => {
+  if (!status) return { textClass: isDark ? "text-gray-400" : "text-gray-600" };
+  const statusLower = String(status).toLowerCase();
+  if (statusLower === "up" || statusLower === "enabled" || statusLower === "ok") {
+    return { textClass: "text-emerald-600 dark:text-emerald-400" };
+  } else if (
+    statusLower === "down" ||
+    statusLower === "admin down" ||
+    statusLower === "admin_down" ||
+    statusLower === "disabled" ||
+    statusLower === "degraded"
+  ) {
+    return { textClass: "text-rose-600 dark:text-rose-400" };
+  } else {
+    return { textClass: isDark ? "text-gray-400" : "text-gray-600" };
+  }
+};
+
+/**
+ * Get color for OSPF state
+ */
+const getOspfStateColor = (ospfState, isDark = false) => {
+  if (!ospfState) return { textClass: isDark ? "text-gray-400" : "text-gray-600" };
+  const stateLower = String(ospfState).toLowerCase();
+  if (stateLower === "full" || stateLower === "enabled" || stateLower === "up") {
+    return { textClass: "text-emerald-600 dark:text-emerald-400" };
+  } else if (stateLower === "down" || stateLower === "disabled") {
+    return { textClass: "text-rose-600 dark:text-rose-400" };
+  } else {
+    return { textClass: isDark ? "text-gray-400" : "text-gray-600" };
+  }
+};
+
+/**
+ * Get color for ping success rate
+ */
+const getPingSuccessColor = (rate, isDark = false) => {
+  if (rate === undefined || rate === null || rate === "") {
+    return { textClass: isDark ? "text-gray-400" : "text-gray-600" };
+  }
+  const numRate = typeof rate === "number" ? rate : parseFloat(rate);
+  if (isNaN(numRate)) {
+    return { textClass: isDark ? "text-gray-400" : "text-gray-600" };
+  }
+  if (numRate >= 90) {
+    return { textClass: "text-emerald-600 dark:text-emerald-400" };
+  } else if (numRate >= 70) {
+    return { textClass: "text-yellow-600 dark:text-yellow-400" };
+  } else {
+    return { textClass: "text-rose-600 dark:text-rose-400" };
+  }
+};
+
+/**
+ * Get color classes for bandwidth usage
+ */
+const getBandwidthUsageColors = (bpsValue, bandwidthMbps, isDark = false) => {
+  const bpsMbps = parseBpsToMbps(bpsValue);
+
+  if (bpsMbps === null || bandwidthMbps === null || bandwidthMbps === 0) {
+    return {
+      textClass: isDark ? "text-gray-400" : "text-gray-600",
+      bgClass: isDark ? "bg-gray-700" : "bg-gray-100",
+      borderClass: isDark ? "border-gray-600" : "border-gray-300",
+      usagePercent: null,
+    };
+  }
+
+  const usagePercent = (bpsMbps / bandwidthMbps) * 100;
+
+  if (usagePercent >= 80 || usagePercent === 100) {
+    return {
+      textClass: "text-rose-500 dark:text-rose-400",
+      bgClass: "bg-rose-500/10 dark:bg-rose-500/20",
+      borderClass: "border-rose-500/30",
+      usagePercent,
+    };
+  } else if (usagePercent >= 60) {
+    return {
+      textClass: "text-orange-500 dark:text-orange-400",
+      bgClass: "bg-orange-500/10 dark:bg-orange-500/20",
+      borderClass: "border-orange-500/30",
+      usagePercent,
+    };
+  } else if (usagePercent >= 50) {
+    return {
+      textClass: "text-yellow-500 dark:text-yellow-400",
+      bgClass: "bg-yellow-500/10 dark:bg-yellow-500/20",
+      borderClass: "border-yellow-500/30",
+      usagePercent,
+    };
+  } else {
+    return {
+      textClass: "text-emerald-500 dark:text-emerald-400",
+      bgClass: "bg-emerald-500/10 dark:bg-emerald-500/20",
+      borderClass: "border-emerald-500/30",
+      usagePercent,
+    };
+  }
 };
 
 /**
@@ -46,7 +244,7 @@ const StatusBulb = ({ status }) => {
 /**
  * A detail row used inside the popup.
  */
-const DetailRow = ({ label, value, isDark }) => (
+const DetailRow = ({ label, value, isDark, valueColorClass }) => (
   <div className="flex items-center justify-between py-2 px-1">
     <span
       className={`text-sm font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}
@@ -54,7 +252,7 @@ const DetailRow = ({ label, value, isDark }) => (
       {label}
     </span>
     <span
-      className={`text-sm font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}
+      className={`text-sm font-semibold ${valueColorClass || (isDark ? "text-gray-100" : "text-gray-800")}`}
     >
       {value !== undefined && value !== null && value !== "" ? value : "N/A"}
     </span>
@@ -166,46 +364,164 @@ const LinkDetailPopup = ({
 
   if (!linkData) return null;
 
-  // Extract in_bps and out_bps from various possible sources (including rawLink & input/output rates)
-  const inBps =
-    fetchedDetails?.in_bps ??
-    fetchedDetails?.inBps ??
-    fetchedDetails?.bytes_in_rate ??
-    fetchedDetails?.input_rate ??
-    fetchedDetails?.in_rate ??
-    linkData?.in_bps ??
-    linkData?.inBps ??
-    linkData?.bytes_in_rate ??
-    linkData?.bytesIn ??
-    linkData?.input_rate ??
-    linkData?.in_rate ??
-    linkData?.rawLink?.in_bps ??
-    linkData?.rawLink?.inBps ??
-    linkData?.rawLink?.bytes_in_rate ??
-    linkData?.rawLink?.bytesIn ??
-    linkData?.rawLink?.input_rate ??
-    linkData?.rawLink?.in_rate ??
-    null;
+  // Helper to get value from multiple sources
+  const getValue = (...sources) => {
+    for (const source of sources) {
+      if (source !== undefined && source !== null && source !== "") {
+        return source;
+      }
+    }
+    return null;
+  };
 
-  const outBps =
-    fetchedDetails?.out_bps ??
-    fetchedDetails?.outBps ??
-    fetchedDetails?.bytes_out_rate ??
-    fetchedDetails?.output_rate ??
-    fetchedDetails?.out_rate ??
-    linkData?.out_bps ??
-    linkData?.outBps ??
-    linkData?.bytes_out_rate ??
-    linkData?.bytesOut ??
-    linkData?.output_rate ??
-    linkData?.out_rate ??
-    linkData?.rawLink?.out_bps ??
-    linkData?.rawLink?.outBps ??
-    linkData?.rawLink?.bytes_out_rate ??
-    linkData?.rawLink?.bytesOut ??
-    linkData?.rawLink?.output_rate ??
-    linkData?.rawLink?.out_rate ??
-    null;
+  const bandwidthMbps = parseBandwidthToMbps(
+    getValue(
+      fetchedDetails?.bw,
+      fetchedDetails?.bandwidth,
+      fetchedDetails?.bandwidth_mbps,
+      fetchedDetails?.bandwidthMbps,
+      linkData?.bandwidth,
+      linkData?.bandwidth_mbps,
+      linkData?.Bandwidth,
+      linkData?.bandwidthMbps,
+      linkData?.rawLink?.bandwidth,
+      linkData?.rawLink?.bandwidth_mbps,
+      linkData?.rawLink?.bw
+    )
+  );
+
+  const inBps = getValue(
+    fetchedDetails?.in_bps,
+    fetchedDetails?.inBps,
+    fetchedDetails?.bytes_in_rate,
+    fetchedDetails?.input_rate,
+    fetchedDetails?.in_rate,
+    linkData?.in_bps,
+    linkData?.inBps,
+    linkData?.bytes_in_rate,
+    linkData?.bytesIn,
+    linkData?.input_rate,
+    linkData?.in_rate,
+    linkData?.rawLink?.in_bps,
+    linkData?.rawLink?.inBps,
+    linkData?.rawLink?.bytes_in_rate,
+    linkData?.rawLink?.bytesIn,
+    linkData?.rawLink?.input_rate,
+    linkData?.rawLink?.in_rate
+  );
+
+  const outBps = getValue(
+    fetchedDetails?.out_bps,
+    fetchedDetails?.outBps,
+    fetchedDetails?.bytes_out_rate,
+    fetchedDetails?.output_rate,
+    fetchedDetails?.out_rate,
+    linkData?.out_bps,
+    linkData?.outBps,
+    linkData?.bytes_out_rate,
+    linkData?.bytesOut,
+    linkData?.output_rate,
+    linkData?.out_rate,
+    linkData?.rawLink?.out_bps,
+    linkData?.rawLink?.outBps,
+    linkData?.rawLink?.bytes_out_rate,
+    linkData?.rawLink?.bytesOut,
+    linkData?.rawLink?.output_rate,
+    linkData?.rawLink?.out_rate
+  );
+
+  const bandwidthGB = formatBandwidthGB(
+    getValue(
+      fetchedDetails?.bw,
+      fetchedDetails?.bandwidth,
+      fetchedDetails?.bandwidth_mbps,
+      fetchedDetails?.bandwidthMbps,
+      linkData?.bandwidth,
+      linkData?.bandwidth_mbps,
+      linkData?.Bandwidth,
+      linkData?.bandwidthMbps,
+      linkData?.rawLink?.bandwidth,
+      linkData?.rawLink?.bandwidth_mbps,
+      linkData?.rawLink?.bw
+    )
+  );
+
+  const inBpsColors = getBandwidthUsageColors(inBps, bandwidthMbps, isDark);
+  const outBpsColors = getBandwidthUsageColors(outBps, bandwidthMbps, isDark);
+
+  // Extract status values for merging
+  const physicalStatusValue = getValue(
+    linkData?.physicalStatus,
+    linkData?.physical_status,
+    fetchedDetails?.physical_status,
+    linkData?.local_physical_status,
+    linkData?.rawLink?.physical_status,
+    linkData?.rawLink?.local_physical_status
+  );
+
+  const operStatusValue = getValue(
+    linkData?.operStatus,
+    linkData?.oper_status,
+    fetchedDetails?.oper_status,
+    linkData?.local_oper_status,
+    linkData?.rawLink?.oper_status,
+    linkData?.rawLink?.local_oper_status
+  );
+
+  const remotePhysicalStatusValue = getValue(
+    linkData?.remotePhysicalStatus,
+    linkData?.remote_physical_status,
+    fetchedDetails?.remote_physical_status,
+    linkData?.remote_physical_status,
+    linkData?.rawLink?.remote_physical_status
+  );
+
+  const remoteOperStatusValue = getValue(
+    linkData?.remoteOperStatus,
+    linkData?.remote_oper_status,
+    fetchedDetails?.remote_oper_status,
+    linkData?.remote_oper_status,
+    linkData?.rawLink?.remote_oper_status
+  );
+
+  // Merge Physical Status + Oper Status for Local
+  const mergedLocalPhysicalStatus = [physicalStatusValue, operStatusValue]
+    .filter((v) => v !== null && v !== undefined && v !== "")
+    .join(" / ") || null;
+
+  // Merge Physical Status + Oper Status for Remote
+  const mergedRemotePhysicalStatus = [remotePhysicalStatusValue, remoteOperStatusValue]
+    .filter((v) => v !== null && v !== undefined && v !== "")
+    .join(" / ") || null;
+
+  // Get colors for merged fields
+  const mergedLocalPhysicalStatusColor = mergedLocalPhysicalStatus
+    ? getMergedPhysicalStatusColor(physicalStatusValue, operStatusValue, isDark)
+    : { textClass: isDark ? "text-gray-400" : "text-gray-600" };
+
+  const mergedRemotePhysicalStatusColor = mergedRemotePhysicalStatus
+    ? getMergedPhysicalStatusColor(remotePhysicalStatusValue, remoteOperStatusValue, isDark)
+    : { textClass: isDark ? "text-gray-400" : "text-gray-600" };
+
+  const protocolStatusValue = getValue(
+    linkData?.protocolStatus,
+    linkData?.protocol_status,
+    fetchedDetails?.protocol_status
+  ) || "N/A";
+
+  const ospfValue = getValue(
+    linkData?.ospf,
+    linkData?.OSPF,
+    fetchedDetails?.ospf,
+    fetchedDetails?.ospf_state
+  ) || "Enabled";
+
+  const rawPingRate = getValue(
+    linkData?.ping_success_rate,
+    linkData?.rawLink?.ping_success_rate,
+    linkData?.pingSuccessRate,
+    fetchedDetails?.ping_success_rate
+  );
 
   const itemData = {
     ...linkData,
@@ -215,20 +531,7 @@ const LinkDetailPopup = ({
       tx: fetchedDetails?.tx !== undefined ? (typeof fetchedDetails.tx === "number" ? `${fetchedDetails.tx} dBm` : fetchedDetails.tx) : linkData?.tx,
       rx: fetchedDetails?.rx !== undefined ? (typeof fetchedDetails.rx === "number" ? `${fetchedDetails.rx} dBm` : fetchedDetails.rx) : linkData?.rx,
       mtu: fetchedDetails?.mtu !== undefined ? String(fetchedDetails.mtu) : (linkData?.mtu !== undefined ? String(linkData.mtu) : undefined),
-      physicalStatus: fetchedDetails?.physical_status || linkData?.physicalStatus,
-      protocolStatus: fetchedDetails?.protocol_status || linkData?.protocolStatus,
-      mpls: fetchedDetails?.mpls_ldp || linkData?.mpls,
-      ospf: fetchedDetails?.ospf || fetchedDetails?.ospf_state || linkData?.ospf,
-      bandwidth: fetchedDetails?.bw || fetchedDetails?.bandwidth || linkData?.bandwidth,
-      ping_success_rate: fetchedDetails?.ping_success_rate !== undefined ? fetchedDetails.ping_success_rate : linkData?.ping_success_rate,
-      ping_packets_success: fetchedDetails?.ping_packets_success !== undefined ? fetchedDetails.ping_packets_success : (linkData?.ping_packets_success ?? linkData?.packets_success),
-      ping_packets_total: fetchedDetails?.ping_packets_total !== undefined ? fetchedDetails.ping_packets_total : (linkData?.ping_packets_total ?? linkData?.packets_total),
-      ping_ratio: fetchedDetails?.ping_ratio ?? linkData?.ping_ratio,
-      total_pings: fetchedDetails?.total_pings ?? linkData?.total_pings,
-      ping_total: fetchedDetails?.ping_total ?? linkData?.ping_total,
-      last_ping_at: fetchedDetails?.last_ping_at || linkData?.last_ping_at,
-      ospf_uptime: fetchedDetails?.ospf_uptime ?? linkData?.ospf_uptime ?? fetchedDetails?.ospf_up_time ?? linkData?.ospf_up_time,
-      ospf_up_time: fetchedDetails?.ospf_uptime ?? linkData?.ospf_uptime ?? fetchedDetails?.ospf_up_time ?? linkData?.ospf_up_time,
+      ospf_up_time: fetchedDetails?.ospf_up_time ?? linkData?.ospf_up_time,
       ospf_state_duration: fetchedDetails?.ospf_state_duration ?? linkData?.ospf_state_duration,
       last_up_at: fetchedDetails?.last_up_at || linkData?.last_up_at,
       last_down_at: fetchedDetails?.last_down_at || linkData?.last_down_at,
@@ -251,30 +554,16 @@ const LinkDetailPopup = ({
   delete itemData.ospfUpTimeSeconds;
   delete itemData.ospfStateDurationSeconds;
 
-  const rawPingRate =
-    itemData?.ping_success_rate ??
-    itemData?.rawLink?.ping_success_rate ??
-    itemData?.pingSuccessRate;
-  const rawPingPacketsSuccess =
-    itemData?.ping_packets_success ??
-    itemData?.rawLink?.ping_packets_success ??
-    itemData?.packets_success ??
-    itemData?.rawLink?.packets_success ??
-    itemData?.pingPacketsSuccess;
-  const rawPingPacketsTotal =
-    itemData?.ping_packets_total ??
-    itemData?.rawLink?.ping_packets_total ??
-    itemData?.packets_total ??
-    itemData?.rawLink?.packets_total ??
-    itemData?.pingPacketsTotal;
-  const rawLastPing =
-    itemData?.last_ping_at ??
-    itemData?.rawLink?.last_ping_at ??
-    itemData?.lastPingAt;
-  const mtuValue =
-    itemData?.mtu ??
-    itemData?.rawLink?.mtu ??
-    "N/A";
+  const rawLastPing = getValue(
+    itemData?.last_ping_at,
+    itemData?.rawLink?.last_ping_at,
+    itemData?.lastPingAt
+  );
+
+  const mtuValue = getValue(
+    itemData?.mtu,
+    itemData?.rawLink?.mtu
+  ) || "N/A";
 
   const handleNavigate = (e) => {
     e.stopPropagation();
@@ -305,7 +594,7 @@ const LinkDetailPopup = ({
             <StatusBulb
               status={
                 itemType === "site"
-                  ? itemData.protocolStatus === "Up"
+                  ? protocolStatusValue === "up" || protocolStatusValue === "Up"
                     ? "up"
                     : "down"
                   : itemData.status || "up"
@@ -325,31 +614,55 @@ const LinkDetailPopup = ({
           </button>
         </div>
 
-        {/* In/Out bps Section */}
+        {/* In/Out bps section - WITH PERCENTAGES */}
         {(inBps !== null || outBps !== null) && (
           <div className={`px-6 py-3 border-b ${isDark ? "border-gray-700 bg-slate-800/40" : "border-gray-100 bg-sky-50/50"}`}>
             <div className="flex items-center justify-around gap-4">
               {/* In bps */}
-              <div className="flex flex-col items-center">
+              <div className={`flex flex-col items-center px-4 py-2 rounded-lg ${inBpsColors.bgClass} border ${inBpsColors.borderClass}`}>
                 <span className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"} mb-1`}>
                   ↓ In bps
                 </span>
-                <span className={`text-lg font-bold ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>
-                  {formatBps(inBps)}
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className={`text-lg font-bold ${inBpsColors.textClass}`}>
+                    {formatBpsDisplay(inBps)}
+                  </span>
+                  {bandwidthGB && (
+                    <span className={`text-xs font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+                      / {bandwidthGB}
+                    </span>
+                  )}
+                  {inBpsColors.usagePercent !== null && (
+                    <span className={`text-xs font-medium ml-1 ${inBpsColors.textClass}`}>
+                      ({inBpsColors.usagePercent.toFixed(1)}%)
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Divider */}
-              <div className={`w-px h-10 ${isDark ? "bg-gray-700" : "bg-gray-200"}`} />
+              <div className={`w-px h-12 ${isDark ? "bg-gray-700" : "bg-gray-200"}`} />
 
               {/* Out bps */}
-              <div className="flex flex-col items-center">
+              <div className={`flex flex-col items-center px-4 py-2 rounded-lg ${outBpsColors.bgClass} border ${outBpsColors.borderClass}`}>
                 <span className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"} mb-1`}>
                   ↑ Out bps
                 </span>
-                <span className={`text-lg font-bold ${isDark ? "text-blue-400" : "text-blue-600"}`}>
-                  {formatBps(outBps)}
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className={`text-lg font-bold ${outBpsColors.textClass}`}>
+                    {formatBpsDisplay(outBps)}
+                  </span>
+                  {bandwidthGB && (
+                    <span className={`text-xs font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+                      / {bandwidthGB}
+                    </span>
+                  )}
+                  {outBpsColors.usagePercent !== null && (
+                    <span className={`text-xs font-medium ml-1 ${outBpsColors.textClass}`}>
+                      ({outBpsColors.usagePercent.toFixed(1)}%)
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -363,16 +676,26 @@ const LinkDetailPopup = ({
               <div
                 className={`divide-y ${isDark ? "divide-gray-700" : "divide-gray-100"}`}
               >
-                <DetailRow
-                  label="Physical Status"
-                  value={itemData.physicalStatus || itemData.physical_status || "Up"}
-                  isDark={isDark}
-                />
-                <DetailRow
-                  label="Protocol Status"
-                  value={itemData.protocolStatus || itemData.protocol_status || "Up"}
-                  isDark={isDark}
-                />
+                {/* Merged Physical Status (Physical Status + Oper Status) */}
+                {mergedLocalPhysicalStatus && (
+                  <DetailRow
+                    label="Physical Status"
+                    value={mergedLocalPhysicalStatus}
+                    isDark={isDark}
+                    valueColorClass={mergedLocalPhysicalStatusColor.textClass}
+                  />
+                )}
+
+                {/* Merged Remote Physical Status (Remote Physical Status + Remote Oper Status) */}
+                {mergedRemotePhysicalStatus && (
+                  <DetailRow
+                    label="Remote Physical Status"
+                    value={mergedRemotePhysicalStatus}
+                    isDark={isDark}
+                    valueColorClass={mergedRemotePhysicalStatusColor.textClass}
+                  />
+                )}
+
                 <DetailRow
                   label="MPLS"
                   value={itemData.mpls || itemData.MPLS || "Enabled"}
@@ -380,64 +703,25 @@ const LinkDetailPopup = ({
                 />
                 <DetailRow
                   label="OSPF"
-                  value={itemData.ospf || itemData.OSPF || "Enabled"}
+                  value={ospfValue}
                   isDark={isDark}
+                  valueColorClass={getOspfStateColor(ospfValue, isDark).textClass}
                 />
                 <DetailRow
                   label="Bandwidth"
                   value={
-                    itemData.bandwidth ||
-                    itemData.Bandwidth ||
-                    (itemData.bandwidth_mbps ? `${itemData.bandwidth_mbps} Mbps` : "10 Gbps")
+                    bandwidthMbps
+                      ? `${bandwidthMbps} Mbps`
+                      : (itemData.bandwidth || itemData.Bandwidth || "N/A")
                   }
                   isDark={isDark}
                 />
-                {(() => {
-                  const pingInfo = formatPingRateWithPackets(itemData);
-                  if (!pingInfo) return null;
-                  const numRate = pingInfo.rate;
-                  const packetsLost = pingInfo.packetsLost ?? (numRate < 100 ? 1 : 0);
-                  const hasLoss = packetsLost > 0 || numRate < 100;
-                  const isDown = numRate === 0;
-                  return (
-                    <div className="flex items-center justify-between py-2 px-1">
-                      <span
-                        className={`text-sm font-medium ${isDark ? "text-gray-400" : "text-gray-500"
-                          }`}
-                      >
-                        Ping Success Rate
-                      </span>
-                      <span className="flex items-center gap-1.5 text-sm font-semibold flex-wrap justify-end">
-                        <span
-                          className={`w-2 h-2 rounded-full ${isDown
-                              ? "bg-rose-500"
-                              : hasLoss
-                                ? "bg-amber-500 animate-pulse"
-                                : "bg-emerald-500"
-                            }`}
-                        />
-                        <span
-                          className={
-                            isDown
-                              ? "text-rose-600 dark:text-rose-400"
-                              : hasLoss
-                                ? "text-amber-600 dark:text-amber-400"
-                                : "text-emerald-600 dark:text-emerald-400"
-                          }
-                          title={`${pingInfo.packetsSuccess ?? "?"}/${pingInfo.packetsTotal ?? "?"} packets received${hasLoss ? ` • ${packetsLost} packet(s) lost!` : ""}`}
-                        >
-                          {pingInfo.full}
-                        </span>
-                        {hasLoss && !isDown && (
-                          <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
-                            <span>{packetsLost} lost</span>
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  );
-                })()}
+                <DetailRow
+                  label="Ping Success Rate"
+                  value={typeof rawPingRate === "number" ? `${rawPingRate.toFixed(1)}%` : (rawPingRate || "N/A")}
+                  isDark={isDark}
+                  valueColorClass={getPingSuccessColor(rawPingRate, isDark).textClass}
+                />
                 {itemData.sourceZone && itemData.sourceZone !== "N/A" && (
                   <DetailRow
                     label="Source Zone"
@@ -571,6 +855,8 @@ const LinkDetailPopup = ({
                         .join(" ");
 
                       let displayValue = value;
+                      let valueColorClass;
+
                       if (typeof value === "boolean") {
                         displayValue = value ? "Yes" : "No";
                       } else if (key === "ping_success_rate") {
@@ -585,6 +871,34 @@ const LinkDetailPopup = ({
                         displayValue = typeof value === "number"
                           ? (value >= 1000 ? `${value / 1000} Gbps (${value} Mbps)` : `${value} Mbps`)
                           : value;
+                      } else if (key === "physical_status" || key === "physicalStatus") {
+                        // Merge with oper_status
+                        const pairedOperStatus = itemData?.rawLink?.oper_status ?? itemData?.rawLink?.operStatus;
+                        if (pairedOperStatus !== undefined && pairedOperStatus !== null) {
+                          displayValue = `${value} / ${pairedOperStatus}`;
+                          valueColorClass = getMergedPhysicalStatusColor(value, pairedOperStatus, isDark).textClass;
+                        } else {
+                          displayValue = value;
+                          valueColorClass = getStatusColor(value, isDark).textClass;
+                        }
+                      } else if (key === "oper_status" || key === "operStatus") {
+                        // Skip - merged with physical_status
+                        return null;
+                      } else if (key === "remote_physical_status" || key === "remotePhysicalStatus") {
+                        // Merge with remote_oper_status
+                        const pairedOperStatus = itemData?.rawLink?.remote_oper_status ?? itemData?.rawLink?.remoteOperStatus;
+                        if (pairedOperStatus !== undefined && pairedOperStatus !== null) {
+                          displayValue = `${value} / ${pairedOperStatus}`;
+                          valueColorClass = getMergedPhysicalStatusColor(value, pairedOperStatus, isDark).textClass;
+                        } else {
+                          displayValue = value;
+                          valueColorClass = getStatusColor(value, isDark).textClass;
+                        }
+                      } else if (key === "remote_oper_status" || key === "remoteOperStatus" || key === "remote_operstatus") {
+                        // Skip - merged with remote_physical_status
+                        return null;
+                      } else if (key === "ospf" || key === "ospf_state") {
+                        valueColorClass = getOspfStateColor(value, isDark).textClass;
                       }
 
                       return (
@@ -593,6 +907,7 @@ const LinkDetailPopup = ({
                           label={formattedKey}
                           value={displayValue}
                           isDark={isDark}
+                          valueColorClass={valueColorClass}
                         />
                       );
                     })}
