@@ -206,8 +206,8 @@ export function getMissingPacketsCount(link) {
  *
  * up:   oper_status === "up"
  *       for timestamp:
- *         1. ospf_up_time_seconds ("ospf_up_time_seconds": 424720)
- *         2. else ospf_up_time ("ospf_up_time": "4d21h")
+ *         1. ospf_uptime_seconds / ospf_up_time_seconds ("ospf_uptime_seconds": 6635074)
+ *         2. else ospf_uptime / ospf_up_time ("ospf_uptime": "10w6d")
  *         3. else last_up_at ("last_up_at": "2026-09-20T00:34:20.868836+03:00")
  */
 export function getLinkStatusAndDate(link) {
@@ -350,13 +350,22 @@ export function getLinkStatusAndDate(link) {
   }
 
   // 3. up: oper_status === "up"
+  // Prioritize ospf_uptime_seconds (e.g. 6635074), else ospf_uptime (e.g. "10w6d")
   const ospfUpTimeSeconds =
+    raw.ospf_uptime_seconds ??
+    link.ospf_uptime_seconds ??
+    raw.ospfUptimeSeconds ??
+    link.ospfUptimeSeconds ??
     raw.ospf_up_time_seconds ??
     link.ospf_up_time_seconds ??
     raw.ospfUpTimeSeconds ??
     link.ospfUpTimeSeconds;
 
   const ospfUpTime =
+    raw.ospf_uptime ??
+    link.ospf_uptime ??
+    raw.ospfUptime ??
+    link.ospfUptime ??
     raw.ospf_up_time ??
     link.ospf_up_time ??
     raw.ospfUpTime ??

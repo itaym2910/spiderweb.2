@@ -1,6 +1,7 @@
 // src/components/CoreSite/d3CoreSiteRenderer.js
 import * as d3 from "d3";
 import { linkPositionFromEdges } from "./drawHelpers";
+import { normalizeLinkStatus } from "../chart/drawHelpers";
 
 const ANIMATION_DURATION = 750; // ms
 const PULSE_ANIMATION_NAME = "pulseEffect"; // For specifically stopping this animation
@@ -144,7 +145,12 @@ export function drawCoreSiteChart(
         ? linkPositionFromEdges(d, 60).y2
         : (d.target && d.target.y) || 0
     )
-    .attr("stroke", themeColors.linkStroke)
+    .attr("stroke", (d) => {
+      const s = normalizeLinkStatus(d);
+      if (s === "down") return "#ef4444";
+      if (s === "issue") return "#f59e0b";
+      return themeColors.linkStroke;
+    })
     .style("opacity", 0)
     .merge(visibleLinks)
     .transition("linkUpdate")
@@ -153,8 +159,20 @@ export function drawCoreSiteChart(
     .attr("y1", (d) => linkPositionFromEdges(d, 60).y1)
     .attr("x2", (d) => linkPositionFromEdges(d, 60).x2)
     .attr("y2", (d) => linkPositionFromEdges(d, 60).y2)
-    .style("opacity", themeColors.linkStrokeOpacity)
-    .attr("stroke-width", 2);
+    .attr("stroke", (d) => {
+      const s = normalizeLinkStatus(d);
+      if (s === "down") return "#ef4444";
+      if (s === "issue") return "#f59e0b";
+      return themeColors.linkStroke;
+    })
+    .style("opacity", (d) => {
+      const s = normalizeLinkStatus(d);
+      return s === "down" || s === "issue" ? 1.0 : themeColors.linkStrokeOpacity;
+    })
+    .attr("stroke-width", (d) => {
+      const s = normalizeLinkStatus(d);
+      return s === "down" ? 3 : s === "issue" ? 2.5 : 2;
+    });
 
   // ----- Nodes (Circles) -----
   const nodeCircles = nodesGroup
@@ -250,9 +268,20 @@ export function drawCoreSiteChart(
 
       linksGroup
         .selectAll("line.link")
-        .attr("stroke", themeColors.linkStroke)
-        .style("opacity", themeColors.linkStrokeOpacity)
-        .attr("stroke-width", 2);
+        .attr("stroke", (d) => {
+          const s = normalizeLinkStatus(d);
+          if (s === "down") return "#ef4444";
+          if (s === "issue") return "#f59e0b";
+          return themeColors.linkStroke;
+        })
+        .style("opacity", (d) => {
+          const s = normalizeLinkStatus(d);
+          return s === "down" || s === "issue" ? 1.0 : themeColors.linkStrokeOpacity;
+        })
+        .attr("stroke-width", (d) => {
+          const s = normalizeLinkStatus(d);
+          return s === "down" ? 3 : s === "issue" ? 2.5 : 2;
+        });
     })
     .on("click.nodeaction", function (event, d_clicked_node) {
       if (onNodeClickCallback) {
@@ -313,9 +342,20 @@ export function drawCoreSiteChart(
       linksGroup
         .selectAll("line.link")
         .filter((l) => l.id === d_hovered_link.id)
-        .attr("stroke", themeColors.linkStroke)
-        .style("opacity", themeColors.linkStrokeOpacity)
-        .attr("stroke-width", 2);
+        .attr("stroke", (d) => {
+          const s = normalizeLinkStatus(d);
+          if (s === "down") return "#ef4444";
+          if (s === "issue") return "#f59e0b";
+          return themeColors.linkStroke;
+        })
+        .style("opacity", (d) => {
+          const s = normalizeLinkStatus(d);
+          return s === "down" || s === "issue" ? 1.0 : themeColors.linkStrokeOpacity;
+        })
+        .attr("stroke-width", (d) => {
+          const s = normalizeLinkStatus(d);
+          return s === "down" ? 3 : s === "issue" ? 2.5 : 2;
+        });
 
       // Reset connected nodes
       nodesGroup

@@ -1,3 +1,5 @@
+import { cleanDeviceKey } from "../chart/drawHelpers";
+
 export function useNodeLayout(
   width,
   height,
@@ -95,24 +97,51 @@ export function useNodeLayout(
     };
   });
 
-  // --- NEW LOGIC: Filter the real links instead of creating them ---
-  // 1. Create a Set of the hostnames for the currently visible nodes for fast lookups.
-  const visibleNodeIds = new Set(
-    currentNodes.filter((n) => n.id !== "None").map((n) => n.id)
-  );
+  // --- Filter the real links and map to D3 format ---
+  const visibleNodeIds = new Set();
+  const nodeMap = new Map();
 
-  // 2. Filter the master list of all links.
-  const visibleLinks = allLinksForChart.filter(
-    (link) => visibleNodeIds.has(link.source) && visibleNodeIds.has(link.target)
-  );
+  currentNodes.forEach((node) => {
+    if (node.id !== "None") {
+      visibleNodeIds.add(node.id);
+      nodeMap.set(node.id, node);
+      const clean = cleanDeviceKey(node.id);
+      if (clean) {
+        visibleNodeIds.add(clean);
+        if (!nodeMap.has(clean)) nodeMap.set(clean, node);
+      }
+    }
+  });
 
-  // 3. Map the filtered links to the D3 format, replacing string IDs with full node objects.
-  const nodeMap = new Map(currentNodes.map((node) => [node.id, node]));
-  const finalLinks = visibleLinks.map((link) => ({
-    ...link,
-    source: nodeMap.get(link.source),
-    target: nodeMap.get(link.target),
-  }));
+  const getEndpointKey = (endpoint) => {
+    if (!endpoint) return "";
+    if (typeof endpoint === "object") {
+      return endpoint.hostname || endpoint.name || endpoint.id || "";
+    }
+    return String(endpoint);
+  };
+
+  const visibleLinks = allLinksForChart.filter((link) => {
+    const sKey = getEndpointKey(link.source);
+    const tKey = getEndpointKey(link.target);
+    const hasSource = visibleNodeIds.has(sKey) || visibleNodeIds.has(cleanDeviceKey(sKey));
+    const hasTarget = visibleNodeIds.has(tKey) || visibleNodeIds.has(cleanDeviceKey(tKey));
+    return hasSource && hasTarget;
+  });
+
+  const finalLinks = visibleLinks
+    .map((link) => {
+      const sKey = getEndpointKey(link.source);
+      const tKey = getEndpointKey(link.target);
+      const sourceNode = nodeMap.get(sKey) || nodeMap.get(cleanDeviceKey(sKey));
+      const targetNode = nodeMap.get(tKey) || nodeMap.get(cleanDeviceKey(tKey));
+      return {
+        ...link,
+        source: sourceNode,
+        target: targetNode,
+      };
+    })
+    .filter((link) => link.source && link.target);
 
   return {
     nodes: currentNodes,

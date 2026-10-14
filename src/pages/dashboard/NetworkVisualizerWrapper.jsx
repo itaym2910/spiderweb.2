@@ -51,8 +51,9 @@ function selectTopTwoDevices(devices) {
 const NetworkVisualizerWrapper = ({ theme }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  // Poll core topology every 5 seconds
+  // Poll core topology immediately on mount and then every 5 seconds
   React.useEffect(() => {
+    dispatch(fetchCoreTopology());
     const interval = setInterval(() => {
       dispatch(fetchCoreTopology());
     }, 5000);
@@ -483,11 +484,15 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           if ((existing.last_ping_at == null) && (link.last_ping_at != null || link.lastPingAt != null)) {
             existing.last_ping_at = link.last_ping_at ?? link.lastPingAt;
           }
-          if (existing.ospf_up_time_seconds == null && link.ospf_up_time_seconds != null) {
-            existing.ospf_up_time_seconds = link.ospf_up_time_seconds;
+          const upSec = link.ospf_uptime_seconds ?? link.ospf_up_time_seconds;
+          if (existing.ospf_uptime_seconds == null && upSec != null) {
+            existing.ospf_uptime_seconds = upSec;
+            existing.ospf_up_time_seconds = upSec;
           }
-          if (existing.ospf_up_time == null && link.ospf_up_time != null) {
-            existing.ospf_up_time = link.ospf_up_time;
+          const upStr = link.ospf_uptime ?? link.ospf_up_time;
+          if (existing.ospf_uptime == null && upStr != null) {
+            existing.ospf_uptime = upStr;
+            existing.ospf_up_time = upStr;
           }
           if (existing.ospf_state_duration_seconds == null && link.ospf_state_duration_seconds != null) {
             existing.ospf_state_duration_seconds = link.ospf_state_duration_seconds;
@@ -581,8 +586,10 @@ const NetworkVisualizerWrapper = ({ theme }) => {
           destinationIp: link.remote_link_ip || remoteDevIp || link.remote_ip,
           ospf_state: link.ospf_state,
           is_ospf_full: link.is_ospf_full !== undefined ? Boolean(link.is_ospf_full) : (String(link.ospf_state || "").toUpperCase() === "FULL"),
-          ospf_up_time_seconds: link.ospf_up_time_seconds ?? link.rawLink?.ospf_up_time_seconds,
-          ospf_up_time: link.ospf_up_time ?? link.rawLink?.ospf_up_time,
+          ospf_uptime_seconds: link.ospf_uptime_seconds ?? link.ospf_up_time_seconds ?? link.rawLink?.ospf_uptime_seconds ?? link.rawLink?.ospf_up_time_seconds,
+          ospf_up_time_seconds: link.ospf_uptime_seconds ?? link.ospf_up_time_seconds ?? link.rawLink?.ospf_uptime_seconds ?? link.rawLink?.ospf_up_time_seconds,
+          ospf_uptime: link.ospf_uptime ?? link.ospf_up_time ?? link.rawLink?.ospf_uptime ?? link.rawLink?.ospf_up_time,
+          ospf_up_time: link.ospf_uptime ?? link.ospf_up_time ?? link.rawLink?.ospf_uptime ?? link.rawLink?.ospf_up_time,
           ospf_state_duration_seconds: link.ospf_state_duration_seconds ?? link.rawLink?.ospf_state_duration_seconds,
           ospf_state_duration: link.ospf_state_duration ?? link.rawLink?.ospf_state_duration,
           last_up_at: link.last_up_at,
@@ -653,6 +660,26 @@ const NetworkVisualizerWrapper = ({ theme }) => {
       title: `${src || "Device A"} ⟷ ${tgt || "Device B"}`,
     });
   };
+
+  // Keep open popup updated in real-time when polling updates graph data
+  React.useEffect(() => {
+    if (!popupLink?.data) return;
+    const currentId = popupLink.data.id || popupLink.data.linkId;
+    if (!currentId) return;
+    const updated = graphData.drawerLinks.find(
+      (l) => l.id === currentId || (l.allIds && l.allIds.includes(currentId))
+    );
+    if (updated) {
+      const payload = createLinkPopupPayload(updated) || updated;
+      setPopupLink((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          data: { ...payload, skipFetch: true, isCoreTopology: true },
+        };
+      });
+    }
+  }, [graphData.drawerLinks]);
 
   const handleClosePopup = useCallback(() => {
     setPopupLink(null);
