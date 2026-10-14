@@ -194,7 +194,7 @@ export function getMissingPacketsCount(link) {
  * Determines a link's classification ("up" | "down" | "issue") and its corresponding timestamp
  * according to the following rules:
  *
- * down: ospf_state !== "full"
+ * down: oper_status !== "up" || ospf_state !== "full" || remote_oper_status !== "up"
  *       for timestamp:
  *         1. ospf_state_duration_seconds ("ospf_state_duration_seconds": 424720)
  *         2. else ospf_state_duration ("ospf_state_duration": "4d21h")
@@ -223,6 +223,14 @@ export function getLinkStatusAndDate(link) {
           : (raw.physical_status || link.physical_status || raw.status || link.status || ""))
   ).toLowerCase().trim();
 
+  const remoteOperStatus = String(
+    raw.remote_oper_status !== undefined
+      ? raw.remote_oper_status
+      : (link.remote_oper_status !== undefined
+          ? link.remote_oper_status
+          : (raw.remoteOperStatus || link.remoteOperStatus || raw.remote_physical_status || link.remote_physical_status || "up"))
+  ).toLowerCase().trim();
+
   const ospfState = String(
     raw.ospf_state !== undefined
       ? raw.ospf_state
@@ -237,8 +245,8 @@ export function getLinkStatusAndDate(link) {
 
   const missingPackets = getMissingPacketsCount(link);
 
-  // 1. down: ospf_state !== "full" (or oper_status !== "up")
-  if (!isOspfFull || operStatus !== "up") {
+  // 1. down: oper_status !== "up" || ospf_state !== "full" || remote_oper_status !== "up"
+  if (operStatus !== "up" || !isOspfFull || remoteOperStatus !== "up") {
     const ospfStateDurationSeconds =
       raw.ospf_state_duration_seconds ??
       link.ospf_state_duration_seconds ??

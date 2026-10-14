@@ -278,6 +278,7 @@ async def get_core_topology(current_user: dict = Depends(user_role_checker)):
                 "remote_device_ip": neighbor_device.get("ip", "") if neighbor_device else "",
                 "remote_link_ip": link.get("neighbor_ip", "") or f"10.0.{link['id'] % 250}.2",
                 "oper_status": link.get("physical_status", "Up"),
+                "remote_oper_status": link.get("remote_oper_status", link.get("physical_status", "Up")),
                 "admin_status": "Up",
                 "bandwidth_mbps": link.bandwidth_mbps if link.bandwidth_mbps is not None else 10000,
                 "mtu": link.mtu if link.mtu is not None else 1500,
