@@ -416,6 +416,9 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
             if (!existing.local_ip && (link.remote_link_ip || link.remote_ip)) {
               existing.local_ip = link.remote_link_ip || link.remote_ip;
             }
+            if (!existing.remote_oper_status && (link.oper_status || link.physical_status)) {
+              existing.remote_oper_status = link.oper_status || link.physical_status;
+            }
           } else {
             if (rawLocalIf && !existing.allLocalInterfaces.includes(rawLocalIf)) {
               existing.allLocalInterfaces.push(rawLocalIf);
@@ -449,6 +452,9 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
             }
             if (!existing.remote_ip && (link.remote_link_ip || link.remote_ip)) {
               existing.remote_ip = link.remote_link_ip || link.remote_ip;
+            }
+            if (!existing.remote_oper_status && link.remote_oper_status) {
+              existing.remote_oper_status = link.remote_oper_status;
             }
           }
 
@@ -541,6 +547,7 @@ const NetworkVisualizer5Wrapper = ({ theme }) => {
           physical_status: link.oper_status,
           protocol_status: link.admin_status,
           oper_status: link.oper_status,
+          remote_oper_status: link.remote_oper_status,
           admin_status: link.admin_status,
           description: link.local_interface_description || link.description || "",
           local_interface_description: link.local_interface_description || link.description || "",
